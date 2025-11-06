@@ -1,24 +1,9 @@
 #!/usr/bin/env python3
 
-def has_mmap():
-    global mmap
-    import sys
-    try:
-        import mmap
-    except:
-        return False
-
-    try:
-        with mmap.mmap(-1, 1) as m:
-            m[0] = b"x"[0]
-        return True
-    except:
-        return False
-        
 import os
 from pprint import pprint
 
-#PARSERS['json'] = JsonParser
+from thirdparty.pparse.utils import has_mmap, mmap, hexdump
 
 PARSERS = {}
 
@@ -27,19 +12,43 @@ class UnsupportedFormatException(Exception): pass
 class BufferFullException(Exception): pass
 
 
-def hexdump(data, length=None):
-    if isinstance(data, io.BytesIO):
-        data = data.getvalue()
+# Cursor with a limited range.
+class Range():
+    def __init__(self):
+        # TODO: Implement
+        raise NotImplementedError("Range class not implemented.")
 
-    if length is None:
-        length = len(data)
-    data = data[:length]
 
-    for i in range(0, len(data), 16):
-        chunk = data[i:i+16]
-        hex_part = ' '.join(f'{byte:02x}' for byte in chunk)
-        ascii_part = ''.join(chr(byte) if 32 <= byte <= 126 else '.' for byte in chunk)
-        print(f'{i:08x}: {hex_part:<47}  {ascii_part}')
+class Node():
+    def __init__(self):
+        # TODO: Implement
+        raise NotImplementedError("Node class not implemented.")
+
+    def parents(self) -> [Node]:
+        pass
+
+    def children(self): # -> [weakref(Node)] -> Return array of childen (weak refs).
+        # - Triggers parse/load
+        pass
+
+    def attributes(self) -> dict:  # - Return dictionary of attributes.
+        # - Triggers parse/load
+        pass
+
+    def child(self, index=-1) -> Node: # - Return strong ref child.
+        # - Triggers parse/load
+        pass
+
+    #def as_{bytes,i64,u64,str}() - Cast raw data as type.
+    #- Triggers parse/load
+
+    def loaded(self): # - Is the data loaded and parsed?
+        pass
+
+
+    def range(self): # - A range of data this node covers.
+        pass
+
 
 
 # Cursor manages offset. Data does not manage offset.
@@ -237,9 +246,26 @@ class Parser(dict):
         dict.__init__(self, meta=self._meta)
 
 
+    def cursor(self):
+        return _cursor
+
+
+    # Convienence Aliases
+    def tell(self):
+        return self._cursor.tell()
+    def seek(self, offset):
+        self._cursor.seek(offset)
+    def skip(self, length):
+        self._cursor.skip(length)
+    def peek(self, length):
+        return self._cursor.peek(length)
+    def read(self, length, mode=None):
+        return self._cursor.read(length, mode=mode)
+
+
     # This processes all data at once.
     # TODO: What is the interface that only parses what we need to?   
-    def process_data(self):
+    def scan_data(self):
         raise NotImplementedError()
     
 
@@ -304,16 +330,6 @@ class Artifact(dict):
         return self
 
 
-# Data is independent of Artifact/Parser tree.
-data = Data(path='test.json')
 
-# Top Artifact has not parent parser.
-root = Artifact(data.open()).set_fname('test.json').process_data()
-
-# Dump output for examination.
-print("Dumping root to output.txt")
-with open("output.txt", "w") as fobj:
-    pprint(root, stream=fobj, indent=2)
-print("Dump complete.")
     
 

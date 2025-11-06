@@ -1,0 +1,19 @@
+{
+  "id": 1024,
+  "name": "Example Data Object",
+  "timestamp": "2025-11-06T08:00:00Z",
+  "active": true,
+  "tags": ["alpha", "beta", "gamma", "delta", "epsilon"],
+  "metrics": {
+    "cpu": 73.5,
+    "memory": 48.9,
+    "disk": 82.1,
+    "network": {
+      "in": 102392,
+      "out": 88412,
+      "errors": 2
+    }
+  },
+  "description": "This is a synthetic example of a moderately sized JSON document used to test parsers, stream readers, or data processing logic. It contains nested objects, arrays, strings, and numbers to simulate a real-world structure.",
+  "checksum": "af23b91d67e4ac2c98412ff93bd77c4e"
+}
