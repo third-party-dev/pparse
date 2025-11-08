@@ -13,79 +13,99 @@ class UnsupportedFormatException(Exception): pass
 class BufferFullException(Exception): pass
 
 
-# Range manages length.
+# Api for Reader-like objects (Cursor, Range)
+class Reader():
+    def dup(self):
+        raise NotImplementedError()
+    def tell(self):
+        raise NotImplementedError()
+    def seek(self):
+        raise NotImplementedError()
+    def skip(self):
+        raise NotImplementedError()
+    def peek(self):
+        raise NotImplementedError()
+    def read(self):
+        raise NotImplementedError()
+
+
+# Range manages length and boundaries.
+# Range start cursor and length are assumed correct.
+# - Range has no insight into data.
+# - Length must not be < 0
 # Cursor does not manage length.
 # Data does not manage offset.
-class Range():
+class Range(Reader):
     # Given Cursor object is the start offset
     def __init__(self, cursor, length:int):
         self._start_cursor = cursor.dup()
         self._start = self._start_cursor.tell()
         self._cursor = cursor.dup()
         if length < 0:
-            raise ValueError("length < 0")
+            raise ValueError("Length must not be < 0")
         # Consider: Check for length beyond data?
         self._length = length
         self._end = self._start + length
-
-
-    def length(self):
-        return self._length
-
-    def left(self):
-        return self._end - self.tell()
-
-    def valid_offset(self, offset):
-        return offset >= self._start and offset < self._end
 
 
     def dup(self):
         return Range(self._start_cursor, self._length)
 
 
+    def length(self):
+        return self._length
+
+
+    def left(self):
+        return self._end - self.tell()
+
+
+    def valid_offset(self, offset):
+        return offset >= self._start and offset <= self._end
+
+
     def tell(self):
         return self._cursor.tell()
 
 
-    # Set cursor to specific location.
+    # Set cursor to absolute location in Data (within bounds).
     def seek(self, offset):
         if not self.valid_offset(offset):
-            raise ValueError(f"Offset ({offset}) out of bounds.")
+            if offset < self._start:
+                offset = self._start
+            elif offset > self._end:
+                offset = self._end
         self._cursor.seek(offset)
+        return offset
 
 
-    def _check_adjust_length(self, length, throw:bool=False):
+    # Ensure length (relative to cursor) is inbounds.
+    def _adjust_length(self, length):
         if length < 0:
-            if throw:
-                raise ValueError("length < 0")
-            return self.tell()
-        
+            return 0
         offset = self.tell() + length
         if not self.valid_offset(offset):
-            if throw:
-                raise ValueError(f"Offset ({offset}) out of bounds.")
             length = self._end - self.tell()
-        
         return length
 
 
-    def skip(self, length, throw:bool=False):
-        length = self._check_adjust_length(length, throw)
+    # Progress data without reading.
+    def skip(self, length):
+        length = self._adjust_length(length)
         return self._cursor.skip(length)
 
 
     # Read data ahead without progressing cursor.
-    def peek(self, length, throw:bool=False):
-        length = self._check_adjust_length(length, throw)
+    def peek(self, length):
+        length = self._adjust_length(length)
         return self._cursor.peek(length)
 
 
-    # Copy and progress data.
-    def read(self, length, throw:bool=False, mode=None):
-        length = self._check_adjust_length(length, throw)
+    # Read data and progress data.
+    def read(self, length, mode=None):
+        length = self._adjust_length(length)
         return self._cursor.read(length, mode=mode)
 
-    
 
 class Node():
     def __init__(self):
@@ -118,8 +138,9 @@ class Node():
         pass
 
 
-# Cursor manages offset. Data does not manage offset.
-class Cursor():
+# Cursor manages offset. (Data does not manage offset.)
+# Cursor does not manage boundaries.
+class Cursor(Reader):
     def __init__(self, data, offset=0):
         self._data = data
         self._offset = offset
@@ -254,6 +275,58 @@ class Data():
             return self._mem[off:off+length]
 
 
+# Generic artifact that ties parsers to cursor-ed data.
+class Artifact(dict):
+    def __init__(self, reader, parser: Optional['Parser'] = None):
+        self._parser: Optional['Parser'] = parser
+        # This cursor is only used for dup() and tell()
+        self._reader = reader
+
+        self._meta = {
+            'fname': None,
+            'candidates': {},
+        }
+
+        # Candidate parsers.
+        self.candidates: dict = self._meta['candidates']
+        # Setup as dict for easy repr
+        dict.__init__(self, meta=self._meta)
+    
+
+    def get_fname(self):
+        return self._meta['fname']
+
+
+    def set_fname(self, name):
+        self._meta['fname'] = name
+        return self
+
+    
+    def dup_reader(self):
+        return self._reader.dup()
+
+
+    # This processes all data at once.
+    # TODO: What is the interface that only parses what we need to?    
+    def scan_data(self):
+        global PARSERS
+
+        for (pname, parser) in PARSERS.items():
+            if pname not in self.candidates:
+                if parser.match_extension(self.get_fname()):
+                    self.candidates[pname] = parser(self, pname)
+                    continue
+                if parser.match_magic(self.dup_reader()):
+                    self.candidates[pname] = parser(self, pname)
+                    continue
+            
+        for (cname, candidate) in self.candidates.items():
+            candidate.scan_data()
+
+        return self
+
+
+
 '''
     Parser Considerations:
 
@@ -310,7 +383,7 @@ class Data():
 '''
 
 # Base Parser for Artifact parsers.
-class Parser(dict):
+class Parser(dict, Reader):
 
     def __init__(self, artifact, id: str):
         if not isinstance(artifact, Artifact):
@@ -323,7 +396,7 @@ class Parser(dict):
         self._artifact = artifact
 
         # cursor to read data
-        self._cursor = artifact.dup_cursor()
+        self._reader = artifact.dup_reader()
 
         # child artifacts
         self._meta: dict = { 'children': [] }
@@ -333,23 +406,21 @@ class Parser(dict):
         dict.__init__(self, meta=self._meta)
 
 
-    def cursor(self):
-        return self._cursor
+    def reader(self):
+        return self._reader
 
-    def range(self, length):
-        return Range(self._cursor, length)
 
     # Convienence Aliases
     def tell(self):
-        return self._cursor.tell()
+        return self._reader.tell()
     def seek(self, offset):
-        return self._cursor.seek(offset)
+        return self._reader.seek(offset)
     def skip(self, length):
-        return self._cursor.skip(length)
+        return self._reader.skip(length)
     def peek(self, length):
-        return self._cursor.peek(length)
+        return self._reader.peek(length)
     def read(self, length, mode=None):
-        return self._cursor.read(length, mode=mode)
+        return self._reader.read(length, mode=mode)
 
     # TODO: left() - How many bytes before we run out?
     # TODO: size() - How many bytes is the artifact?
@@ -371,55 +442,7 @@ class Parser(dict):
         return False
 
 
-# Generic artifact that ties parsers to cursor-ed data.
-class Artifact(dict):
-    def __init__(self, cursor, parser: Optional['Parser'] = None):
-        self._parser: Optional['Parser'] = parser
-        # This cursor is only used for dup() and tell()
-        self._cursor = cursor
 
-        self._meta = {
-            'fname': None,
-            'candidates': {},
-        }
-
-        # Candidate parsers.
-        self.candidates: dict = self._meta['candidates']
-        # Setup as dict for easy repr
-        dict.__init__(self, meta=self._meta)
-    
-
-    def get_fname(self):
-        return self._meta['fname']
-
-
-    def set_fname(self, name):
-        self._meta['fname'] = name
-        return self
-
-    
-    def dup_cursor(self):
-        return self._cursor.dup()
-
-
-    # This processes all data at once.
-    # TODO: What is the interface that only parses what we need to?    
-    def scan_data(self):
-        global PARSERS
-
-        for (pname, parser) in PARSERS.items():
-            if pname not in self.candidates:
-                if parser.match_extension(self.get_fname()):
-                    self.candidates[pname] = parser(self, pname)
-                    continue
-                if parser.match_magic(self.dup_cursor()):
-                    self.candidates[pname] = parser(self, pname)
-                    continue
-            
-        for (cname, candidate) in self.candidates.items():
-            candidate.scan_data()
-
-        return self
 
 
 
