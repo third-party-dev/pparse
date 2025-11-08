@@ -29,6 +29,30 @@ class Reader():
         raise NotImplementedError()
 
 
+class Node():
+    def parents(self): #-> [Node]:
+        raise NotImplementedError()
+    def children(self): # -> [weakref(Node)] -> Return array of childen (weak refs).
+        # - Triggers parse/load
+        raise NotImplementedError()
+    def attributes(self) -> dict:  # - Return dictionary of attributes.
+        # - Triggers parse/load
+        raise NotImplementedError()
+    def child(self, index=-1): # -> Node: # - Return strong ref child.
+        # - Triggers parse/load
+        raise NotImplementedError()
+    #def as_{bytes,i64,u64,str}() - Cast raw data as type.
+    #- Triggers parse/load
+    def loaded(self): # - Is the data loaded and parsed?
+        raise NotImplementedError()
+    # def range(self): # - A range of data this node covers.
+    #     raise NotImplementedError()
+
+
+
+
+
+
 # Range manages length and boundaries.
 # Range start cursor and length are assumed correct.
 # - Range has no insight into data.
@@ -107,35 +131,7 @@ class Range(Reader):
         return self._cursor.read(length, mode=mode)
 
 
-class Node():
-    def __init__(self):
-        # TODO: Implement
-        raise NotImplementedError("Node class not implemented.")
 
-    def parents(self): #-> [Node]:
-        pass
-
-    def children(self): # -> [weakref(Node)] -> Return array of childen (weak refs).
-        # - Triggers parse/load
-        pass
-
-    def attributes(self) -> dict:  # - Return dictionary of attributes.
-        # - Triggers parse/load
-        pass
-
-    def child(self, index=-1): # -> Node: # - Return strong ref child.
-        # - Triggers parse/load
-        pass
-
-    #def as_{bytes,i64,u64,str}() - Cast raw data as type.
-    #- Triggers parse/load
-
-    def loaded(self): # - Is the data loaded and parsed?
-        pass
-
-
-    def range(self): # - A range of data this node covers.
-        pass
 
 
 # Cursor manages offset. (Data does not manage offset.)
@@ -445,6 +441,29 @@ class Parser(dict, Reader):
 
 
 
+class ParserNode(Node):
+    def __init__(self):
+        pparse.ParserNode
 
+    def parents(self): #-> [Node]:
+        raise NotImplementedError()
+
+    def children(self): # -> [weakref(Node)] -> Return array of childen (weak refs).
+        # - Triggers parse/load
+        raise NotImplementedError()
+
+    def attributes(self) -> dict:  # - Return dictionary of attributes.
+        # - Triggers parse/load
+        raise NotImplementedError()
+
+    def child(self, index=-1): # -> Node: # - Return strong ref child.
+        # - Triggers parse/load
+        raise NotImplementedError()
+
+    #def as_{bytes,i64,u64,str}() - Cast raw data as type.
+    #- Triggers parse/load
+
+    def loaded(self): # - Is the data loaded and parsed?
+        raise NotImplementedError()
     
 
