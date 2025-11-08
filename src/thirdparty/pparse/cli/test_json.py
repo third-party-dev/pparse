@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 from pprint import pprint
-from thirdparty.pparse.lib import Data, Artifact, PARSERS
-from thirdparty.pparse.parser.json import JsonParser
+from thirdparty.pparse.lib import Data, Artifact, PARSERS, EndOfDataException
+from thirdparty.pparse.parser.lazyjson import LazyJsonParser
 
-PARSERS['json'] = JsonParser
+PARSERS['json'] = LazyJsonParser
 
 # Data is independent of Artifact/Parser tree.
 data = Data(path='test.json')
@@ -15,6 +15,8 @@ try:
     artifact = Artifact(cursor)
     artifact.set_fname('test.json')
     artifact.scan_data()
+except EndOfDataException:
+    pass
 except Exception as e:
     print(e)
     import traceback
