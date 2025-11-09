@@ -240,6 +240,8 @@ Ideally, the nodes will minimize the state that they keep about themselves:
   - Key-reg - Nodes only need key reg when building map entries
   - child - A weird one only used by root... need a new LazyJsonParserRootNode
   - value - Need a new LazyJsonParser{TYPE}Node
+
+Nodes have states: scanning -> shelf -> parsing -> loaded -> shelf -> ...
 '''
 
 
