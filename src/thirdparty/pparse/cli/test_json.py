@@ -29,4 +29,4 @@ with open("output.txt", "w") as fobj:
     pprint(artifact, stream=fobj, indent=2)
 print("Dump complete.")
 
-#breakpoint()
+breakpoint()

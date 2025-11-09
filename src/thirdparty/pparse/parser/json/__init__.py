@@ -17,6 +17,8 @@ import thirdparty.pparse.lib as pparse
 #from thirdparty.pparse.lib import Range, Node, Cursor, Data, Parser, Artifact
 
 
+
+
 class JsonParsingState(object):
     def parse_data(self, parser: 'JsonParser'):
         raise NotImplementedError()
@@ -216,34 +218,22 @@ class JsonParsingStart(JsonParsingState):
         parser._next_state(JsonParsingMeta)
 
 
+
 class JsonParser(pparse.Parser):
-
-    @staticmethod
-    def match_extension(fname: str):
-        if not fname:
-            return False
-        for ext in ['.json']:
-            if fname.endswith(ext):
-                return True
-        return False
-
-
-    @staticmethod
-    def match_magic(cursor: pparse.Cursor):
-        return False
-
-    
+   
     def __init__(self, artifact: pparse.Artifact, id: str):
         super().__init__(artifact, id)
 
         self.state: Optional[JsonParsingState] = JsonParsingStart()
-        
+
+        # Things for building tree as dict object.
         self.current = None
         self.stack = []
         self.key_reg = None
 
-    def _next_state(self, state: JsonParsingState):
-        self.state = state()
+
+    def _next_state(self, state: JsonParsingState, args: dict = {}):
+        self.state = state(**args)
 
     def _apply_value(self, value):
         if self.key_reg:
@@ -317,3 +307,18 @@ class JsonParser(pparse.Parser):
 
     def scan_data(self):
         return self.eagerly_parse()
+
+
+    @staticmethod
+    def match_extension(fname: str):
+        if not fname:
+            return False
+        for ext in ['.json']:
+            if fname.endswith(ext):
+                return True
+        return False
+
+
+    @staticmethod
+    def match_magic(cursor: pparse.Cursor):
+        return False

@@ -62,8 +62,9 @@ class ProtobufParsingMessage(ProtobufParsingState):
         # Length follows VARINT and LEN wire types.
         length = parser.parse_varint()
 
-        # Is this message repeated?
-        if parser.current_type_repeated(field):
+        # Are we a new type?
+        if not parser.current_type_matches(field):
+            
 
 
 
