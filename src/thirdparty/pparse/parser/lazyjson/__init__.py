@@ -218,12 +218,38 @@ class JsonParsingStart(JsonParsingState):
         node._next_state(JsonParsingMeta)
 
 
+'''
+I feel like this code base is 33% there. I've now successfully broken up the 
+main loop code from the actual node tree that does the parsing. The current 
+issue is we don't have a way for the nodes to parse themselves in isolation
+from the rest of the tree.
+
+Ideally, the nodes will minimize the state that they keep about themselves:
+
+- Reader - Initially Cursor, Range when length known.
+  - A Range gets us start, end, and length.
+  - Keeping Range in temporary and only saving start and end saves a reference.
+    The parser has the artifact and therefore the Data object we'd used to
+    generate the Range.
+- State - TODO: State should be inferred by type.
+
+- Temporary meta for runtime parsing, should be reclaimed when done.
+  - All temporary data could be kept in a Node.temp dictionary.
+  - Parent - required for rewinding while parsing
+    - Parent references can be used for ref counting, but no concern now.
+  - Key-reg - Nodes only need key reg when building map entries
+  - child - A weird one only used by root... need a new LazyJsonParserRootNode
+  - value - Need a new LazyJsonParser{TYPE}Node
+'''
+
+
 class LazyJsonParserNode():
  
     def __init__(self, parent, reader: pparse.Reader):
+        self._state: Optional[JsonParsingState] = JsonParsingStart()
         self._parent = parent # Parent Node (None for root)
         self._reader = reader.dup()
-        self._state: Optional[JsonParsingState] = JsonParsingStart()
+        self._start = self.tell()
         self._end = None
         
         # If we're in a map, indicates if a key & what the key is.
@@ -266,21 +292,23 @@ class LazyJsonParserNode():
 
     def _apply_node_value(self, parser, value):
         if self.key_reg:
-            print(f"apply_val: Inside map, unset keyreg, skipping set value ({value})")
-            parser.current.map[self.key_reg] = value
+            if isinstance(value, str) and len(value) > 40:
+                print(f"apply_val: Inside map, unset keyreg, skipping set value")
+                pass
+            else:
+                print(f"apply_val: Inside map, unset keyreg, set value ({value})")
+                parser.current.map[self.key_reg] = value
             self.key_reg = None
         elif isinstance(parser.current, LazyJsonParserArrayNode):
-            print(f"apply_val: Inside arr, skipping append value ({value})")
+            print(f"apply_val: Inside arr, append value ({value})")
             parser.current.arr.append(value)
-            pass
         elif isinstance(parser.current, LazyJsonParserMapNode) and self.key_reg == None:
             print(f"apply_val: Inside map, setting key reg ({value})")
             self.key_reg = value
         else:
-            print(f"apply_val: Top level, skipping value ({value})")
+            print(f"apply_val: Top level, set value ({value})")
             # Note: When top level is scalar.
             parser.current.value = value
-            pass
 
     
     def _start_map_node(self, parser):
@@ -338,7 +366,7 @@ class LazyJsonParserMapNode(LazyJsonParserNode):
         self.map = {}
     
     def __repr__(self):
-        return f"{self.map}"
+        return f"MAP({self.map})"
 
 
 
@@ -349,7 +377,7 @@ class LazyJsonParserArrayNode(LazyJsonParserNode):
         self.arr = []
     
     def __repr__(self):
-        return f"{self.arr}"
+        return f"ARRAY({self.arr})"
 
 
 

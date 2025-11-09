@@ -7,13 +7,13 @@ from thirdparty.pparse.parser.lazyjson import LazyJsonParser
 PARSERS['json'] = LazyJsonParser
 
 # Data is independent of Artifact/Parser tree.
-data = Data(path='test2.json')
+data = Data(path='test.json')
 
 try:
     # Top Artifact has not parent parser.
     cursor = data.open()
     artifact = Artifact(cursor)
-    artifact.set_fname('test2.json')
+    artifact.set_fname('test.json')
     artifact.scan_data()
 except EndOfDataException:
     pass
@@ -28,5 +28,7 @@ print("Dumping root to output.txt")
 with open("output.txt", "w") as fobj:
     pprint(artifact, stream=fobj, indent=2)
 print("Dump complete.")
+
+print(artifact.candidates['json']['meta']['root'].child.map)
 
 breakpoint()
