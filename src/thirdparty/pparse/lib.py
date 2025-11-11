@@ -30,30 +30,6 @@ class Reader():
         raise NotImplementedError()
 
 
-# class Node():
-#     def parents(self): #-> [Node]:
-#         raise NotImplementedError()
-#     def children(self): # -> [weakref(Node)] -> Return array of childen (weak refs).
-#         # - Triggers parse/load
-#         raise NotImplementedError()
-#     def attributes(self) -> dict:  # - Return dictionary of attributes.
-#         # - Triggers parse/load
-#         raise NotImplementedError()
-#     def child(self, index=-1): # -> Node: # - Return strong ref child.
-#         # - Triggers parse/load
-#         raise NotImplementedError()
-#     #def as_{bytes,i64,u64,str}() - Cast raw data as type.
-#     #- Triggers parse/load
-#     def loaded(self): # - Is the data loaded and parsed?
-#         raise NotImplementedError()
-#     # def range(self): # - A range of data this node covers.
-#     #     raise NotImplementedError()
-
-
-
-
-
-
 # Range manages length and boundaries.
 # Range start cursor and length are assumed correct.
 # - Range has no insight into data.
@@ -130,9 +106,6 @@ class Range(Reader):
     def read(self, length, mode=None):
         length = self._adjust_length(length)
         return self._cursor.read(length, mode=mode)
-
-
-
 
 
 # Cursor manages offset. (Data does not manage offset.)
@@ -272,7 +245,6 @@ class Data():
             return self._mem[off:off+length]
 
 
-
 # Generic artifact that ties parsers to cursor-ed data.
 class Extraction():
     def __init__(self, source: Optional['Extraction'] = None, reader: Reader = None, name: str = None):
@@ -344,7 +316,6 @@ class Extraction():
         for parser in self._parser.values():
             parser.scan_data()
         return self
-
 
 
 '''

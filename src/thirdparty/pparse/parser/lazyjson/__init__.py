@@ -58,8 +58,6 @@ Different Format Approaches To Consider:
 '''
 
 
-
-
 class JsonParsingState(object):
     def parse_data(self, parser: 'JsonParser', ctx: 'LazyJsonNode_Context'):
         raise NotImplementedError()
@@ -372,29 +370,23 @@ Nodes have states: scanning -> shelf -> parsing -> loaded -> shelf -> ...
 
 class LazyJsonNode():
     def __init__(self, parent: 'LazyJsonNode', reader: pparse.Reader):
-        self._reader : Reader = reader.dup()
-
-
-        '''
-            Nodes only represent containers.
-            If its not a node, its a value.
-            It its a map node, its a map[kay] and value or node.
-            If its a array node, its a arr[]
-        '''
-
-
-        self.children = []
-        
+        self._reader : Reader = reader.dup()        
         self.value = None
-
         self._ctx = LazyJsonNode_Context(self, parent, JsonParsingStart(), reader.dup())
 
     
     def ctx(self):
         return self._ctx
 
+
+    def clear_ctx(self):
+        self._ctx = None
+        return self
+
+
     def tell(self):
         return self._reader.tell()
+
 
     def load(self, parser):
         # Create a headless node to parse the data.
@@ -417,10 +409,6 @@ class LazyJsonNode():
             pass
         except UnsupportedFormatException:
             raise
-
-        
-
-
 
 
 class LazyJsonNode_Init(LazyJsonNode):
@@ -531,12 +519,20 @@ class LazyJsonParser(pparse.Parser):
 
 
     def _end_container_node(self, ctx):
-        if ctx._parent:
+        parent = ctx._parent
+        if parent:
             print("end_container: Backtracking to parent.")
+
+            # Set the end pointer to advance parent past field.
             ctx.mark_end()
-            ctx._parent.ctx().seek(ctx._end)
-            self.current = ctx._parent
-            # TODO: Kill ctx.
+            parent.ctx().seek(ctx._end)
+
+            # Kill ctx.
+            ctx.node().clear_ctx()
+
+            # Set current node to parent.
+            self.current = parent
+            
 
     
     def scan_data(self):
