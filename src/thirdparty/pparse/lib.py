@@ -420,6 +420,10 @@ class Parser(dict, Reader):
         self.current = None
 
 
+    def source(self):
+        return self._source
+
+
     # This processes all data at once.
     # TODO: What is the interface that only parses what we need to?   
     def scan_data(self):
