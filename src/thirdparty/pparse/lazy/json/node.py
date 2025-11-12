@@ -88,23 +88,14 @@ class Node():
         self.value = UNLOADED_VALUE
 
 
-    # NOT WORKING
     def dumps(self, depth=0, step=2):
         spacer = ' ' * depth
-        result = [f"{spacer}" f'<Node length="{self.length()}" offset="{self.tell()}">']
+        result = [f"{spacer}" f'<JsonNode length="{self.length()}" offset="{self.tell()}">']
         if isinstance(self.value, Node):
             result.append(f"{spacer}{self.value.dumps(depth+step)}")
         else:
             result.append(f"{spacer}{' '*step}{self.value}")
-        result.append(f"{spacer}</Node>")
-        return '\n'.join(result)
-
-
-    # YUCK
-    def __repr__(self):
-        result = ["<NodeInit>"]
-        result.append(f"  {self.value}")
-        result.append("</NodeInit>")
+        result.append(f"{spacer}</JsonNode>")
         return '\n'.join(result)
 
 
@@ -119,12 +110,12 @@ class NodeInit(Node):
     def dumps(self, depth=0, step=2):
         spacer = ' ' * depth
         #result = [f"{spacer}" f'<NodeInit length="{self.length()}">']
-        result = [f"{spacer}" f'<NodeInit>']
+        result = [f"{spacer}" f'<JsonNodeInit>']
         if isinstance(self.value, Node):
             result.append(f"{spacer}{self.value.dumps(depth+step)}")
         else:
             result.append(f"{spacer}{self.value}")
-        result.append(f"{spacer}</NodeInit>")
+        result.append(f"{spacer}</JsonNodeInit>")
         return '\n'.join(result)
 
 
@@ -134,26 +125,16 @@ class NodeMap(Node):
         self.value = {}
 
 
-    # NOT WORKING
     def dumps(self, depth=0, step=2):
         spacer = ' ' * depth
-        result = [f'{spacer}<NodeMap length="{self.length()}" offset="{self.tell()}">' "{"]
+        result = [f'{spacer}<JsonMapNode length="{self.length()}" offset="{self.tell()}">' "{"]
         for k,v in self.value.items():
             if isinstance(v, Node):
                 result.append(f"{spacer}{' '*step}{k}:")
                 result.append(f"{v.dumps(depth+(step*2))}")
             else:
                 result.append(f"{spacer}{' '*step}{k}: {v}")
-        result.append(f"{spacer}" "}</NodeMap>")
-        return '\n'.join(result)
-
-
-    # YUCK
-    def __repr__(self):
-        result = ["<NodeMap>{"]
-        for k,v in self.value.items():
-            result.append(f"  {k}: {v}")
-        result.append("}</NodeMap>")
+        result.append(f"{spacer}" "}</JsonMapNode>")
         return '\n'.join(result)
 
 
@@ -163,23 +144,14 @@ class NodeArray(Node):
         self.value = []
 
 
-    # NOT WORKING
     def dumps(self, depth=0, step=2):
         spacer = ' ' * depth
-        result = [f'{spacer}<NodeArray length="{self.length()}" offset="{self.tell()}">[']
+        result = [f'{spacer}<JsonArrayNode length="{self.length()}" offset="{self.tell()}">[']
         for e in self.value:
             if isinstance(e, Node):
                 result.append(f"{spacer}{e.dumps(depth+step)}")
             else:
                 result.append(f"{spacer}{' '*step}{e}")
-        result.append(f"{spacer}]</NodeArray>")
+        result.append(f"{spacer}]</JsonArrayNode>")
         return '\n'.join(result)
 
-
-    # YUCK
-    def __repr__(self):
-        result = ["<NodeArray>["]
-        for e in self.value:
-            result.append(f"  {e}")
-        result.append("]</NodeArray>")
-        return '\n'.join(result)

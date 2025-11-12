@@ -38,10 +38,12 @@ class Reader():
 # Data does not manage offset.
 class Range(Reader):
     # Given Cursor object is the start offset
-    def __init__(self, cursor, length:int):
+    def __init__(self, cursor, length:int, offset:int=-1):
         self._start_cursor = cursor.dup()
         self._start = self._start_cursor.tell()
         self._cursor = cursor.dup()
+        if offset >= 0:
+            self._cursor.seek(offset)
         if length < 0:
             raise ValueError("Length must not be < 0")
         # Consider: Check for length beyond data?
@@ -50,7 +52,7 @@ class Range(Reader):
 
 
     def dup(self):
-        return Range(self._start_cursor, self._length)
+        return Range(self._start_cursor, self._length, self._cursor.tell())
 
 
     def length(self):
@@ -317,7 +319,7 @@ class Extraction():
         self._name: Optional[str] = name
         self._parser = {} # parsers by id
         self._result = {} # results by id
-        self._extractions = {}
+        self._extractions = []
 
         # This cursor is only used for dup() and tell()
         self._reader = reader
@@ -369,6 +371,23 @@ class Extraction():
         for parser in self._parser.values():
             parser.scan_data()
         return self
+
+
+    # def _scan_children(self):
+    #     try:
+    #         parser_reg = {
+    #             'json': LazyJsonParser,
+    #             'safetensors': Parser,
+    #         }
+    #         for extraction in self.source._extractions:
+    #             extraction.discover_parsers(parser_reg).scan_data()
+    #     except EndOfDataException:
+    #         print("END OF DATA")
+    #         pass
+    #     except Exception as e:
+    #         print(e)
+    #         import traceback
+    #         traceback.print_exc()
 
 
 '''

@@ -7,13 +7,12 @@ from thirdparty.pparse.lib import (
     EndOfNodeException
 )
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.json.node import (
+from thirdparty.pparse.lazy.safetensors.node import (
     Node,
-    NodeContext,
     NodeInit,
-    NodeMap,
-    NodeArray
 )
+
+from thirdparty.pparse.lazy.json import Parser as LazyJsonParser
 
 
 '''
@@ -109,98 +108,21 @@ class Parser(pparse.Parser):
         source._result[id] = self.current
 
 
-    def _apply_node_value(self, ctx: NodeContext, value):
-        if ctx.key():
-            if isinstance(value, str) and len(value) > 40:
-                trace(f"apply_val: Inside map, unset keyreg, skipping set value")
-                # At this point, we've already parsed the string, now we'll let it go.
-                parent = self.current
-                length = ctx.tell() - ctx.field_start()
-                reader = ctx.reader()
-                reader.seek(ctx.field_start())
-                range = pparse.Range(reader, length)
-                self.current.value[ctx.key()] = Node(parent, range)
-            else:
-                trace(f"apply_val: Inside map, unset keyreg, set value ({value})")
-                self.current.value[ctx.key()] = value
-            ctx.set_key(None)
-        elif isinstance(self.current, NodeArray):
-            trace(f"apply_val: Inside arr, append value ({value})")
-            self.current.value.append(value)
-        elif isinstance(self.current, NodeMap) and ctx.key() is None:
-            trace(f"apply_val: Inside map, setting key reg ({value})")
-            ctx.set_key(value)
-        else:
-            trace(f"apply_val: Top level or on-demand loading, set value ({value})")
-            #breakpoint()
-            self.current.value = value
-
-    
-    def _start_map_node(self, ctx):
-        
-        parent = self.current
-        newmap = NodeMap(parent, ctx.reader())
-        newmap.ctx().skip(1)
-        
-        if ctx.key():
-            trace("start_map: Found key, assuming in Map. Add new map to current map.")
-            parent.value[ctx.key()] = newmap
-            self.current = parent.value[ctx.key()]
-            ctx.set_key(None)
-        elif isinstance(self.current, NodeArray):
-            trace("start_map: Inside Array. Append new map to current array.")
-            self.current.value.append(newmap)
-            self.current = newmap
-        else:
-            trace("start_map: Create map as top level object.")
-            parent.value = newmap
-            self.current = newmap
-
-
-    def _start_array_node(self, ctx):
-        
-        newarr = NodeArray(self.current, ctx.reader())
-        newarr.ctx().skip(1)
-
-        if ctx.key():
-            trace("start_arr: Found key, assuming in Map. Add new arr to current map.")
-            self.current.value[ctx.key()] = newarr
-            self.current = self.current.value[ctx.key()]
-            ctx.set_key(None)
-        elif isinstance(self.current, NodeArray):
-            trace("start_arr: Inside Array. Append new arr to current array.")
-            self.current.value.append(newarr)
-            self.current = newarr
-        else:
-            trace("start_arr: Create arr as top level object.")
-            self.current = newarr
-
-
-    def _end_container_node(self, ctx):
-        parent = ctx._parent
-        if parent:
-            trace("end_container: Backtracking to parent.")
-
-            # Set the end pointer to advance parent past field.
-            ctx.mark_end()
-
-            # Fast forward past the bit we just parsed.
-            parent.ctx().seek(ctx._end)
-
-            # Kill ctx (hopefully reclaiming memory).
-            ctx.node().clear_ctx()
-
-            # Set current node to parent.
-            self.current = parent
-        # else:
-        #     trace("end_container: Backtracking to initial node.")
-
-        #     # Set the end pointer to advance parent past field.
-        #     ctx.mark_end()
-
-        #     # Kill ctx (hopefully reclaiming memory).
-        #     ctx.node().clear_ctx()
-            
+    def _scan_children(self):
+        try:
+            parser_reg = {
+                'json': LazyJsonParser,
+                'safetensors': Parser,
+            }
+            for extraction in self.source()._extractions:
+                extraction.discover_parsers(parser_reg).scan_data()
+        except EndOfDataException:
+            print("END OF DATA")
+            pass
+        except Exception as e:
+            print(e)
+            import traceback
+            traceback.print_exc()
 
     
     def scan_data(self):
@@ -208,8 +130,7 @@ class Parser(pparse.Parser):
         # While not end of data, keep parsing via states.
         try:
             while True:
-                #                                    (parser, ctx )
-                self.current.ctx().state().parse_data(self,   self.current.ctx())
+                self.current.ctx().state().parse_data(self, self.current.ctx())
         except EndOfNodeException as e:
             pass
         except EndOfDataException as e:
@@ -217,6 +138,9 @@ class Parser(pparse.Parser):
         except UnsupportedFormatException:
             raise
 
-        # TODO: Do all the children.
-        
+        # Scan all the extractions.
+        self._scan_children()
+
+        print("DONE SCANNING CHILDREN")
+
         return self

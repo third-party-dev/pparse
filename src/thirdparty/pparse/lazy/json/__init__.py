@@ -111,18 +111,19 @@ class Parser(pparse.Parser):
 
     def _apply_node_value(self, ctx: NodeContext, value):
         if ctx.key():
-            if isinstance(value, str) and len(value) > 40:
-                trace(f"apply_val: Inside map, unset keyreg, skipping set value")
-                # At this point, we've already parsed the string, now we'll let it go.
-                parent = self.current
-                length = ctx.tell() - ctx.field_start()
-                reader = ctx.reader()
-                reader.seek(ctx.field_start())
-                range = pparse.Range(reader, length)
-                self.current.value[ctx.key()] = Node(parent, range)
-            else:
-                trace(f"apply_val: Inside map, unset keyreg, set value ({value})")
-                self.current.value[ctx.key()] = value
+            # if isinstance(value, str) and len(value) > 40:
+            #     trace(f"apply_val: Inside map, unset keyreg, skipping set value")
+            #     # At this point, we've already parsed the string, now we'll let it go.
+            #     parent = self.current
+            #     length = ctx.tell() - ctx.field_start()
+            #     reader = ctx.reader()
+            #     reader.seek(ctx.field_start())
+            #     range = pparse.Range(reader, length)
+            #     self.current.value[ctx.key()] = Node(parent, range)
+            # else:
+            trace(f"apply_val: Inside map, unset keyreg, set value ({value})")
+            self.current.value[ctx.key()] = value
+
             ctx.set_key(None)
         elif isinstance(self.current, NodeArray):
             trace(f"apply_val: Inside arr, append value ({value})")
@@ -139,20 +140,22 @@ class Parser(pparse.Parser):
     def _start_map_node(self, ctx):
         
         parent = self.current
+        # BUG: When we get a cursor, we're getting a duplicate of the cursor and its _current_ offset.
+        # BUG: When we get a range, we're getting a duplicate of the range with the original offset?!
         newmap = NodeMap(parent, ctx.reader())
         newmap.ctx().skip(1)
         
         if ctx.key():
-            trace("start_map: Found key, assuming in Map. Add new map to current map.")
+            trace(f"start_map (off:{ctx.tell()}): Found key, assuming in Map. Add new map to current map.")
             parent.value[ctx.key()] = newmap
             self.current = parent.value[ctx.key()]
             ctx.set_key(None)
         elif isinstance(self.current, NodeArray):
-            trace("start_map: Inside Array. Append new map to current array.")
+            trace(f"start_map (off:{ctx.tell()}): Inside Array. Append new map to current array.")
             self.current.value.append(newmap)
             self.current = newmap
         else:
-            trace("start_map: Create map as top level object.")
+            trace(f"start_map (off:{ctx.tell()}): Create map as top level object.")
             parent.value = newmap
             self.current = newmap
 
@@ -163,23 +166,23 @@ class Parser(pparse.Parser):
         newarr.ctx().skip(1)
 
         if ctx.key():
-            trace("start_arr: Found key, assuming in Map. Add new arr to current map.")
+            trace(f"start_arr (off:{ctx.tell()}): Found key, assuming in Map. Add new arr to current map.")
             self.current.value[ctx.key()] = newarr
             self.current = self.current.value[ctx.key()]
             ctx.set_key(None)
         elif isinstance(self.current, NodeArray):
-            trace("start_arr: Inside Array. Append new arr to current array.")
+            trace(f"start_arr (off:{ctx.tell()}): Inside Array. Append new arr to current array.")
             self.current.value.append(newarr)
             self.current = newarr
         else:
-            trace("start_arr: Create arr as top level object.")
+            trace(f"start_arr (off:{ctx.tell()}): Create arr as top level object.")
             self.current = newarr
 
 
     def _end_container_node(self, ctx):
         parent = ctx._parent
         if parent:
-            trace("end_container: Backtracking to parent.")
+            trace(f"end_container (off:{ctx.tell()}): Backtracking to parent.")
 
             # Set the end pointer to advance parent past field.
             ctx.mark_end()
