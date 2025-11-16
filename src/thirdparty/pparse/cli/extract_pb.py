@@ -6,8 +6,8 @@ from thirdparty.pparse.lazy.protobuf import Parser as LazyProtobufParser
 
 try:
     parser_reg = {'protobuf': LazyProtobufParser}
-    cursor = Data(path='models/small.onnx').open()
-    root = Extraction(reader=cursor, name='models/small.onnx')
+    cursor = Data(path='models/decoder_model.onnx').open()
+    root = Extraction(reader=cursor, name='models/decoder_model.onnx')
     root = root.discover_parsers(parser_reg).scan_data()
 except EndOfDataException:
     pass
@@ -31,6 +31,11 @@ except Exception as e:
 # print(root._result['json'].dumps())
 
 print("ALL DONE")
-breakpoint()
+
+rnode = root._result['protobuf']
+with open("output.txt", "w") as f:
+    f.write(rnode.dumps())
+
+#breakpoint()
 
 

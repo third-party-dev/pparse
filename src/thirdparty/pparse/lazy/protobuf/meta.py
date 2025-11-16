@@ -135,14 +135,21 @@ class OnnxPb():
             pbset.ParseFromString(f.read())
 
         # Re-index to something that makes sense to me.
+        # TODO: Need to recurse into nested types: msg.pbmsg.nested_type[x]
         db = {}
         for pbmsg in pbset.file[0].message_type:
             msg = Msg(pbmsg, pbset.file[0])
+            if msg.type_name == '.onnx.TypeProto':
+                breakpoint()
             db[msg.type_name] = msg
             for field in pbmsg.field:
                 msg.add_field(field)        
 
         self.db = db
+
+        #for k in sorted(db.keys()):
+        #    print(k)
+        #    breakpoint()
 
 
     def by_type_name(self, type_name):

@@ -127,13 +127,13 @@ class ProtobufParsingKey(ProtobufParsingState):
 
     def parse_data(self, parser: 'Parser', ctx: 'NodeContext'):
 
-        # ! Feels fragile.
-        goal = None
-        if ctx._parent:
-            goal = ctx._parent.ctx()._end
+        # # ! Feels fragile.
+        # goal = None
+        # if ctx._parent:
+        #     goal = ctx._parent.ctx()._end
         
         #trace(f"Offset: {ctx.tell()} Goal: {goal}")
-        if ctx.tell() == goal:
+        if ctx.tell() == ctx._end:
             parser._end_container_node(ctx)
             ctx._next_state(ProtobufParsingKey)
             return
@@ -150,27 +150,35 @@ class ProtobufParsingKey(ProtobufParsingState):
             breakpoint()
 
         trace(f"PROCESSING FIELD (off: {ctx.tell()}): {field.name}   {field.type_name}")
-        breakpoint()
+        #breakpoint()
 
         # The following things are in an array, set that up first.
-        # Note: We're assuming that you can not do NodeArray.value[NodeArray]
+        # Note: Assuming you can not do NodeArray.value = [NodeArray]
         if field.label == Field.LABEL_REPEATED and \
             not isinstance(parser.current, NodeArray):
-            #proto.by_type_name(field.type_name) != parser.current.msgtype():
+                trace(f"Creating NodeArray for repeated field {field.name}")
+                #proto.by_type_name(field.type_name) != parser.current.msgtype():
 
-            ctx.mark_field_start()
+                ctx.mark_field_start()
 
-            parent = parser.current
+                parent = parser.current
 
-            newarr = NodeArray(parent, ctx.reader(), field)
+                newarr = NodeArray(parent, ctx.reader(), field)
 
-            # Assuming array parent is always a map.
-            parser.current.value[field.name] = newarr
-            parser.current = parser.current.value[field.name]
+                # Assuming array parent is always a map.
+                parser.current.value[field.name] = newarr
+                parser.current = parser.current.value[field.name]
 
 
-            ctx._next_state(ProtobufParsingKey)
-            return
+                ctx._next_state(ProtobufParsingKey)
+                return
+
+        if isinstance(parser.current, NodeArray) and \
+            ctx.key() and field.name != ctx.key().name:
+                #breakpoint()
+                trace(f"Ending NodeArray for repeated field {ctx.key().name}")
+                parser._end_container_node(ctx)
+                return
 
 
         # Progress past the key.
@@ -197,14 +205,67 @@ class ProtobufParsingKey(ProtobufParsingState):
             #breakpoint()
             return
 
-        if field.type == Field.TYPE_INT64:
+        if field.type == Field.TYPE_INT64 or field.type == Field.TYPE_INT32:
             # ! TODO: I don't like that we're doing values in ParsingKey state.
             #ctx._next_state(ProtobufParsingScalar)
             # TODO: Should this handle 2's compliment?
             value = parser.parse_varint(ctx)
             parser._apply_value(ctx, field, value)
             #ctx.node().value[field.name] = value
-            ctx.set_key(None)
+            #ctx.set_key(None)
+            ctx._next_state(ProtobufParsingKey)
+            return
+
+        if field.type == Field.TYPE_BYTES:
+             # Get the length of the sub-message.
+            length = -1
+            if wire_type == Protobuf.LEN:
+                length = parser.parse_varint(ctx)
+            else:
+                # UNLIKELY
+                breakpoint()
+            
+            data = ctx.read(length)
+            parser._apply_value(ctx, field, data)
+
+            #ctx.node().value[field.name] = value
+            #ctx.set_key(None)
+            ctx._next_state(ProtobufParsingKey)
+            return
+
+        if field.type == Field.TYPE_ENUM:
+
+             # Get the length of the sub-message.
+            value = -1
+            if wire_type == Protobuf.VARINT:
+                enum = parser.parse_varint(ctx)
+            else:
+                # UNLIKELY
+                breakpoint()
+            
+            parser._apply_value(ctx, field, value)
+
+            #ctx.node().value[field.name] = value
+            #ctx.set_key(None)
+            ctx._next_state(ProtobufParsingKey)
+            return
+
+        if field.type == Field.TYPE_FLOAT:
+            
+             # Get the length of the sub-message.
+            value = -1
+            if wire_type == Protobuf.I32:
+                value = ctx.read(4)
+            else:
+                # UNLIKELY
+                breakpoint()
+
+            float_value = struct.unpack('<f', value)[0]
+            
+            parser._apply_value(ctx, field, float_value)
+
+            #ctx.node().value[field.name] = value
+            #ctx.set_key(None)
             ctx._next_state(ProtobufParsingKey)
             return
 
@@ -336,43 +397,7 @@ class ProtobufParsingKey(ProtobufParsingState):
 
 
 
-class ProtobufParsingField(ProtobufParsingState):
 
-    def parse_data(self, parser: 'Parser', ctx: 'NodeContext'):
-
-
-
-        if not ctx.key():
-            parser._next_state(ProtobufParsingKey)
-            return
-
-        
-
-        # Get the key data.
-        wire_type, field_num, key_length = parser.peek_varint_key(ctx)
-        field = ctx.node().field_by_id(field_num)
-        ctx.set_key(field)
-        ctx.skip(key_length)
-
-        # Now that we have a value, lets process values and/or messages.
-        if field.type == Field.TYPE_MESSAGE:
-            print(self.dbg_geninfo_str(parser, field_num, wire_type))
-            print(self.dbg_proto_str(parser, field_num, wire_type))
-            print(f"--- ProtobufParsingMessage: {field.type_name} ---")
-            parser._start_map_node(ctx)
-            return
-
-        if field.type == Field.TYPE_INT64:
-            ctx._next_state(ProtobufParsingScalar)
-            # TODO: Should this handle 2's compliment?
-            value, length = parser.parse_varint(ctx)
-            ctx.node().value[field.name] = value
-
-        # TODO: Check if field is repeated?
-        breakpoint()
-
-        parser._next_state(ProtobufParsingValue)
-        return
 
 
 
@@ -547,14 +572,14 @@ class Parser(pparse.Parser):
 
 
     def _end_container_node(self, ctx):
-        breakpoint()
+        #breakpoint()
         parent = ctx._parent
         if parent:
             trace(f"end_container (off:{ctx.tell()}): Backtracking to parent.")
 
             # Set the end pointer to advance parent past field.
             # Note: We don't need to mark end in protobuf
-            #ctx.mark_end()
+            ctx.mark_end()
 
             # Fast forward past the bit we just parsed.
             parent.ctx().seek(ctx._end)

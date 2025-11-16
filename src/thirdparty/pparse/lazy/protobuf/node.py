@@ -163,14 +163,16 @@ class NodeMap(Node):
 
     def dumps(self, depth=0, step=2):
         spacer = ' ' * depth
-        proto_type = protobuf_type.name
-        result = [f'{spacer}<ProtobufMapNode type="{proto_type}" length="{self.length()}" offset="{self.tell()}">' "{"]
+        proto_type = self.msgtype().name
+        result = [f'{spacer}<ProtobufMapNode type="{proto_type}" offset="{self.tell()}">' "{"]
         for k,v in self.value.items():
             if isinstance(v, Node):
                 result.append(f"{spacer}{' '*step}{k}:")
                 result.append(f"{v.dumps(depth+(step*2))}")
             else:
-                result.append(f"{spacer}{' '*step}{k}: {v}")
+                v_str = f"{v}"
+                if len(v_str) < 40:
+                    result.append(f"{spacer}{' '*step}{k}: {v}")
         result.append(f"{spacer}" "}</ProtobufMapNode>")
         return '\n'.join(result)
 
@@ -192,11 +194,11 @@ class NodeArray(Node):
 
     def dumps(self, depth=0, step=2):
         spacer = ' ' * depth
-        proto_type = protobuf_type.name
-        result = [f'{spacer}<ProtobufArrayNode type="{proto_type}" length="{self.length()}" offset="{self.tell()}">[']
+        proto_type = self.msgtype().name
+        result = [f'{spacer}<ProtobufArrayNode type="{proto_type}" offset="{self.tell()}">[']
         for e in self.value:
             if isinstance(e, Node):
-                result.append(f"{spacer}{e.dumps(depth+step)}")
+                result.append(f"{e.dumps(depth+step)}")
             else:
                 result.append(f"{spacer}{' '*step}{e}")
         result.append(f"{spacer}]</ProtobufArrayNode>")
