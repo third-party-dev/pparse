@@ -17,7 +17,9 @@ UNLOADED_VALUE = UnloadedValue()
 
 
 class NodeContext(BaseNodeContext):
-    def __init__(self, node: 'Node', parent: 'Node', state: 'ProtobufParsingState', reader: pparse.Reader):
+    def __init__(self, node: 'Node', parent: 'Node', state: 'ProtobufParsingState', reader: pparse.Range):
+        if type(reader).__name__ != 'Range':
+            raise Exception("protobuf NodeContext reader must be a pparse.Range")
         super().__init__(node, parent, state, reader)
         self._key = None
         self.just_set_node = False
@@ -47,13 +49,25 @@ class NodeContext(BaseNodeContext):
         self._key = field
 
 
+    def left(self):
+        return self._reader.left()
+    def reinit(self, start_offset, length, current_offset=-1):
+        return self._reader._init(start_offset, length, current_offset)
+
+
 class Node():
-    def __init__(self, parent: 'Node', reader: pparse.Reader, protobuf_type):
+    # Note: All Protobuf readers are Ranges. Range is required to process protobuf. 
+    def __init__(self, parent: 'Node', reader: pparse.Range, protobuf_type):
+        if type(reader).__name__ != 'Range':
+            raise Exception("protobuf Node reader must be a pparse.Range")
+        self._reader : pparse.Range = reader.dup()
+
         from thirdparty.pparse.lazy.protobuf import ProtobufParsingKey
-        self._type = protobuf_type
-        self._reader : Reader = reader.dup()        
-        self.value = UNLOADED_VALUE
         self._ctx = NodeContext(self, parent, ProtobufParsingKey(), reader.dup())
+        
+        self._type = protobuf_type
+        self.value = UNLOADED_VALUE
+        
 
 
     def field_by_id(self, field_num):

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import stat
 from pprint import pprint
 
 from typing import Optional
@@ -40,10 +41,16 @@ class Range(Reader):
     # Given Cursor object is the start offset
     def __init__(self, cursor, length:int, offset:int=-1):
         self._start_cursor = cursor.dup()
-        self._start = self._start_cursor.tell()
-        self._cursor = cursor.dup()
-        if offset >= 0:
-            self._cursor.seek(offset)
+        self._init(cursor.tell(), length, offset)
+
+
+    def _init(self, start_offset, length, current_offset=-1):
+        self._start_cursor.seek(start_offset)
+        self._start = self._start_cursor.tell()        
+        self._cursor = self._start_cursor.dup()
+        
+        if current_offset >= 0:
+            self._cursor.seek(current_offset)
         if length < 0:
             raise ValueError("Length must not be < 0")
         # Consider: Check for length beyond data?
@@ -54,6 +61,18 @@ class Range(Reader):
     def dup(self):
         return Range(self._start_cursor, self._length, self._cursor.tell())
 
+
+    def truncate(self, new_length):
+        if new_length > self._length:
+            raise Exception("Truncation of Range must be <= Range length")
+        if self._cursor.tell() > self._start + new_length:
+            raise Exception("Range cursor must not be in truncated space.")
+
+        self._length = new_length
+        self._end = self._start + self._length
+
+        return self
+      
 
     def length(self):
         return self._length
@@ -154,6 +173,7 @@ class NodeContext():
     def __init__(self, node: 'Node', parent: 'Node', state, reader: Reader):
         self._node = node
         self._reader = reader.dup()
+        self._reader.seek(reader.tell())
         self._state = state
         self._parent = parent # Parent Node (None for root)
         self._start = self.tell()
@@ -240,17 +260,22 @@ class Data():
         # One descriptor to rule them all.
         self._fobj = open(path, "rb")
 
-        # # TODO: This size is only relevant if the size doesn't change.
-        # fd = self._fobj.fileno()
-        # st = os.fstat(fd)
-        # self.length = -1
-        # if stat.S_ISREG(st.st_mode):
-        #     self.length = st.st_size
+        self.length = None
+        self._load_length()
 
         # Mmap, if available.
         if has_mmap():
             self._mmap = mmap.mmap(self._fobj.fileno(), 0, access=mmap.ACCESS_READ)
             self._mem = memoryview(self._mmap)
+
+
+    def _load_length(self):
+        # TODO: This size is only relevant if the size doesn't change.
+        fd = self._fobj.fileno()
+        st = os.fstat(fd)
+        
+        if stat.S_ISREG(st.st_mode):
+            self.length = st.st_size
 
     
     def mode(self):
@@ -313,7 +338,7 @@ class Extraction():
 
         if not source:
             # This instance is the root Extraction.
-            self._reader = reader
+            self._reader = reader.dup()
         if not reader:
             self._reader = source.open()
 
