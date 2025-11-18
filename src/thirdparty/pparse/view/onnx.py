@@ -4,12 +4,18 @@ import os
 import struct
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.protobuf import Parser as LazyProtobufParser
+from thirdparty.pparse.lazy.protobuf import make_protobuf_parser
+from thirdparty.pparse.lazy.protobuf.node import Node, NodeMap, NodeArray
+
+'''
+  Bulk tensor data is stored in GraphProto.initializer = []
+  Graph structure is stoed in GraphProto.node = []
+'''
 
 
 class Onnx():
     PARSER_REGISTRY = {
-        'protobuf': LazyProtobufParser,
+        'protobuf': make_protobuf_parser(ext_list=['.onnx'], init_msgtype='.onnx.ModelProto'),
     }
 
 
@@ -25,6 +31,13 @@ class Onnx():
             self._extraction = pparse.Extraction(reader=data_range, name=fpath)
             self._extraction.discover_parsers(Onnx.PARSER_REGISTRY)
             self._extraction.scan_data()
+
+            # Some light post processing.
+            self.model = self._extraction._result['protobuf'].value
+            self.graph = model['graph'].value
+            self.nodes = graph['node'].value
+            self.initializers = graph['initializer'].value
+
         except pparse.EndOfDataException as e:
             print(e)
             pass
@@ -36,4 +49,76 @@ class Onnx():
         return self
 
 
+    def find_node(self, name):
+        for node in self.nodes:
+            if node.value['name'] == name:
+                return node
+        return None
 
+
+    def _recursive_callback(self, tgt, callback=None, callback_arg=None):
+        if callable(callback):
+            callback(tgt, callback_arg)
+
+        if isinstance(tgt, NodeArray):
+            for elem in tgt.value:
+                self._recursive_callback(elem, callback, callback_arg)
+        elif isinstance(tgt, NodeMap):
+            for k, v in tgt.value.items():
+                if isinstance(v, Node):
+                    self._recursive_callback(v, callback, callback_arg)
+
+        return self
+
+
+    # results = onnx.find_tensor('transformer.ln_f.weight')
+    def find_tensor(self, name):
+        def name_check(tgt, results):
+            if isinstance(tgt, Node) and tgt.msgtype() and 'TensorProto' in tgt.msgtype().name:
+                if 'name' in tgt.value and tgt.value['name'] == name:
+                    results.append(tgt)
+                    return
+
+        results = []
+        self._recursive_callback(self._extraction._result['protobuf'], name_check, results)
+        return results
+
+
+    # results = onnx.list_tensor_names()
+    def list_tensor_names(self):
+        def has_name(tgt, results):
+            if isinstance(tgt, Node) and tgt.msgtype() and 'TensorProto' in tgt.msgtype().name:
+                if 'name' in tgt.value:
+                    results.append(tgt.value['name'])
+
+        results = []
+        self._recursive_callback(self._extraction._result['protobuf'], has_name, results)
+        return results
+
+
+    # results = onnx.find_node('transformer.ln_f.weight')
+    def find_node(self, name):
+        def name_check(tgt, results):
+            if isinstance(tgt, Node) and tgt.msgtype() and 'NodeProto' in tgt.msgtype().name:
+                if 'name' in tgt.value and tgt.value['name'] == name:
+                    results.append(tgt)
+                    return
+
+        results = []
+        self._recursive_callback(self._extraction._result['protobuf'], name_check, results)
+        return results
+
+
+    # results = onnx.list_node_names()
+    def list_node_names(self):
+        def has_name(tgt, results):
+            if isinstance(tgt, Node) and tgt.msgtype() and 'NodeProto' in tgt.msgtype().name:
+                if 'name' in tgt.value:
+                    results.append(tgt.value['name'])
+
+        results = []
+        self._recursive_callback(self._extraction._result['protobuf'], has_name, results)
+        return results
+
+
+        

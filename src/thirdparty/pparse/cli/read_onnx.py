@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
+from pprint import pprint
 from thirdparty.pparse.view import Onnx
 
-obj = Onnx().open_fpath('models/decoder_model.onnx')
+onnx = Onnx().open_fpath('models/decoder_model.onnx')
 
 '''
     # NOTE: If you are going to load everything into memory at once
@@ -19,10 +20,10 @@ obj = Onnx().open_fpath('models/decoder_model.onnx')
         print(name, array.shape, array.dtype)
 '''
 
-parser = obj._extraction._parser['protobuf']
-model = obj._extraction._result['protobuf'].value
-graph = model['graph']
-nodes = graph.value['node'].value
+parser = onnx._extraction._parser['protobuf']
+model = onnx._extraction._result['protobuf'].value
+graph = model['graph'].value
+nodes = graph['node'].value
 node0 = nodes[0].value
 input_ids = node0['input'].value
 output_ids = node0['output'].value
@@ -33,7 +34,7 @@ print('')
 print(f'Nodes Found: {len(nodes)}')
 
 ops = {}
-for node in parser.nodes.values():
+for node in nodes:
     if 'op_type' in node.value:
         ops[node.value['op_type']] = True
 print("Operations Found:")

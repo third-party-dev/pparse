@@ -155,7 +155,10 @@ class NodeMap(Node):
         if self._type:
             msg_type = self._type.name
         val_type = type(self.value).__name__
-        return f"{py_type}(_type={msg_type}, value={val_type})"
+        name = ''
+        if self.value and 'name' in self.value:
+            name = f'name={self.value["name"]}, '
+        return f"{py_type}(_type={msg_type}, {name}value={val_type})"
 
 
 class NodeArray(Node):

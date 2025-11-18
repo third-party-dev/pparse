@@ -8,7 +8,7 @@ from thirdparty.pparse.lazy.protobuf.node import Node, NodeContext, NodeMap, Nod
 
 
 def trace(*args, **kwargs):
-    print(*args, **kwargs)
+    #print(*args, **kwargs)
     pass
 
 
@@ -108,13 +108,14 @@ class ProtobufParsingKey(ProtobufParsingState):
         if ctx.left() == 0:
             if ctx._parent is None:
                 raise pparse.EndOfDataException("Nothing more to process.")
-
-            # XXX: Testing ways to grab flat list of nodes or tensors.
-            if ctx.node().msgtype().name == 'NodeProto':
-                #breakpoint()
-                parser.nodes[ctx.node().value['name']] = ctx.node()
             
+            # Node length not set until after _end_container_node()
             parser._end_container_node(ctx)
+
+            # TODO: Consider adding hook for booking as the nodes are completed.
+            # if parser._node_complete_callable and callable(parser._node_complete_callable):
+            #     parser._node_complete_callable(parser, ctx, parser._node_complete_arg)
+
             ctx._next_state(ProtobufParsingKey)
             return
 
