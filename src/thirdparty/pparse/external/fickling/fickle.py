@@ -18,7 +18,7 @@ from typing import (
     overload,
 )
 
-from stdlib_list import in_stdlib
+#from stdlib_list import in_stdlib
 
 from thirdparty.pparse.external.fickling.exception import WrongMethodError
 
@@ -41,7 +41,8 @@ OPCODE_INFO_BY_NAME: dict[str, OpcodeInfo] = {opcode.name: opcode for opcode in 
 
 
 def is_std_module(module_name: str) -> bool:
-    return in_stdlib(module_name) or module_name in BUILTIN_MODULE_NAMES
+    #return in_stdlib(module_name) or module_name in BUILTIN_MODULE_NAMES
+    return module_name in BUILTIN_MODULE_NAMES
 
 
 class MarkObject:
