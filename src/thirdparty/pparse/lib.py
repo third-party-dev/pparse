@@ -240,6 +240,55 @@ class NodeContext():
         return self._reader.peek(*args, **kwargs)
     def read(self, *args, **kwargs):
         return self._reader.read(*args, **kwargs)
+    def left(self):
+        if not isinstance(self._reader, Range):
+            raise Exception("Reader must be range to use left()")
+        return self._reader.left()
+
+
+class Node():
+    def __init__(self, parent: 'Node', reader: Reader, ctx: NodeContext = None):
+        self._reader = reader.dup()
+        self._ctx = ctx
+        if not self._ctx:
+            self._ctx = NodeContext(self, parent, reader.dup())
+        self.value = UNLOADED_VALUE
+
+    
+    def ctx(self):
+        return self._ctx
+
+
+    def clear_ctx(self):
+        self._ctx = None
+        return self
+
+
+    def tell(self):
+        return self._reader.tell()
+
+
+    # TODO: Is this common enough?!
+    def final_length(self, length):
+        self._reader = Range(self._reader.dup(), length)
+        return self
+
+
+    # TODO: Check for range?
+    def length(self):
+        return self._reader.length()
+
+
+    def load(self, parser):
+        raise NotImplementedError()
+
+    
+    def unload(self):
+        self.value = pparse.UNLOADED_VALUE
+
+
+
+
 
 
 # Data Considerations:
