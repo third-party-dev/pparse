@@ -3,25 +3,13 @@
 import logging
 log = logging.getLogger(__name__)
 
-from thirdparty.pparse.lazy.json.state import JsonParsingState, JsonParsingStart
-from thirdparty.pparse.lib import NodeContext as BaseNodeContext
-from thirdparty.pparse import lib as pparse
-
-from thirdparty.pparse.lib import (
-    EndOfDataException,
-    UnsupportedFormatException,
-    EndOfNodeException
-)
+import thirdparty.pparse.lib as pparse
+from thirdparty.pparse.lazy.json.state import JsonParsingStart
 
 
-class UnloadedValue():
-    def __repr__(self): return "<UNLOADED_VALUE />"
-UNLOADED_VALUE = UnloadedValue()
-
-
-class NodeContext(BaseNodeContext):
-    def __init__(self, node: 'Node', parent: 'Node', state: JsonParsingState, reader: pparse.Reader):
-        super().__init__(node, parent, state, reader)
+class NodeContext(pparse.NodeContext):
+    def __init__(self, node: 'Node', parent: 'Node', reader: pparse.Reader):
+        super().__init__(node, parent, reader)
         self._key_reg = None
 
 
@@ -34,39 +22,22 @@ class NodeContext(BaseNodeContext):
         return self
 
 
-class Node():
-    def __init__(self, parent: 'Node', reader: pparse.Reader):
-        self._reader : Reader = reader.dup()        
-        self.value = UNLOADED_VALUE
-        self._ctx = NodeContext(self, parent, JsonParsingStart(), reader.dup())
+class Node(pparse.Node):
+    def __init__(self, parent: 'Node', reader: pparse.Reader, ctx: pparse.NodeContext = None):
+        super().__init__(parent, reader, ctx)
+        self.ctx()._next_state(JsonParsingStart)
 
     
-    def ctx(self):
-        return self._ctx
-
-
-    def clear_ctx(self):
-        self._ctx = None
-        return self
-
-
-    def tell(self):
-        return self._reader.tell()
-
-
     def final_length(self, length):
         self._reader = pparse.Range(self._reader.dup(), length)
         return self
 
 
-    def length(self):
-        return self._reader.length()
-
-
     # Assumed that this method is not run until after the Extraction parsing is complete.
     def load(self, parser):
         # Create a headless node to parse the data.
-        self._ctx = NodeContext(self, None, JsonParsingStart(), self._reader.dup())
+        self._ctx = NodeContext(self, None, self._reader.dup())
+        self.ctx()._next_state(JsonParsingStart)
         # Reset to beginning of field.
         self._ctx.seek(0)
 
@@ -79,18 +50,14 @@ class Node():
                 # if isinstance(state, JsonParsingString):
                 #     breakpoint()
                 state.parse_data(parser, ctx)
-        except EndOfNodeException as e:
+        except pparse.EndOfNodeException as e:
             pass
-        except EndOfDataException as e:
+        except pparse.EndOfDataException as e:
             pass
-        except UnsupportedFormatException:
+        except pparse.UnsupportedFormatException:
             raise
 
     
-    def unload(self):
-        self.value = UNLOADED_VALUE
-
-
     def dumps(self, depth=0, step=2):
         spacer = ' ' * depth
         result = [f"{spacer}" f'<JsonNode length="{self.length()}" offset="{self.tell()}">']
@@ -104,7 +71,8 @@ class Node():
 
 class NodeInit(Node):
     def __init__(self, parent: Node, reader: pparse.Reader, parser: pparse.Parser = None):
-        super().__init__(parent, reader)
+        ctx = NodeContext(self, parent, reader)
+        super().__init__(parent, reader, ctx)
 
         # Since there is only 1 NodeInit, we can keep more stuff here.
         self.parser = parser
@@ -124,7 +92,8 @@ class NodeInit(Node):
 
 class NodeMap(Node):
     def __init__(self, parent: Node, reader: pparse.Reader):
-        super().__init__(parent, reader)
+        ctx = NodeContext(self, parent, reader)
+        super().__init__(parent, reader, ctx)
         self.value = {}
 
 
@@ -143,7 +112,8 @@ class NodeMap(Node):
 
 class NodeArray(Node):
     def __init__(self, parent: Node, reader: pparse.Reader):
-        super().__init__(parent, reader)
+        ctx = NodeContext(self, parent, reader)
+        super().__init__(parent, reader, ctx)
         self.value = []
 
 

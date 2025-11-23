@@ -42,7 +42,7 @@ Thoughts on Multi-Level Drilling
 - Compression and other encodings (e.g. base64) may be doable if we track atomic units with inner/outer offsets.
 - What demarcations in a compression stream can be reused?
   - Specifically target (in order): zip, gz, xz/lzma, bz2
-  - Must also track indicies and tables for decompression.
+  - Must also track indices and tables for decompression.
 
 When we do a multi-level drill, we'll likely only have the parser specific Node from the Node tree. We need a path of Extractions to dereference the Node. Perhaps a "Node Of Interest" (NOI) keeps a reference to its source Extraction. All Extraction objects are always kept in memory with their relationships, but we wipe or clear the parsing results. Only "Nodes of interest" (NOI) and their ancestry are kept in memory.
 
@@ -57,7 +57,7 @@ Data has been designed as a "read offset get data" object. Extractions read the 
 - Data is no longer the single source of bytes. We need to create new Data objects for extractions with their own offsets. Each new Data object represents a new file descriptor.
 - Potential Data class types: DataFolder, DataFile, DataStream/DataSocket
 
-Because we work in a file system, we need to consider that we may access data as a file of bytes, a stream of bytes (pipe/socket/device), or a list of files. There could theretically be others that are protocol based (e.g. RemoteExtraction). The two primary for all my current use cases should be encompassed by BytesExtraction, FolderExtraction:
+Because we work in a file system, we need to consider that we may access data as a file of bytes, a stream of bytes (pipe/socket/device), or a list of files. There could theoretically be others that are protocol based (e.g. RemoteExtraction). The two primary for all my current use cases should be encompassed by BytesExtraction, FolderExtraction:
 
 - BytesExtraction is based on Data.
 - FolderExtraction does not use Data.

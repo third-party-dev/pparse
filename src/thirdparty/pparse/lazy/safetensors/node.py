@@ -4,38 +4,15 @@ import logging
 log = logging.getLogger(__name__)
 
 from thirdparty.pparse.lazy.safetensors.state import SafetensorsParsingLength
-from thirdparty.pparse import lib as pparse
-
-from thirdparty.pparse.lib import (
-    EndOfDataException,
-    UnsupportedFormatException,
-    EndOfNodeException
-)
+import thirdparty.pparse.lib as pparse
 
 
-class UnloadedValue():
-    def __repr__(self): return "<UNLOADED_VALUE />"
-UNLOADED_VALUE = UnloadedValue()
-
-
-class Node():
+class Node(pparse.Node):
     def __init__(self, parent: 'Node', reader: pparse.Reader):
         self._reader : Reader = reader.dup()        
-        self.value = UNLOADED_VALUE
-        self._ctx = pparse.NodeContext(self, parent, SafetensorsParsingLength(), reader.dup())
-
-    
-    def ctx(self):
-        return self._ctx
-
-
-    def clear_ctx(self):
-        self._ctx = None
-        return self
-
-
-    def tell(self):
-        return self._reader.tell()
+        self.value = pparse.UNLOADED_VALUE
+        self._ctx = pparse.NodeContext(self, parent, reader.dup())
+        self.ctx()._next_state(SafetensorsParsingLength)
 
 
     def final_length(self, length):
@@ -43,16 +20,13 @@ class Node():
         return self
 
 
-    def length(self):
-        return self._reader.length()
-
-
     # Assumed that this method is not run until after the Extraction parsing is complete.
     def load(self, parser):
         # Create a headless node to parse the data.
-        self._ctx = pparse.NodeContext(self, None, SafetensorsParsingLength(), self._reader.dup())
+        self._ctx = pparse.NodeContext(self, None, self._reader.dup())
         # Reset to beginning of field.
-        self._ctx.seek(0)
+        self.ctx()._next_state(SafetensorsParsingLength)
+        self.ctx().seek(0)
 
         # Run the parser.
         parser.current = self
@@ -61,21 +35,15 @@ class Node():
             while True:
                 ctx = parser.current.ctx()
                 state = ctx.state()
-                # if isinstance(state, JsonParsingString):
-                #     breakpoint()
                 state.parse_data(parser, ctx)
-        except EndOfNodeException as e:
+        except pparse.EndOfNodeException as e:
             pass
-        except EndOfDataException as e:
+        except pparse.EndOfDataException as e:
             pass
-        except UnsupportedFormatException:
+        except pparse.UnsupportedFormatException:
             raise
 
     
-    def unload(self):
-        self.value = UNLOADED_VALUE
-
-
     def dumps(self, depth=0, step=2):
         spacer = ' ' * depth
         result = [f"{spacer}" f'<SafetensorsNode length="{self.length()}" offset="{self.tell()}">']

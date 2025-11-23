@@ -1,4 +1,5 @@
 import io
+import pathlib
 
 import logging
 log = logging.getLogger(__name__)
@@ -32,3 +33,11 @@ def hexdump(data, length=None):
         hex_part = ' '.join(f'{byte:02x}' for byte in chunk)
         ascii_part = ''.join(chr(byte) if 32 <= byte <= 126 else '.' for byte in chunk)
         print(f'{i:08x}: {hex_part:<47}  {ascii_part}')
+
+def find_project_root(start: pathlib.Path = None) -> pathlib.Path:
+    if start is None:
+        start = pathlib.Path(__file__).resolve()
+    for parent in [start, *start.parents]:
+        if (parent / "pyproject.toml").is_file():
+            return parent
+    raise FileNotFoundError("pyproject.toml not found.")

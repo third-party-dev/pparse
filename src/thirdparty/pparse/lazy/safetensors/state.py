@@ -4,13 +4,8 @@ import struct
 import logging
 log = logging.getLogger(__name__)
 
-from thirdparty.pparse.lib import (
-    EndOfDataException,
-    UnsupportedFormatException,
-    EndOfNodeException,
-    Extraction,
-    Range,
-)
+import thirdparty.pparse.lib as pparse
+
 
 class SafetensorsParsingState(object):
     def parse_data(self, parser: 'Parser', ctx: 'NodeContext'):
@@ -32,7 +27,7 @@ class SafetensorsParsingState(object):
 
 #         # data = ctx.peek(0x400)
 #         # if len(data) < 1:
-#         #     raise EndOfDataException("Not enough data to parse JSON whitespace")
+#         #     raise pparse.EndOfDataException("Not enough data to parse JSON whitespace")
 
 
 class SafetensorsParsingTensors(SafetensorsParsingState):
@@ -42,7 +37,7 @@ class SafetensorsParsingTensors(SafetensorsParsingState):
         data = ctx.read(4096*4096)
         if not data or len(data) < 1:
             ctx.node().tensor_data_end = ctx.tell()
-            raise EndOfDataException("No more Safetensors tensor data.")
+            raise pparse.EndOfDataException("No more Safetensors tensor data.")
 
 
 class SafetensorsParsingLength(SafetensorsParsingState):
@@ -57,10 +52,13 @@ class SafetensorsParsingLength(SafetensorsParsingState):
         ctx.node().header_length = header_length
         log.debug(f"Safetensors Header Length: {ctx.node().header_length}")
         ctx.skip(8)
+
+        breakpoint()
             
         # TODO: Add extraction for json parser
         # Given name to attract parser only.
-        header_json = Extraction(reader=Range(ctx.reader(), header_length), name='.json')
+        header_range = pparse.Range(ctx.reader(), header_length)
+        header_json = pparse.BytesExtraction(name='.json', reader=header_range)
         parser.source()._extractions.append(header_json)
         ctx.skip(header_length)
 

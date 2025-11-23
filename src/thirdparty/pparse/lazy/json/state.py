@@ -42,6 +42,7 @@ class JsonParsingNumber(JsonParsingState):
             try:
                 parser._apply_node_value(ctx, json.loads(b''.join(self.num_bytes)))
             except Exception as e:
+                breakpoint()
                 raise UnsupportedFormatException(f"Invalid number format in {self.num_bytes}: {e}")
             finally:
                 self.num_bytes = []

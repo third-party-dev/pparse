@@ -3,19 +3,9 @@ import os
 import logging
 log = logging.getLogger(__name__)
 
-from thirdparty.pparse.lib import (
-    EndOfDataException,
-    UnsupportedFormatException,
-    EndOfNodeException
-)
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.json.node import (
-    Node,
-    NodeContext,
-    NodeInit,
-    NodeMap,
-    NodeArray
-)
+from thirdparty.pparse.lazy.json.node import NodeInit, NodeMap, NodeArray
+from thirdparty.pparse.lazy.json.state import JsonParsingStart
 
 
 '''
@@ -104,10 +94,11 @@ class Parser(pparse.Parser):
         
         # Current path of pending things.
         self.current = NodeInit(None, source.open(), self)
+        self.current.ctx()._next_state(JsonParsingStart)
         source._result[id] = self.current
 
 
-    def _apply_node_value(self, ctx: NodeContext, value):
+    def _apply_node_value(self, ctx, value):
         if ctx.key():
             # if isinstance(value, str) and len(value) > 40:
             #     log.debug(f"apply_val: Inside map, unset keyreg, skipping set value")
@@ -211,11 +202,11 @@ class Parser(pparse.Parser):
             while True:
                 #                                    (parser, ctx )
                 self.current.ctx().state().parse_data(self,   self.current.ctx())
-        except EndOfNodeException as e:
+        except pparse.EndOfNodeException as e:
             pass
-        except EndOfDataException as e:
+        except pparse.EndOfDataException as e:
             pass
-        except UnsupportedFormatException:
+        except pparse.UnsupportedFormatException:
             raise
 
         # TODO: Do all the children.

@@ -397,36 +397,14 @@ class Data():
 
 # Generic artifact that ties parsers to cursor-ed data.
 class Extraction():
-    def __init__(self, source: Optional['Extraction'] = None, reader: Reader = None, name: str = None):
-
-        if (source is None and reader is None) or (source and reader):
-            raise ValueError("Only one of source or data can be non-None.")
-
-        # ! Bug here ... what if source and reader are None?
-        if not source:
-            # This instance is the root Extraction.
-            self._reader = reader.dup()
-        if not reader:
-            self._reader = source.open()
+    def __init__(self, name: str = None, source: Optional['Extraction'] = None):
 
         # The extraction we came from. Detect parser via source.
         self._source: Optional['Extraction'] = source
-
         self._name: Optional[str] = name
         self._parser = {} # parsers by id
         self._result = {} # results by id
         self._extractions = []
-
-        # This cursor is only used for dup() and tell()
-        self._reader = reader
-    
-
-    def open(self):
-        return self._reader.dup()
-
-    
-    def tell(self):
-        return self._reader.tell()
 
 
     def name(self):
@@ -469,21 +447,49 @@ class Extraction():
         return self
 
 
-    # def _scan_children(self):
-    #     try:
-    #         parser_reg = {
-    #             'json': LazyJsonParser,
-    #             'safetensors': Parser,
-    #         }
-    #         for extraction in self.source._extractions:
-    #             extraction.discover_parsers(parser_reg).scan_data()
-    #     except EndOfDataException:
-    #         print("END OF DATA")
-    #         pass
-    #     except Exception as e:
-    #         print(e)
-    #         import traceback
-    #         traceback.print_exc()
+# Generic artifact that ties parsers to cursor-ed data.
+class BytesExtraction(Extraction):
+    def __init__(self, name: str = None, source: Optional['Extraction'] = None, reader: Reader = None):
+
+        super().__init__(name, source)
+
+        if (source is None and reader is None) or (source and reader):
+            raise ValueError("Only one of source or data reader can be non-None.")
+        if not source:
+            # 'self' is the root Extraction.
+            self._reader = reader.dup()
+        if not reader:
+            self._reader = source.open()
+
+        # self._reader cursor is only used for dup() and tell()
+        self._reader = reader
+    
+
+    def open(self):
+        return self._reader.dup()
+
+    
+    def tell(self):
+        return self._reader.tell()
+
+
+
+# class FolderExtraction(Extraction):
+#     def __init__(self, name: str = None, source: Optional['Extraction'] = None, path=None):
+
+#         super().__init__(name, source)
+
+#         if (source is None and reader is None) or (source and reader):
+#             raise ValueError("Only one of source or data reader can be non-None.")
+#         if not source:
+#             # 'self' is the root Extraction.
+#             self._reader = reader.dup()
+#         if not reader:
+#             self._reader = source.open()
+
+#         # self._reader cursor is only used for dup() and tell()
+#         self._reader = reader
+
 
 
 '''
