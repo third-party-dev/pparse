@@ -9,6 +9,7 @@ if [ ! -f "./ml-venv" ]; then
 fi
 source ./ml-venv/bin/activate
 
+pip show pytest &>/dev/null || pip install pytest
 pip show protobuf &>/dev/null || pip install protobuf
 pip show numpy &>/dev/null || pip install numpy
 #pip install torch --index-url https://download.pytorch.org/whl/cpu

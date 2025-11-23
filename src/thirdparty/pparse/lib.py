@@ -3,8 +3,10 @@
 import os
 import stat
 from pprint import pprint
-
 from typing import Optional
+import logging
+log = logging.getLogger(__name__)
+
 from thirdparty.pparse.utils import has_mmap, mmap, hexdump
 
 PARSERS = {}
@@ -400,6 +402,7 @@ class Extraction():
         if (source is None and reader is None) or (source and reader):
             raise ValueError("Only one of source or data can be non-None.")
 
+        # ! Bug here ... what if source and reader are None?
         if not source:
             # This instance is the root Extraction.
             self._reader = reader.dup()

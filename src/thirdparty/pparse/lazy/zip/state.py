@@ -3,16 +3,12 @@
 import struct
 import zlib
 import io
+import logging
+log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.zip.meta import Zip
 from thirdparty.pparse.lazy.zip.node import Node, NodeMap, NodeArray
-
-
-
-def trace(*args, **kwargs):
-    print(*args, **kwargs)
-    pass
 
 
 class ZipParsingState(object):
@@ -79,9 +75,9 @@ class ZipParsingContinueDecompress(ZipParsingState):
         buffer = ctx.node().value
         # TODO: Is this a MemoryView or copy?
         data = ctx.peek(ctx.left())
-        trace(f"Looking at {meta['fname']} data. Length: {len(data)}")
+        log.debug(f"Looking at {meta['fname']} data. Length: {len(data)}")
         (used, unused, eof) = self.decompress_data(ctx, data)
-        trace(f"Decompress data results: used {used} unused {unused} eof {eof}")
+        log.debug(f"Decompress data results: used {used} unused {unused} eof {eof}")
 
         ctx.skip(used)
         if eof:
@@ -94,12 +90,12 @@ class ZipParsingContinueDecompress(ZipParsingState):
             if self._has_desc or self._found_desc(ctx):
                 parser._end_container_node(ctx)
                 ctx.parent_ctx()._next_state(ZipParsingDataDescFooter)
-                trace(f"End Of File Compression via footer desc (length {ctx.node().length()})")
+                log.debug(f"End Of File Compression via footer desc (length {ctx.node().length()})")
                 return
             else:
                 parser._end_container_node(ctx)
                 ctx.parent_ctx()._next_state(ZipParsingFinishDecompress)
-                trace(f"End Of File Compression via EOF marker (length {ctx.node().length()})")
+                log.debug(f"End Of File Compression via EOF marker (length {ctx.node().length()})")
                 return
 
     def _decompress_data(self, ctx: 'NodeContext', comp_data):
@@ -172,13 +168,13 @@ class ZipParsingStartDecompress(ZipParsingState):
         ctx.node().value['decomp_data'] = newnode
         parser.current = newnode
 
-        trace(f"Done initializing new Node for decompression for: {ctx.node().value['fname']}")
+        log.debug(f"Done initializing new Node for decompression for: {ctx.node().value['fname']}")
 
 
 class ZipParsingEntryExtra(ZipParsingState):
     def parse_data(self, parser: 'Parser', ctx: 'NodeContext'):
         if not isinstance(ctx.node(), NodeMap):
-            trace("Expected NodeMap parsing EntryFilename")
+            log.debug("Expected NodeMap parsing EntryFilename")
             breakpoint()
 
         meta = ctx.node().value
@@ -190,14 +186,14 @@ class ZipParsingEntryExtra(ZipParsingState):
         ctx.skip(extra_len)
         meta['extra'] = data[:extra_len]
 
-        trace(f'Done getting extra data for: {meta['fname']}')
+        log.debug(f'Done getting extra data for: {meta['fname']}')
         ctx._next_state(ZipParsingStartDecompress)
 
 
 class ZipParsingEntryFilename(ZipParsingState):
     def parse_data(self, parser: 'Parser', ctx: 'NodeContext'):
         if not isinstance(ctx.node(), NodeMap):
-            trace("Expected NodeMap parsing EntryFilename")
+            log.debug("Expected NodeMap parsing EntryFilename")
             breakpoint()
 
         meta = ctx.node().value
@@ -209,14 +205,14 @@ class ZipParsingEntryFilename(ZipParsingState):
         ctx.skip(fname_len)
         meta['fname'] = data[:fname_len].decode('utf-8')
 
-        trace(f"Done getting filename for new file: {meta['fname']}")
+        log.debug(f"Done getting filename for new file: {meta['fname']}")
         ctx._next_state(ZipParsingEntryExtra)
 
 
 class ZipParsingEntryHeader(ZipParsingState):
     def parse_data(self, parser: 'Parser', ctx: 'NodeContext'):
         if not isinstance(ctx.node(), NodeMap):
-            trace("Expected NodeMap parsing Header")
+            log.debug("Expected NodeMap parsing Header")
             breakpoint()
 
         data = ctx.peek(Zip.HEADER_LEN)
@@ -230,7 +226,7 @@ class ZipParsingEntryHeader(ZipParsingState):
           meta['fname_len'], meta['extra_len'],
         ) = struct.unpack('<HHHHHIIIHH', data[:Zip.HEADER_LEN])
 
-        trace("Done getting header for new file")
+        log.debug("Done getting header for new file")
         ctx._next_state(ZipParsingEntryFilename)
 
 
@@ -252,7 +248,7 @@ class ZipParsingMagic(ZipParsingState):
         if data[0:4] == Zip.SIGNATURE:
 
             if not isinstance(parser.current, NodeArray):
-                trace("Expected NodeArray")
+                log.debug("Expected NodeArray")
                 breakpoint()
 
             newmap = NodeMap(parser.current, ctx.reader())

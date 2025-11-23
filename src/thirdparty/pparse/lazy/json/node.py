@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import logging
+log = logging.getLogger(__name__)
+
 from thirdparty.pparse.lazy.json.state import JsonParsingState, JsonParsingStart
 from thirdparty.pparse.lib import NodeContext as BaseNodeContext
 from thirdparty.pparse import lib as pparse

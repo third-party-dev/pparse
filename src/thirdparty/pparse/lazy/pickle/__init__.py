@@ -4,15 +4,15 @@ import sys
 import os
 import io
 from typing import Optional
+import logging
+log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.pickle.node import NodePickleArray
 from thirdparty.pparse.lazy.pickle.state import PickleParsingPickleStream
 
 
-def trace(*args, **kwargs):
-    print(*args, **kwargs)
-    pass
+
 
 
 class Parser(pparse.Parser):
@@ -44,7 +44,7 @@ class Parser(pparse.Parser):
     def _end_container_node(self, ctx):
         parent = ctx._parent
         if parent:
-            trace(f"end_container (off:{ctx.tell()}): Backtracking to parent {parent}.")
+            log.debug(f"end_container (off:{ctx.tell()}): Backtracking to parent {parent}.")
 
             # Set the end pointer to advance parent past field.
             ctx.mark_end()

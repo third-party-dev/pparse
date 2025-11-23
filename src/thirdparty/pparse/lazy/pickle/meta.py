@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import logging
+log = logging.getLogger(__name__)
+
 def ins_def(alias, lbytes=0, pbytes=0, fmt=''):
     return {
         'alias': alias,

@@ -4,16 +4,13 @@ import sys
 import os
 import io
 from typing import Optional
+import logging
+log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.protobuf.meta import OnnxPb, Protobuf
 from thirdparty.pparse.lazy.protobuf.node import Node, NodeMap, NodeArray
 from thirdparty.pparse.lazy.protobuf.state import ProtobufParsingKey
-
-
-def trace(*args, **kwargs):
-    print(*args, **kwargs)
-    pass
 
 
 proto = OnnxPb()
@@ -133,7 +130,7 @@ def make_protobuf_parser(ext_list=[], init_msgtype=''):
 
         def _apply_value(self, ctx, field, value):
             if isinstance(self.current, NodeArray):
-                trace(f"apply_value (off:{ctx.tell()}): Inside {self.current}. Append value.")
+                log.debug(f"apply_value (off:{ctx.tell()}): Inside {self.current}. Append value.")
                 self.current.value.append(value)
                 return
 
@@ -141,13 +138,13 @@ def make_protobuf_parser(ext_list=[], init_msgtype=''):
                 
                 # TODO: Is this a good place to determine if we Node-ify a value?
 
-                trace(f"apply_value (off:{ctx.tell()}): Inside {self.current}. Set value to key {field.name}.")
+                log.debug(f"apply_value (off:{ctx.tell()}): Inside {self.current}. Set value to key {field.name}.")
                 ctx.just_set_node = isinstance(value, Node)
                 ctx.just_set_field = field
                 self.current.value[field.name] = value
                 return
 
-            trace(f"UNLIKELY!! apply_value (off:{ctx.tell()}): Create arr as top level object.")
+            log.debug(f"UNLIKELY!! apply_value (off:{ctx.tell()}): Create arr as top level object.")
             breakpoint()
 
 
@@ -158,15 +155,15 @@ def make_protobuf_parser(ext_list=[], init_msgtype=''):
             newmap = NodeMap(parent, ctx.reader(), proto.by_type_name(field.type_name))
 
             if isinstance(self.current, NodeArray):
-                trace(f"start_map (off:{ctx.tell()}): Inside Array. Append new map to current array.")
+                log.debug(f"start_map (off:{ctx.tell()}): Inside Array. Append new map to current array.")
                 self.current.value.append(newmap)
                 self.current = newmap
             elif isinstance(self.current, NodeMap):
-                trace(f"start_map (off:{ctx.tell()}): Inside Map. Add new map to current map as {field.name}.")
+                log.debug(f"start_map (off:{ctx.tell()}): Inside Map. Add new map to current map as {field.name}.")
                 parent.value[field.name] = newmap
                 self.current = parent.value[field.name]
             else:
-                trace(f"start_map (off:{ctx.tell()}): Create map as top level object.")
+                log.debug(f"start_map (off:{ctx.tell()}): Create map as top level object.")
                 parent.value = newmap
                 self.current = newmap
 
@@ -174,7 +171,7 @@ def make_protobuf_parser(ext_list=[], init_msgtype=''):
         def _end_container_node(self, ctx):
             parent = ctx._parent
             if parent:
-                trace(f"end_container (off:{ctx.tell()}): Backtracking to parent {parent}.")
+                log.debug(f"end_container (off:{ctx.tell()}): Backtracking to parent {parent}.")
 
                 # Set the end pointer to advance parent past field.
                 ctx.mark_end()

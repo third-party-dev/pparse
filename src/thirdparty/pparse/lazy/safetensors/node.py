@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import logging
+log = logging.getLogger(__name__)
+
 from thirdparty.pparse.lazy.safetensors.state import SafetensorsParsingLength
 from thirdparty.pparse import lib as pparse
 

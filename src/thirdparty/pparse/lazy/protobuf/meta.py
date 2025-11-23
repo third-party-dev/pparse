@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+import logging
+log = logging.getLogger(__name__)
+breakpoint()
+
 from google.protobuf import descriptor_pb2
 
 

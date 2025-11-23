@@ -1,5 +1,7 @@
 import sys
 import os
+import logging
+log = logging.getLogger(__name__)
 
 from thirdparty.pparse.lib import (
     EndOfDataException,
@@ -78,10 +80,6 @@ Ideally, the nodes will minimize the state that they keep about themselves:
 Nodes have states: scanning -> shelf -> parsing -> loaded -> shelf -> ...
 '''
 
-def trace(*args, **kwargs):
-    print(*args, **kwargs)
-    pass
-
 
 class Parser(pparse.Parser):
 
@@ -118,10 +116,10 @@ class Parser(pparse.Parser):
             for extraction in self.source()._extractions:
                 extraction.discover_parsers(parser_reg).scan_data()
         except EndOfDataException:
-            print("END OF DATA")
+            log.debug("END OF DATA")
             pass
         except Exception as e:
-            print(e)
+            log.debug(e)
             import traceback
             traceback.print_exc()
 
@@ -142,7 +140,7 @@ class Parser(pparse.Parser):
         # Scan all the extractions.
         self._scan_children()
 
-        print("DONE SCANNING CHILDREN")
+        log.debug("DONE SCANNING CHILDREN")
 
         # TODO: Consider traversing all tensors in safetensors and creating
         # nodes that point to tensor data in the original Data

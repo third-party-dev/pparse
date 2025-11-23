@@ -1,5 +1,7 @@
 import sys
 import os
+import logging
+log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.zip.node import NodeArray
@@ -69,10 +71,6 @@ Ideally, the nodes will minimize the state that they keep about themselves:
 Nodes have states: scanning -> shelf -> parsing -> loaded -> shelf -> ...
 '''
 
-def trace(*args, **kwargs):
-    print(*args, **kwargs)
-    pass
-
 
 class Parser(pparse.Parser):
 
@@ -103,7 +101,7 @@ class Parser(pparse.Parser):
     def _end_container_node(self, ctx):
         parent = ctx._parent
         if parent:
-            trace(f"end_container (off:{ctx.tell()}): Backtracking to parent.")
+            log.debug(f"end_container (off:{ctx.tell()}): Backtracking to parent.")
 
             # Set the end pointer to advance parent past field.
             ctx.mark_end()

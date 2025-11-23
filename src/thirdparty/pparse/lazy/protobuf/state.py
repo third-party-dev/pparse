@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 
 import struct
+import logging
+log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.protobuf.meta import OnnxPb, Field, Protobuf
 from thirdparty.pparse.lazy.protobuf.node import Node, NodeContext, NodeMap, NodeArray
-
-
-def trace(*args, **kwargs):
-    #print(*args, **kwargs)
-    pass
 
 
 def unzigzag(v):
@@ -130,19 +127,19 @@ class ProtobufParsingKey(ProtobufParsingState):
         else: #UNLIKELY
             breakpoint()
 
-        trace(f"\nPROCESSING FIELD (off: {ctx.tell()} left: {ctx.left()}): {field.name}   {field.type_name}\n")
+        log.debug(f"\nPROCESSING FIELD (off: {ctx.tell()} left: {ctx.left()}): {field.name}   {field.type_name}\n")
 
         if isinstance(parser.current, NodeArray) and \
                 ctx.key() and field.name != ctx.key().name:
             # Pop NodeArray if complete, but not done with parent NodeMap.
-            trace(f"Ending NodeArray for repeated field {ctx.key().name}")
+            log.debug(f"Ending NodeArray for repeated field {ctx.key().name}")
             parser._end_container_node(ctx)
             return
 
         # The following things are in an array, set that up first.
         # Note: Assuming you can not do NodeArray.value = [NodeArray]
         if field.label == Field.LABEL_REPEATED and not isinstance(parser.current, NodeArray):
-            trace(f"Creating NodeArray for repeated field {field.name}")
+            log.debug(f"Creating NodeArray for repeated field {field.name}")
 
             ctx.mark_field_start()
             parent = parser.current
@@ -162,7 +159,7 @@ class ProtobufParsingKey(ProtobufParsingState):
         ctx.skip(meta_length)
 
         if field.type == Field.TYPE_MESSAGE and value_length:
-            trace(f"  LENGTH: {value_length} (meta_length: {meta_length}) range: {ctx.tell()} - {ctx.tell()+value_length}")
+            log.debug(f"  LENGTH: {value_length} (meta_length: {meta_length}) range: {ctx.tell()} - {ctx.tell()+value_length}")
 
             # Create the new node and make it active.
             parser._start_map_node(ctx, field)
@@ -198,11 +195,11 @@ class ProtobufParsingKey(ProtobufParsingState):
         if field.type == Field.TYPE_STRING and wire_type == Protobuf.LEN:
             data = ctx.read(value_length)
             if len(data) <= 40:
-                trace(f'Whole String: {data}')
+                log.debug(f'Whole String: {data}')
             else:
-                trace(f'Part of String (length {len(data)}): {data.decode('utf-8')[:40]}')
+                log.debug(f'Part of String (length {len(data)}): {data.decode('utf-8')[:40]}')
 
-            trace(f'String: {data}')
+            log.debug(f'String: {data}')
             if (value_length > 0 and not data) or len(data) < value_length:
                 msg = "Not enough data to parse Protobuf LEN data. " \
                     f"Offset: {ctx.tell()} Read: {len(data)} of {value_length}"
@@ -215,9 +212,9 @@ class ProtobufParsingKey(ProtobufParsingState):
         if field.type == Field.TYPE_BYTES:
             data = ctx.read(value_length)
             if len(data) <= 40:
-                trace(f'All Bytes: {data}')
+                log.debug(f'All Bytes: {data}')
             else:
-                trace(f'First Bytes (length {len(data)}): {data[:40]}')
+                log.debug(f'First Bytes (length {len(data)}): {data[:40]}')
 
             if (value_length > 0 and not data) or len(data) < value_length:
                 msg = "Not enough data to parse Protobuf LEN data. " \
@@ -229,7 +226,7 @@ class ProtobufParsingKey(ProtobufParsingState):
             ctx._next_state(ProtobufParsingKey)
             return
 
-        trace("UNKNOWN FIELD OR WIRE TYPE")
+        log.debug("UNKNOWN FIELD OR WIRE TYPE")
         breakpoint()
     
         msg = f"Not a valid Protobuf wire type. Type: {wire_type} ({Protobuf.wire_type_str[wire_type]})"

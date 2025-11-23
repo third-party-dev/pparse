@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import logging
+log = logging.getLogger(__name__)
+
 class Zip():
     SIGNATURE = b'PK\x03\x04'
     DIR_SIG = b'PK\x05\x06'

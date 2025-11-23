@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import json
+import logging
+log = logging.getLogger(__name__)
 
 from thirdparty.pparse.lib import (
     EndOfDataException,

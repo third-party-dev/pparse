@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import logging
+log = logging.getLogger(__name__)
+
 #from thirdparty.pparse.lazy.protobuf import ProtobufParsingState, ProtobufParsingKey
 from thirdparty.pparse.lib import NodeContext as BaseNodeContext
 import thirdparty.pparse.lib as pparse

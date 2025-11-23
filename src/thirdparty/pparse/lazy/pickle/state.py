@@ -2,15 +2,12 @@
 
 import struct
 from pprint import pprint
+import logging
+log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.pickle.meta import PklOp
 from thirdparty.pparse.lazy.pickle.node import NodePickleArray, NodePickle
-
-
-def trace(*args, **kwargs):
-    print(*args, **kwargs)
-    pass
 
 
 class PickleParsingState():
@@ -256,7 +253,7 @@ class PickleInterpreter(PickleParsingState):
             # TODO: Record instructions that involve tuple.
             return
 
-        trace(f"Unhandled Opcode: {op}")
+        log.debug(f"Unhandled Opcode: {op}")
         breakpoint()
         
 class PickleParsingOpCode(PickleParsingState):
@@ -306,6 +303,6 @@ class PickleParsingPickleStream(PickleParsingState):
         newpkl.ctx()._next_state(PickleParsingOpCode)
         parent.value.append(newpkl)
         parser.current = newpkl
-        trace("Starting new pkl stream.")
+        log.debug("Starting new pkl stream.")
 
 

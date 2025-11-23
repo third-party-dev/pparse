@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import struct
+import logging
+log = logging.getLogger(__name__)
 
 from thirdparty.pparse.lib import (
     EndOfDataException,
@@ -9,10 +11,6 @@ from thirdparty.pparse.lib import (
     Extraction,
     Range,
 )
-
-def trace(*args, **kwargs):
-    print(*args, **kwargs)
-    pass
 
 class SafetensorsParsingState(object):
     def parse_data(self, parser: 'Parser', ctx: 'NodeContext'):
@@ -57,7 +55,7 @@ class SafetensorsParsingLength(SafetensorsParsingState):
         # Store header length in NodeInit
         header_length = struct.unpack('<Q', data)[0]
         ctx.node().header_length = header_length
-        trace(f"Safetensors Header Length: {ctx.node().header_length}")
+        log.debug(f"Safetensors Header Length: {ctx.node().header_length}")
         ctx.skip(8)
             
         # TODO: Add extraction for json parser

@@ -3,6 +3,8 @@
 import os
 import struct
 import numpy
+import logging
+log = logging.getLogger(__name__)
 
 from thirdparty.pparse.lib import Data, Extraction, EndOfDataException
 from thirdparty.pparse.lazy.json import Parser as LazyJsonParser

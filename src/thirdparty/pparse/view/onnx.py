@@ -2,10 +2,13 @@
 
 import os
 import struct
+import logging
+log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.protobuf import make_protobuf_parser
 from thirdparty.pparse.lazy.protobuf.node import Node, NodeMap, NodeArray
+
 
 '''
   Bulk tensor data is stored in GraphProto.initializer = []

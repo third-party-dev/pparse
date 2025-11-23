@@ -14,3 +14,4 @@ namespaces = true
 
 #[project.scripts]
 #mycli = "mypackage.cli:main"
+

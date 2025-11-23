@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import logging
+log = logging.getLogger(__name__)
+
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lib import NodeContext as BaseNodeContext
 

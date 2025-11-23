@@ -1,5 +1,8 @@
 import io
 
+import logging
+log = logging.getLogger(__name__)
+
 def has_mmap():
     try:
         import mmap

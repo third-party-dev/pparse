@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
+import logging
+log = logging.getLogger(__name__)
+
 #from thirdparty.pparse.lazy.protobuf import ProtobufParsingState, ProtobufParsingKey
 import thirdparty.pparse.lib as pparse
-
-
-def trace(*args, **kwargs):
-    print(*args, **kwargs)
-    pass
 
 
 class NodeContext(pparse.NodeContext):
