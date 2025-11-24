@@ -4,3 +4,10 @@ clutter/
 **.egg-info
 **/__pycache__/
 output.txt
+**.safetensors
+**.json
+**.bin
+**.pt
+**.tflite
+**.onnx
+**.msgpack
