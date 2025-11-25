@@ -6,7 +6,7 @@ In brief, I wanted a framework for parsing incomplete data. A real world example
 
 1. Decompress the GZ as much as possible. Keeping partial results!
 2. Extract as many of the tar entries as possible. Keeping partial or truncated results!
-3. Assuming we have some of the zip file, extract as many of the zip entries as possible, independent of the footer index! And keelping partial and truncated results!
+3. Assuming we have some of the zip file, extract as many of the zip entries as possible, independent of the footer index! And keeping partial and truncated results!
 
 I've found that, in practice, parsers are written or generated with the assumption that both the raw data and the parsed data must fit into memory all at once. This is a great model if we're talking about small collections of network packets. But when we want to parse large archives and other binaries, we need to reconsider how we manage the parsed data.
 
@@ -101,7 +101,7 @@ Safetensors is a uint64_t (8-byte) `header_length`, followed by JSON of `header_
 
 For usability, a single model serialized into safetensors can be shared across multiple safetensor files. These safetensor files are loosely bound by a index JSON file. The index JSON is a map with 2 keys, `__metadata__` and `weight_map`. The keys within the `weight_map` map are the names of all the tensors managed by the index JSON. The value of each tensor entry is the safetensors file that contains the tensor header and data.
 
-### Parser Implmentation
+### Parser Implementation
 
 There are 3 parsers involved with parsing safetensors:
 
@@ -134,7 +134,7 @@ TODO: Consider TorchScript python code processing:
 There are at least 2 parsers involved with parsing pytorch files:
 
 - thirdparty.pparse.lazy.zip.Parser - Parses the outer zip file of the PyTorch file.
-- thirdparty.pparse.lazy.pickle.Parser - Parsers the pickle index file for the PyTorch tensors.
+- thirdparty.pparse.lazy.pickle.Parser - Parses the pickle index file for the PyTorch tensors.
 
 With built-in (safe) pparse pickle parser code, pparse can interpret the entire pickle to get all of the tensor names. Given that pparse understands the dependent calls made by the PyTorch pickle (using conventional pytorch access methods), pparse should also be able to reference and read in the tensor data each tensor entry refers too.
 
@@ -162,7 +162,7 @@ TODO: Support onnx external data references (required for Onnx files > 2GiB/4GiB
 
 **Not Started**
 
-The viewer for Onnx, like other viewers, is able to list the _named_ tensors and generate `Tensor` objects that represent a single tensor. The `Tensor` object will then be responsible for its attributes, shape, data type, data, and numpy object returns. Onnx additionally has many other TensorProto message that are part of the embedded computational graph and are not named. These are not currently reference-able via the standard `Tensor` object API. Instead, they must be dereferenced explicitly via the Node tree produced by the parser.
+The viewer for Onnx, like other viewers, is able to list the _named_ tensors and generate `Tensor` objects that represent a single tensor. The `Tensor` object will then be responsible for its attributes, shape, data type, data, and numpy object returns. Onnx additionally has many other TensorProto messages that are part of the embedded computational graph and are not named. These are not currently reference-able via the standard `Tensor` object API. Instead, they must be dereferenced explicitly via the Node tree produced by the parser.
 
 
 ## Lessons Learned

@@ -6,12 +6,10 @@ import numpy
 import logging
 log = logging.getLogger(__name__)
 
-from thirdparty.pparse.lib import Data, Extraction, EndOfDataException
+import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.json import Parser as LazyJsonParser
 from thirdparty.pparse.lazy.safetensors import Parser as LazySafetensorsParser
-
-import thirdparty.pparse.lib as pparse
-
+from thirdparty.pparse.lazy.safetensors.index import Parser as LazySafetensorsIndexParser
 
 class Tensor():
 
@@ -92,14 +90,11 @@ class Tensor():
 
 
 class SafeTensors():
-    PARSER_REGISTRY = {
-        'json': LazyJsonParser,
-        'safetensors': LazySafetensorsParser,
-    }
+    PARSER_REGISTRY = { 'safetensors': LazySafetensorsParser, }
 
 
-    def __init__(self):
-        self._extraction = None
+    def __init__(self, extraction=None):
+        self._extraction = extraction
 
 
     def header_length(self):
@@ -138,15 +133,21 @@ class SafeTensors():
         return Tensor(self, hdr_map[name])
 
 
+    def tensor_names(self):
+        tensor_dict = self._extraction._extractions[0]._result['json'].value.value
+        return [k for k in tensor_dict if k != "__metadata__"]
+        #return self.header().keys()
+
+
     def open_fpath(self, fpath):
         try:
-            cursor = Data(path=fpath).open()
+            cursor = pparse.Data(path=fpath).open()
             length = os.path.getsize(fpath)
             rrange = pparse.Range(cursor, length)
-            self._extraction = Extraction(reader=rrange, name=fpath)
+            self._extraction = pparse.BytesExtraction(name=fpath, reader=rrange)
             self._extraction.discover_parsers(SafeTensors.PARSER_REGISTRY)
             self._extraction.scan_data()
-        except EndOfDataException:
+        except pparse.EndOfDataException:
             pass
         except Exception as e:
             print(e)
@@ -156,7 +157,58 @@ class SafeTensors():
         return self
 
 
-# TODO: Implement this.
 class SafeTensorsIndex():
+    PARSER_REGISTRY = {'safetensors_index': LazySafetensorsIndexParser}
+
     def __init__(self):
-        raise NotImplemented("SafeTensorsIndex not implemented yet.")
+        self._extraction = None
+        self._safetensors_files = {}
+
+
+    def safetensors_names(self):
+        return self._safetensors_files.keys()
+
+
+    def safetensors(self, name):
+        return self._safetensors_files[name]
+
+
+    def metadata(self):
+        if not self._extraction:
+            raise Exception("No parsed extraction found.")
+
+        return self._extraction._result['safetensors_index'].value.value['metadata']
+
+
+    def tensor(self, name):
+        fname = self._extraction._result['safetensors_index'].value.value['weight_map'].value[name]
+        return self._safetensors_files[fname].tensor(name)
+
+
+    def tensor_names(self):
+        return self._extraction._result['safetensors_index'].value.value['weight_map'].value.keys()
+
+
+    # fpath - Index file.
+    def open_fpath(self, fpath):
+        try:
+
+            # Process the index file.
+            idx_data = pparse.Data(path=fpath)
+            idx_range = pparse.Range(idx_data.open(), idx_data.length)
+            self._extraction = pparse.BytesExtraction(name=fpath, reader=idx_range)
+            self._extraction.discover_parsers(SafeTensorsIndex.PARSER_REGISTRY)
+            self._extraction.scan_data()
+
+            # Create SafeTensor objects
+            for st_extr in self._extraction._extractions:
+                self._safetensors_files[st_extr.name()] = SafeTensors(st_extr)
+
+        except pparse.EndOfDataException:
+            pass
+        except Exception as e:
+            print(e)
+            import traceback
+            traceback.print_exc()
+
+        return self

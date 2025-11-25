@@ -548,7 +548,7 @@ class BytesExtraction(Extraction):
 '''
 
 # Base Parser for Extraction parsers.
-class Parser(Reader):
+class Parser():
 
     def __init__(self, source: Extraction, id: str):
         if not isinstance(source, Extraction):

@@ -15,7 +15,7 @@ lot: true
 code-block-font-size: \scriptsize
 watermark: Work In Progress
 watermark-color: "gray!90"
-title: "Android Application Analysis"
+title: "Partial Parsing"
 # abstract: "Android Application Analysis"
 author: Vinnie
 date: "2025"

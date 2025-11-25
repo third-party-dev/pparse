@@ -3,17 +3,8 @@ import os
 import logging
 log = logging.getLogger(__name__)
 
-from thirdparty.pparse.lib import (
-    EndOfDataException,
-    UnsupportedFormatException,
-    EndOfNodeException
-)
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.safetensors.node import (
-    Node,
-    NodeInit,
-)
-
+from thirdparty.pparse.lazy.safetensors.node import Node, NodeInit
 from thirdparty.pparse.lazy.json import Parser as LazyJsonParser
 
 
@@ -83,6 +74,10 @@ Nodes have states: scanning -> shelf -> parsing -> loaded -> shelf -> ...
 
 class Parser(pparse.Parser):
 
+    # safetensors parser will only ever extract JSON header.
+    PARSER_REGISTRY = { 'json': LazyJsonParser }
+
+
     @staticmethod
     def match_extension(fname: str):
         if not fname:
@@ -108,14 +103,9 @@ class Parser(pparse.Parser):
 
     def _scan_children(self):
         try:
-            # TODO: Determine a better way to manage the parser registry.
-            parser_reg = {
-                'json': LazyJsonParser,
-                'safetensors': Parser,
-            }
             for extraction in self.source()._extractions:
-                extraction.discover_parsers(parser_reg).scan_data()
-        except EndOfDataException:
+                extraction.discover_parsers(Parser.PARSER_REGISTRY).scan_data()
+        except pparse.EndOfDataException:
             log.debug("END OF DATA")
             pass
         except Exception as e:
@@ -130,11 +120,11 @@ class Parser(pparse.Parser):
         try:
             while True:
                 self.current.ctx().state().parse_data(self, self.current.ctx())
-        except EndOfNodeException as e:
+        except pparse.EndOfNodeException as e:
             pass
-        except EndOfDataException as e:
+        except pparse.EndOfDataException as e:
             pass
-        except UnsupportedFormatException:
+        except pparse.UnsupportedFormatException:
             raise
 
         # Scan all the extractions.

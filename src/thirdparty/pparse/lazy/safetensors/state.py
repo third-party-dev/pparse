@@ -52,8 +52,6 @@ class SafetensorsParsingLength(SafetensorsParsingState):
         ctx.node().header_length = header_length
         log.debug(f"Safetensors Header Length: {ctx.node().header_length}")
         ctx.skip(8)
-
-        breakpoint()
             
         # TODO: Add extraction for json parser
         # Given name to attract parser only.
