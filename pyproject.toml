@@ -12,8 +12,23 @@ requires-python = ">=3.7"
 where = ["src"]
 namespaces = true
 
-#[project.scripts]
-#mycli = "mypackage.cli:main"
+[project.scripts]
+pparse = "thirdparty.pparse.cli:main"
 
-[project.entry-points."yannt.commands"]
-pparse = "thirdparty.pparse.yannt.plugin:register"
+[project.entry-points."yannt_command"]
+# Register pparse as a yannt subcommand
+pparse = "thirdparty.pparse.cli.yannt_plugin:register_pparse"
+
+[project.entry-points."pparse_command"]
+
+# Register safetensors as a pparse subcommand
+safetensors = "thirdparty.pparse.cli.pparse_safetensors:register_pparse_safetensors"
+
+# Register pytorch as a pparse subcommand
+pytorch = "thirdparty.pparse.cli.pparse_pytorch:register_pparse_pytorch"
+
+# Register transformers as a pparse subcommand
+transformers = "thirdparty.pparse.cli.pparse_transformers:register_pparse_transformers"
+
+# Register ident as a pparse subcommand
+ident = "thirdparty.pparse.cli.pparse_ident:register_pparse_ident"

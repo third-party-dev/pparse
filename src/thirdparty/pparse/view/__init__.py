@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
 
 from thirdparty.pparse.view.safetensors import SafeTensors
-from thirdparty.pparse.view.onnx import Onnx
+
+# ! BUG: Creating PARSER_REGISTRY in Onnx() assumes a relative file path.
+#from thirdparty.pparse.view.onnx import Onnx

@@ -91,6 +91,18 @@ typedb = {
             'Serializes to Protobuf, ONNX, PyTorch, Pickle'
         ],
     },
+    'cambricon': {
+        'exts': ['.cambricon'],
+        'name': 'Cambricon (model/accelerator context)',
+        'maintainer': 'Cambricon Technologies (company)',
+        'purpose': 'Hardware and software for AI inference on Cambricon NPUs (neural processing units).',
+        'links': [
+            'https://www.cambricon.com',
+        ],
+        'notes': [
+            'Serialization format: Hardware‑specific compiled binaries or proprietary formats for its NPUs (not a common exchange format).',
+        ],
+    },
     'catboost': {
         'exts': ['.cbm'],
         'name': 'CatBoost ML',
@@ -219,6 +231,7 @@ typedb = {
     
     # TODO: DMN/PMML DOT?
 
+    # TODO: Try harder.
     'espresso': {
         'exts': ['.espresso.net', '.espresso.shape', '.espresso.weights'],
         # ['.mlmodelc']);
@@ -416,415 +429,472 @@ typedb = {
     },
     'mlir': {
         'exts': ['.mlir', '.mlir.txt', '.mlirbc', '.txt'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'MLIR',
+        'maintainer': 'LLVM community / Google contributors',
+        'purpose': 'Intermediate representation for compiling and optimizing ML models.',
         'links': [
-            '',
+            'https://mlir.llvm.org',
+            'https://github.com/llvm/llvm-project',
         ],
         'notes': [
-            '',
+            'Text/binary IR files (.mlir), compiler IR.',
         ],
     },
     'mlnet': {
         'exts': ['.zip', '.mlnet'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'ML.NET',
+        'maintainer': 'Microsoft / .NET community.',
+        'purpose': '.NET framework for ML training and inference.',
         'links': [
-            '',
+            'https://dotnet.microsoft.com/en-us/apps/machinelearning-ai/ml-dotnet',
+            'https://github.com/dotnet/machinelearning',
         ],
         'notes': [
-            '',
+            'Binary .zip models (contains protobuf + metadata).',
         ],
     },
     'mnn': {
         'exts': ['.mnn'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'MNN',
+        'maintainer': 'Alibaba',
+        'purpose': 'Mobile neural network inference framework.',
         'links': [
-            '',
+            'https://www.mnn.zone',
+            'https://github.com/alibaba/MNN',
         ],
         'notes': [
-            '',
+            'Binary .mnn files.',
         ],
     },
     'mslite': {
         'exts': ['.ms', '.bin'],
         # [], [/^....MSL0/, /^....MSL1/, /^....MSL2/]);
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'MSLite',
+        'maintainer': 'MindSpore / Huawei.',
+        'purpose': 'Lightweight MindSpore inference engine for edge devices.',
         'links': [
-            '',
+            'https://www.mindspore.cn/',
+            'https://gitee.com/mindspore/mindspore',
         ],
         'notes': [
-            '',
+            'MindSpore Lite model files (.ms / .mindir).',
         ],
     },
     'mxnet': {
         'exts': ['.json', '.params'],
         #['.mar']
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'MXNet',
+        'maintainer': 'Apache Software Foundation.',
+        'purpose': 'Deep learning framework for training/inference.',
         'links': [
-            '',
+            'https://mxnet.apache.org',
+            'https://github.com/apache/mxnet',
         ],
         'notes': [
-            '',
+            '.params + JSON symbol files.',
         ],
     },
     'ncnn': {
         'exts': ['.param', '.bin', '.cfg.ncnn', '.weights.ncnn', '.ncnnmodel'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'NCNN',
+        'maintainer': 'Tencent',
+        'purpose': 'Mobile inference framework for CNNs.',
         'links': [
-            '',
+            'https://ncnn.tencent.com/',
+            'https://github.com/Tencent/ncnn',
         ],
         'notes': [
-            '',
+            '.param + .bin binary files.',
         ],
     },
     'nnabla': {
         'exts': ['.nntxt'],
         # ['.nnp'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'NNabla',
+        'maintainer': 'Sony / open-source community.',
+        'purpose': 'Deep learning framework (Sony).',
         'links': [
-            '',
+            'https://nnabla.org/',
+            'https://github.com/sony/nnabla',
         ],
         'notes': [
-            '',
+            '.nnp (Neural Network Pack) files.',
+        ],
+    },
+    'nnc': {
+        'exts': ['.nnc'],
+        'name': 'NNC (Neural Network Coding / NNC Standard)',
+        'maintainer': 'ISO/IEC (MPEG) as part of the MPEG‑7 suite, with reference implementations by Fraunhofer HHI',
+        'purpose': 'Standard for compressing and representing neural networks efficiently (Neural Network Coding). ',
+        'links': [
+            'https://github.com/fraunhoferhhi/nncodec',
+        ],
+        'notes': [
+            'ISO/IEC 15938‑17 (MPEG‑7 Part 17) defines Neural Network Coding (NNC).',
         ],
     },
     'nnef': {
         'exts': ['.nnef', '.dat'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'NNEF',
+        'maintainer': 'Khronos Group.',
+        'purpose': 'Standard for exchanging neural network models across frameworks.',
         'links': [
-            '',
+            'https://www.khronos.org/nnef',
+            'https://github.com/KhronosGroup/NNEF-Tools',
         ],
         'notes': [
-            '',
+            'Text-based .nnef + binary weight files.',
         ],
     },
     'numpy': {
         'exts': ['.npz', '.npy', '.pkl', '.pickle', '.model', '.model2', '.mge', '.joblib'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'NumPy',
+        'maintainer': 'NumPy community.',
+        'purpose': 'General numeric computing; often used to store model weights.',
         'links': [
-            '',
+            'https://numpy.org',
+            'https://github.com/numpy/numpy',
         ],
         'notes': [
-            '',
+            'Serialization format: .npy / .npz.',
         ],
     },
     'om': {
         'exts': ['.om', '.onnx', '.pb', '.engine', '.bin'],
         # [], [/^IMOD/, /^PICO/]);
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'OM (Huawei MindSpore)',
+        'maintainer': 'MindSpore / Huawei.',
+        'purpose': 'Compiled model for MindSpore inference engine.',
         'links': [
-            '',
+            'https://www.mindspore.cn/',
+            'https://gitee.com/mindspore/mindspore',
         ],
         'notes': [
-            '',
+            'Serialization format: .om binary model files.',
         ],
     },
     'onednn': {
         'exts': ['.json'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'oneDNN',
+        'maintainer': 'Intel',
+        'purpose': 'CPU-optimized deep learning primitives library.',
         'links': [
-            '',
+            'https://oneapi-src.github.io/oneDNN/',
+            'https://github.com/oneapi-src/oneDNN',
         ],
         'notes': [
-            '',
+            'Low-level operator library; no standard model format.',
         ],
     },
     'onnx': {
         'exts': ['.onnx', '.onnx.data', '.onnx.meta', '.onn', '.pb', '.onnxtxt', '.pbtxt', '.prototxt', '.txt', '.model', '.pt', '.pth', '.pkl', '.ort', '.ort.onnx', '.ngf', '.json', '.bin', 'onnxmodel'],
         #'containers': [],
         #'contents': [/^\x08[\x00-\x10]\x12[\x00-\x20]\w\w/, /^\x08[\x00-\x10]\x12\x00\x1A/, /^\x08[\x00-\x10]\x3A/, /^\s*ir_version:\s\d+/, /^....ORTM/]);
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'ONNX',
+        'maintainer': 'Linux Foundation / ONNX community.',
+        'purpose': 'Open standard for exchanging ML models across frameworks.',
         'links': [
-            '',
+            'https://onnx.ai',
+            'https://github.com/onnx/onnx',
         ],
         'notes': [
-            '',
+            'Serialization format: Protobuf .onnx.',
         ],
     },
     'openvino': {
         'exts': ['.xml', '.bin'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'OpenVINO',
+        'maintainer': 'Intel',
+        'purpose': 'Intel’s toolkit for optimizing ML models for CPU/GPU/VPU.',
         'links': [
-            '',
+            'https://docs.openvino.ai/',
+            'https://github.com/openvinotoolkit/openvino',
         ],
         'notes': [
-            '',
+            'Serialization format: IR files (.xml + .bin).',
         ],
     },
     'paddle': {
         'exts': ['.pdmodel', '.pdiparams', '.pdparams', '.pdopt', '.paddle', '__model__', '.__model__', '.pbtxt', '.txt', '.tar', '.tar.gz', '.nb', '.json'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'PaddlePaddle',
+        'maintainer': 'Baidu / Paddle community.',
+        'purpose': 'Deep learning framework (China / Baidu).',
         'links': [
-            '',
+            'https://www.paddlepaddle.org.cn/',
+            'https://github.com/PaddlePaddle/Paddle',
         ],
         'notes': [
-            '',
+            'Serialization format: .pdmodel + .pdiparams.',
         ],
     },
     'pickle': {
         'exts': ['.pkl', '.pickle', '.joblib', '.model', '.meta', '.pb', '.pt', '.h5', '.pkl.z', '.joblib.z', '.pdstates', '.mge', '.bin', '.npy', '.pth'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'Pickle',
+        'maintainer': 'Python Software Foundation.',
+        'purpose': 'Python object serialization; often used for saving ML objects.',
         'links': [
-            '',
+            'https://docs.python.org/3/library/pickle.html',
         ],
         'notes': [
-            '',
+            'Serialization format: Binary .pkl files.',
         ],
     },
     'pytorch': {
         'exts': ['.pt', '.pth', '.ptl', '.pt1', '.pt2', '.pyt', '.pyth', '.pkl', '.pickle', '.h5', '.t7', '.model', '.dms', '.tar', '.ckpt', '.chkpt', '.tckpt', '.bin', '.pb', '.zip', '.nn', '.torchmodel', '.torchscript', '.pytorch', '.ot', '.params', '.trt', '.ff', '.ptmf', '.jit', '.bin.index.json', 'model.json', '.ir', 'serialized_exported_program.json', 'serialized_state_dict.json', 'archive_format'],
         #'containers': ['.model', '.pt2'],
         #'contents': [/^\x80.\x8a\x0a\x6c\xfc\x9c\x46\xf9\x20\x6a\xa8\x50\x19/]
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'PyTorch',
+        'maintainer': 'Meta / PyTorch community.',
+        'purpose': 'Deep learning framework for training and inference.',
         'links': [
-            '',
+            'https://pytorch.org',
+            'https://github.com/pytorch/pytorch',
         ],
         'notes': [
-            '',
+            'Serialization format: .pt / .pth (TorchScript / state_dict).',
         ],
     },
     'qnn': {
         'exts': ['.json', '.bin', '.serialized', '.dlc'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'QNN',
+        'maintainer': 'ARM',
+        'purpose': 'Quantized neural network library for ARM devices.',
         'links': [
-            '',
+            'https://developer.arm.com/technologies/machine-learning',
+            'https://github.com/ARM-software/ComputeLibrary',
         ],
         'notes': [
-            '',
+            'Binary / framework-dependent (compiled models).',
         ],
     },
     'rknn': {
         'exts': ['.rknn', '.nb', '.onnx', '.json', '.bin'],
         # /^model$/], [], [/^RKNN/, /^VPMN/], /^....RKNN/);
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'RKNN',
+        'maintainer': 'Rockchip',
+        'purpose': 'Neural network inference on Rockchip NPU.',
         'links': [
-            '',
+            'https://www.rknn.ai/',
+            'https://github.com/rockchip-linux/rknn-toolkit',
         ],
         'notes': [
-            '',
+            'Serialization format: .rknn binary files.',
         ],
     },
     'safetensors': {
         'exts': ['.safetensors', '.safetensors.index.json'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'SafeTensors',
+        'maintainer': 'Hugging Face.',
+        'purpose': 'Fast and secure tensor serialization for ML models.',
         'links': [
-            '',
+            'https://github.com/huggingface/safetensors',
+            'https://github.com/huggingface/safetensors',
         ],
         'notes': [
-            '',
+            'Serialization format: .safetensors binary format.',
         ],
     },
     'sentencepiece': {
         'exts': ['.model'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'SentencePiece',
+        'maintainer': 'Google.',
+        'purpose': 'Tokenization library for text preprocessing in NLP.',
         'links': [
-            '',
+            'https://github.com/google/sentencepiece',
+            'https://github.com/google/sentencepiece',
         ],
         'notes': [
-            '',
+            'Serialization format: .model / .vocab binary files.',
         ],
     },
     'sklearn': {
         'exts': ['.pkl', '.pickle', '.joblib', '.model', '.meta', '.pb', '.pt', '.h5', '.pkl.z', '.joblib.z', '.pickle.dat', '.bin'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'scikit-learn (sklearn)',
+        'maintainer': 'scikit-learn community.',
+        'purpose': 'Classical ML algorithms in Python.',
         'links': [
-            '',
+            'https://scikit-learn.org/',
+            'https://github.com/scikit-learn/scikit-learn',
         ],
         'notes': [
-            '',
+            'Serialization format: Pickle (.pkl) or joblib (.joblib).',
         ],
     },
     'tengine': {
         'exts': ['.tmfile'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'Tengine',
+        'maintainer': 'Open AI Lab (OAID).',
+        'purpose': 'Mobile/embedded deep learning inference engine.3',
         'links': [
-            '',
+            'https://tengine.org/',
+            'https://github.com/OAID/Tengine',
         ],
         'notes': [
-            '',
+            'Serialization format: .tmfile / framework-specific IR.',
         ],
     },
     'tensorrt': {
         'exts': ['.trt', '.trtmodel', '.engine', '.model', '.txt', '.uff', '.pb', '.tmfile', '.onnx', '.pth', '.dnn', '.plan', '.pt', '.dat', '.bin'],
         #[], [/^ptrt/, /^ftrt/]);
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'TensorRT',
+        'maintainer': 'NVIDIA',
+        'purpose': 'Optimized runtime for NVIDIA GPUs (inference acceleration).',
         'links': [
-            '',
+            'https://developer.nvidia.com/tensorrt',
+            'https://github.com/NVIDIA/TensorRT',
         ],
         'notes': [
-            '',
+            'Serialization format: .plan binary engine files.',
         ],
     },
     'tf': {
         'exts': ['.pb', '.meta', '.pbtxt', '.prototxt', '.txt', '.pt', '.json', '.index', '.ckpt', '.graphdef', '.pbmm'],
         # /.data-[0-9][0-9][0-9][0-9][0-9]-of-[0-9][0-9][0-9][0-9][0-9]$/, /^events.out.tfevents./, /^.*group\d+-shard\d+of\d+(\.bin)?$/], ['.zip']);
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'TensorFlow (TF)',
+        'maintainer': 'Google',
+        'purpose': 'End-to-end ML framework for training/inference.',
         'links': [
-            '',
+            'https://www.tensorflow.org/',
+            'https://github.com/tensorflow/tensorflow',
         ],
         'notes': [
-            '',
+            'Serialization format: SavedModel (directory with .pb + variables)',
         ],
     },
     'tflite': {
         'exts': ['.tflite', '.lite', '.tfl', '.bin', '.pb', '.tmfile', '.h5', '.model', '.json', '.txt', '.dat', '.nb', '.ckpt', '.onnx'],
         #[], [/^....TFL3/]);
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'TensorFlow Lite (TFLite)',
+        'maintainer': 'Google / TensorFlow team.',
+        'purpose': 'Lightweight inference engine for mobile/embedded devices.',
         'links': [
-            '',
+            'https://www.tensorflow.org/lite',
+            'https://github.com/tensorflow/tensorflow/tree/master/tensorflow/lite',
         ],
         'notes': [
-            '',
+            'Serialization format: .tflite flatbuffer files.',
         ],
     },
     'tnn': {
         'exts': ['.tnnproto', '.tnnmodel'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'TNN',
+        'maintainer': 'Tencent',
+        'purpose': 'ightweight, cross-platform deep learning inference engine.',
         'links': [
-            '',
+            'https://tkestack.com/tnn',
+            'https://github.com/Tencent/TNN',
         ],
         'notes': [
-            '',
+            'Serialization format: .tnnproto + .tnnmodel.',
         ],
     },
+    # TODO: Torch separate from PyTorch?!
     'torch': {
         'exts': ['.t7', '.net'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'Torch',
+        'maintainer': 'Meta / PyTorch community.',
+        'purpose': 'Deep learning framework for training and inference.',
         'links': [
-            '',
+            'https://pytorch.org',
+            'https://github.com/pytorch/pytorch',
         ],
         'notes': [
-            '',
+            'Serialization format: .pt / .pth (TorchScript or state_dict).',
         ],
     },
     'transformers': {
         'exts': ['.json'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'Transformers (Hugging Face)',
+        'maintainer': 'Hugging Face.',
+        'purpose': 'Pretrained NLP models and architectures.',
         'links': [
-            '',
+            'https://huggingface.co/transformers',
+            'https://github.com/huggingface/transformers',
         ],
         'notes': [
-            '',
+            'Serialization format: PyTorch (.bin), TensorFlow (.ckpt), or SafeTensors (.safetensors).',
         ],
     },
     'tvm': {
         'exts': ['.json', '.params'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'TVM',
+        'maintainer': 'Apache Software Foundation / community.',
+        'purpose': 'ML compiler stack for optimizing models on multiple hardware backends.',
         'links': [
-            '',
+            'https://tvm.apache.org/',
+            'https://github.com/apache/tvm',
         ],
         'notes': [
-            '',
+            'Serialization format: .so / compiled runtime modules + relay IR.',
         ],
     },
     'uff': {
         'exts': ['.uff', '.pb', '.pbtxt', '.uff.txt', '.trt', '.engine'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'UFF (Universal Framework Format)',
+        'maintainer': 'NVIDIA',
+        'purpose': 'Intermediate representation for TensorRT conversion from other frameworks.',
         'links': [
-            '',
+            'https://docs.nvidia.com/deeplearning/tensorrt/archives/index.html',
+            'https://github.com/NVIDIA/TensorRT',
         ],
         'notes': [
-            '',
+            'Serialization format: .uff binary format.',
+        ],
+    },
+    'vnnmodel': {
+        'exts': ['.vnnmodel'],
+        'name': 'VNN (Verifiable Neural Networks) Challenge/Standard',
+        'maintainer': 'Academic/open‑source community driving the VNN Challenge.',
+        'purpose': 'Standardized models/benchmarks for verifiable neural network research (robustness verification).',
+        'links': [
+            'https://vnnlib.cs.uiuc.edu/',
+            'https://github.com/sisl/VNN‑Benchmark‑Suite',
+        ],
+        'notes': [
+            'Models typically in ONNX or framework formats with VNNLib property files describing verification tasks.',
         ],
     },
     'weka': {
         'exts': ['.model'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'Weka',
+        'maintainer': 'University of Waikato / Weka community.',
+        'purpose': 'Java-based ML suite for classical algorithms and experimentation.',
         'links': [
-            '',
+            'https://www.cs.waikato.ac.nz/ml/weka/',
+            'https://github.com/Waikato/weka-3-8',
         ],
         'notes': [
-            '',
+            'Serialization format: Java serialized .model / .arff files.',
         ],
     },
     'xgboost': {
         'exts': ['.xgb', '.xgboost', '.json', '.model', '.bin', '.txt'],
         # [], [/^{L\x00\x00/, /^binf/, /^bs64/, /^\s*booster\[0\]:/]
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'XGBoost',
+        'maintainer': 'DMLC / XGBoost contributors.',
+        'purpose': 'Gradient boosting decision tree framework.',
         'links': [
-            '',
+            'https://xgboost.ai/',
+            'https://github.com/dmlc/xgboost',
         ],
         'notes': [
-            '',
+            'Serialization format: Binary model files (.json, .bin).',
         ],
     },
     'xmodel': {
         'exts': ['.xmodel'],
-        'name': 'Unspecified',
-        'maintainer': 'Undefined',
-        'purpose': 'Unknown',
+        'name': 'XModel',
+        'maintainer': 'Xilinx / Vitis-AI community.',
+        'purpose': 'Neural network model format for Xilinx FPGA/AI acceleration.',
         'links': [
-            '',
+            'https://www.xilinx.com/products/design-tools/vitis/ai.html',
+            'https://github.com/Xilinx/Vitis-AI',
         ],
         'notes': [
-            '',
+            'Serialization format: .xmodel binary files.',
         ],
     },
     
-    #'', ['.cambricon', '.vnnmodel', '.nnc']);
 }
 
 
@@ -840,5 +910,5 @@ def ident_by_extension(fname):
     candidates_by_ext = []
     for ext in ext_to_type:
         if fname.endswith(ext):
-            candidates_by_ext.extend(ext_To_type[ext])
+            candidates_by_ext.extend(ext_to_type[ext])
     return candidates_by_ext
