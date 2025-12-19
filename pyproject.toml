@@ -6,7 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "thirdparty-pparse"
 version = "0.0.1"
 description = "Partial Parsing"
-requires-python = ">=3.7"
+# Note: No idea the real version required at this time.
+requires-python = ">=3.11"
 
 [tool.setuptools.packages.find]
 where = ["src"]

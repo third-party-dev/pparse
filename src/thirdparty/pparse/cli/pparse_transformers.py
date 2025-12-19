@@ -13,6 +13,7 @@ def register_pparse_transformers(subparsers):
     transformers_create_parser.add_argument("--model", dest="model_name", required=True)
     transformers_create_parser.add_argument("--pytorch_state_path", dest="pytorch_state_path", default='')
     transformers_create_parser.add_argument("--safetensors_path", dest="safetensors_path", default='')
+    transformers_create_parser.add_argument("--max_shard", dest="max_shard", default='2147483648')
     transformers_create_parser.set_defaults(func=transformers_create)
 
 
@@ -58,7 +59,7 @@ def transformers_create(args):
         print("Serializing to safetensors.")
         if not os.path.exists(args.safetensors_path):
             os.makedirs(args.safetensors_path, exist_ok=True)
-        tmodel.save_torch_safetensors(args.safetensors_path)
+        tmodel.save_torch_safetensors(args.safetensors_path, max_shard=int(args.max_shard))
 
     if len(args.pytorch_state_path) > 0:
         print("Serializing model state to pytorch.")

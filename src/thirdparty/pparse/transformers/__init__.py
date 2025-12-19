@@ -20,9 +20,13 @@ class TransformersModel():
         self.model_type = model_type
 
 
-    def save_torch_safetensors(self, model_fpath):
+    def save_torch_safetensors(self, model_fpath, max_shard=2147483648):
         try:
-            self.model.save_pretrained(f'{model_fpath}', safe_serialization=True)
+            max_shard
+            self.model.save_pretrained(
+                f'{model_fpath}',
+                safe_serialization=True,
+                max_shard_size=max_shard)
         except Exception as e:
             print(f'Torch safetensors save error: {e}')
 

@@ -13,6 +13,7 @@ pip show pytest &>/dev/null || pip install pytest
 pip show protobuf &>/dev/null || pip install protobuf
 pip show numpy &>/dev/null || pip install numpy
 pip show transformers &>/dev/null || pip install transformers
+pip install --upgrade build wheel
 #pip install torch --index-url https://download.pytorch.org/whl/cpu
 #pip install -e .
 
