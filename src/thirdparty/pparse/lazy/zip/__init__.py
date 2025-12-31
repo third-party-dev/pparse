@@ -6,6 +6,7 @@ log = logging.getLogger(__name__)
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.zip.node import NodeArray
 from thirdparty.pparse.lazy.zip.state import ZipParsingMagic
+from thirdparty.pparse.lazy.zip.meta import Zip
 
 
 '''
@@ -86,6 +87,8 @@ class Parser(pparse.Parser):
 
     @staticmethod
     def match_magic(cursor: pparse.Cursor):
+        if cursor.peek(len(Zip.SIGNATURE)) == Zip.SIGNATURE:
+            return True
         return False
 
     

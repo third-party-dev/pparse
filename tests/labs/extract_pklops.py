@@ -8,7 +8,7 @@ from thirdparty.pparse.utils import pparse_repr
 try:
 
     parser_reg = {'pkl': LazyPickleParser}
-    data_source = pparse.Data(path='output/gpt2-pytorch/data.pkl')
+    data_source = pparse.FileData(path='output/gpt2-pytorch/data.pkl')
     data_range = pparse.Range(data_source.open(), data_source.length)
     root = pparse.BytesExtraction(name='output/gpt2-pytorch/data.pkl', reader=data_range)
     root.discover_parsers(parser_reg).scan_data()

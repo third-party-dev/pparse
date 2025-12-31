@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import io
 import stat
 from pprint import pprint
 from typing import Optional
@@ -304,31 +305,45 @@ class Node():
 # have indicated they have no more need for the data range.
 
 
-# Data manages mmap and fobj. Cursor does not manage mmap or fobj.
+# Data interface.
 class Data():
+    MODE_READ = 1
+    MODE_MMAP = 2
+    
+    def _load_length(self):
+        raise NotImplementedError()
+    def open(self, offset=0):
+        raise NotImplementedError()
+    def peek(self, cursor, length, mode=None):
+        raise NotImplementedError()
+    def seek(self, cursor):
+        raise NotImplementedError()
+    def read(self, cursor, length, mode=None):
+        raise NotImplementedError()
+
+
+# Data manages mmap and fobj. Cursor does not manage mmap or fobj.
+class FileData(Data):
 
     MODE_READ = 1
     MODE_MMAP = 2
 
     def __init__(self, path=None, mode=None):
+        if not path or not os.path.exists(path):
+            raise ValueError("path must be a string that points to a valid file path")
+        self._path = path
+
         if mode is None:
             self._mode = Data.MODE_READ
         else:
             self._mode = mode
-        
-        if not path or not os.path.exists(path):
-            raise ValueError("path must be a string that points to a valid file path")
 
         # TODO: Only allow setting MODE_MMAP if has_mmap()
 
-        self._path = path
-
-        # One descriptor to rule them all.
-        self._fobj = open(path, "rb")
-
         self.length = None
+        self._fobj = open(path, "rb")
         self._load_length()
-
+        
         # Mmap, if available.
         if has_mmap():
             self._mmap = mmap.mmap(self._fobj.fileno(), 0, access=mmap.ACCESS_READ)
@@ -343,7 +358,7 @@ class Data():
         if stat.S_ISREG(st.st_mode):
             self.length = st.st_size
 
-    
+
     def mode(self):
         return self._mode
 
@@ -393,6 +408,97 @@ class Data():
         if active_mode == Data.MODE_MMAP and has_mmap():
             off = cursor.tell()
             return self._mem[off:off+length]
+
+
+# When working with data that is already (reasonably) in memory, we may want to use it as a
+# data source. Having that use case in its own class permits us to handle that without extra
+# conditions. Mostly the same as FileData, but understood to be in memory.
+#
+# Real World Use Case: File-format is a ZIP and the header is a file in the ZIP.
+#
+class BytesIoData(Data):
+
+    def __init__(self, bytes_io:io.BytesIO=None, mode=None):
+        if not bytes_io or not isinstance(bytes_io, io.BytesIO):
+            raise ValueError("bytes_io must be io.BytesIO and not be None")
+
+        # TODO: Validate mode value.
+        if mode is None or mode == Data.MODE_READ:
+            self._mode = Data.MODE_READ
+        elif mode == Data.MODE_MMAP:
+            self._mode = DAta.MODE_MMAP
+        else:
+            raise ValueError("mode must be MODE_READ or MODE_MMAP")
+
+        self._bytes_io = bytes_io
+        self._mem = bytes_io.getbuffer()
+
+        self.length = None
+        self._load_length()
+
+    
+    def _load_length(self):
+        if hasattr(self._bytes_io, "getbuffer"):
+            self.length = len(self._mem)
+            return
+        raise Exception("Expected getbuffer(). Did you forget to use FileData?")
+
+
+    def mode(self):
+        return self._mode
+
+
+    # Create a cursor, like a logical file descriptor.
+    def open(self, offset=0):
+        return Cursor(self, offset)
+
+
+    # Read data ahead without progressing cursor.
+    def peek(self, cursor, length, mode=None):
+        # Allow each read to optionally override mode.
+        active_mode = self.mode()
+        if mode:
+            active_mode = mode
+        
+        if active_mode == Data.MODE_READ:
+            self._bytes_io.seek(cursor.tell(), os.SEEK_SET)
+            return self._bytes_io.read(length)
+
+        if active_mode == Data.MODE_MMAP and has_mmap():
+            off = cursor.tell()
+            return self._mem[off:off+length]
+
+
+    # Progress cursor without reading (no copy).
+    def seek(self, cursor) -> None:
+        if self.mode() == Data.MODE_READ:
+            self._bytes_io.seek(cursor.tell(), os.SEEK_SET)
+        # Noop for mmap.
+        return cursor.tell()
+        
+
+    # Read the data.
+    def read(self, cursor, length, mode=None):
+        # TODO: Only allow setting MODE_MMAP if has_mmap()
+        # Allow each read to optionally override mode.
+        active_mode = self.mode()
+        if mode:
+            active_mode = mode
+    
+        if active_mode == Data.MODE_READ:
+            self.seek(cursor)
+            return self._bytes_io.read(length)
+
+        if active_mode == Data.MODE_MMAP and has_mmap():
+            off = cursor.tell()
+            return self._mem[off:off+length]
+
+
+
+
+
+
+
 
 
 # Generic artifact that ties parsers to cursor-ed data.

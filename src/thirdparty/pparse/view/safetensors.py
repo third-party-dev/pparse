@@ -141,7 +141,7 @@ class SafeTensors():
 
     def open_fpath(self, fpath):
         try:
-            cursor = pparse.Data(path=fpath).open()
+            cursor = pparse.FileData(path=fpath).open()
             length = os.path.getsize(fpath)
             rrange = pparse.Range(cursor, length)
             self._extraction = pparse.BytesExtraction(name=fpath, reader=rrange)

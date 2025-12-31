@@ -14,7 +14,7 @@ try:
         'safetensors': LazySafetensorsParser,
     }
     # TODO: We should be able to pass a safetensors index as well!
-    cursor = pparse.Data(path='output/gpt2-safetensors/model.safetensors').open()
+    cursor = pparse.FileData(path='output/gpt2-safetensors/model.safetensors').open()
     root = pparse.BytesExtraction(name='model.safetensors', reader=cursor)
     root = root.discover_parsers(parser_reg).scan_data()
 except pparse.EndOfDataException:

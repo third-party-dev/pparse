@@ -13,11 +13,11 @@ level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, level, logging.INFO))
 
 try:
-    log.debug("Debug log level enabled.")
+    model_fpath='output/gpt-pytorch/gpt2-AutoModelForCausalLM.pth'
     parser_reg = { 'zip': LazyZipParser, }
-    data_source = pparse.Data(path='output/gpt2-pytorch/gpt2-weights.pth.zip')
+    data_source = pparse.FileData(path=model_fpath)
     data_range = pparse.Range(data_source.open(), data_source.length)
-    root = pparse.BytesExtraction(name='gpt2-weights.pth.zip', reader=data_range)
+    root = pparse.BytesExtraction(name=model_fpath, reader=data_range)
     root.discover_parsers(parser_reg).scan_data()
 
 except pparse.EndOfDataException:

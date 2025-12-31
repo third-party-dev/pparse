@@ -29,7 +29,7 @@ class Onnx():
     def open_fpath(self, fpath):
 
         try:
-            data_source = pparse.Data(path=fpath)
+            data_source = pparse.FileData(path=fpath)
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.Extraction(reader=data_range, name=fpath)
             self._extraction.discover_parsers(Onnx.PARSER_REGISTRY)
