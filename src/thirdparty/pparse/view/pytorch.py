@@ -132,7 +132,7 @@ class Tensor(pparse.Tensor):
         sttype_size = pparse.Tensor.STTYPE_SIZE[dtype]
         count = int(len(buffer) / sttype_size)
         return struct.unpack(f"<{struct_type*count}", buffer)
-        # TEST: obj.tensor('lm_head.weight').as_array()
+        # TEST: arr = obj.tensor('lm_head.weight').as_array();print(f'{arr[:4]} {arr[-4:]}')
 
 
     # Return raw data as numpy array of dtype
