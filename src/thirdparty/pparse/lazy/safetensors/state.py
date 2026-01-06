@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
-import struct
 import logging
+import struct
+
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 
 
 class SafetensorsParsingState(object):
-    def parse_data(self, parser: 'Parser', ctx: 'NodeContext'):
+    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
         raise NotImplementedError()
 
 
@@ -31,39 +32,37 @@ class SafetensorsParsingState(object):
 
 
 class SafetensorsParsingTensors(SafetensorsParsingState):
-
-    def parse_data(self, parser: 'Parser', ctx: 'NodeContext'):
+    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
         # Keep it going forward.
-        data = ctx.read(4096*4096)
+        data = ctx.read(4096 * 4096)
         if not data or len(data) < 1:
             ctx.node().tensor_data_end = ctx.tell()
             raise pparse.EndOfDataException("No more Safetensors tensor data.")
 
 
 class SafetensorsParsingLength(SafetensorsParsingState):
-
-    def parse_data(self, parser: 'Parser', ctx: 'NodeContext'):
+    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
         data = ctx.peek(8)
         if len(data) < 8:
-            raise EndOfDataException("Not enough data to parse Safetensors Header Length")
+            raise EndOfDataException(
+                "Not enough data to parse Safetensors Header Length"
+            )
 
         # Store header length in NodeInit
-        header_length = struct.unpack('<Q', data)[0]
+        header_length = struct.unpack("<Q", data)[0]
         ctx.node().header_length = header_length
         log.debug(f"Safetensors Header Length: {ctx.node().header_length}")
         ctx.skip(8)
-            
+
         # TODO: Add extraction for json parser
         # Given name to attract parser only.
         header_range = pparse.Range(ctx.reader(), header_length)
-        header_json = pparse.BytesExtraction(name='.json', reader=header_range)
+        header_json = pparse.BytesExtraction(name=".json", reader=header_range)
         parser.source()._extractions.append(header_json)
         ctx.skip(header_length)
 
-        # TODO: If we add extraction, do children, and then add more extractions ... 
+        # TODO: If we add extraction, do children, and then add more extractions ...
         # what happens to the extractions that were already complete? What if we need to
         # keep appending data to an extraction that has already been partially completed?
 
         ctx._next_state(SafetensorsParsingTensors)
-
-

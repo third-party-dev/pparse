@@ -23,7 +23,7 @@ class ZipParsingState():
 class ZipParsingComplete(ZipParsingState):
     def parse_data(self, context: PObjParser):
         context._next_state(ZipParsingComplete)
-    
+
 class ZipParsingFinishDecompress(ZipParsingState):
     def parse_data(self, context: PObjParser):
         context._next_state(ZipParsingMagic)
@@ -33,7 +33,7 @@ class ZipParsingDataDescFooter(ZipParsingState):
         data = context.buffer.peek(16)
         if len(data) < 16:
             return EndOfDataException("Not enough data to parse data desc footer")
-        
+
         desc = {}
         (desc['sig'], desc['crc32'], desc['comp_size'], desc['uncomp_size']) \
             = struct.unpack("<IIII", data[:16])
@@ -61,7 +61,7 @@ class ZipParsingContinueDecompress(ZipParsingState):
     def parse_data(self, context: PObjParser):
         if len(context.buffer.peek(4)) < 4:
             raise EndOfDataException("Not enough data to continue decompression")
-        
+
         # TODO: This should be able to handle anything between 4-N bytes, but
         # TODO: we should consider how we will chunk out very large buffers.
 
@@ -103,7 +103,7 @@ class ZipParsingContinueDecompress(ZipParsingState):
         if meta['compression'] == 0:
             if context.zip_entry.meta['fname'].endswith('/'):
                 return (0, 0, True)
-            
+
             if meta['uncomp_size'] != 0:
                 ze = context.zip_entry
                 whats_left = meta['uncomp_size'] - ze.length()
@@ -112,7 +112,7 @@ class ZipParsingContinueDecompress(ZipParsingState):
                         whats_left = len(compressed_data)
                     ze.add_data(compressed_data[:whats_left])
                 return (whats_left, len(compresed_data)-whats_left, ze.length() == meta['uncomp_size'])
-            
+
             else:
                 # Dumb search for DATA_DESC_SIG
                 if len(compressed_data) - 3 < 1:
@@ -131,7 +131,7 @@ class ZipParsingContinueDecompress(ZipParsingState):
                         desc_off += 4
                     context.zip_entry.add_data(compressed_data[:desc_off])
                     return (desc_off, len(compressed_data) - desc_off, eof)
-        
+
         elif meta['compressed'] == 8:
             if not self._has_desc and meta['uncomp_size'] == context.zip_entry.length():
                 return (meta['comp_size'], 0, True)
@@ -151,7 +151,7 @@ class ZipParsingEntryExtra(ZipParsingState):
         extra_len = context.zip_entry.meta['zip_meta']['extra_len']
         if len(context.buffer.peek(extra_len)) < extra_len:
             raise EndOfDataException("Not enough data to parse entry extra.")
-        
+
         data = context.buffer.read(extra_len)
         context.zip_entry.meta['zip_meta']['extra'] = data[:extra_len]
 
@@ -162,7 +162,7 @@ class ZipParsingEntryFilename(ZipParsingState):
         fname_len = context.zip_entry.meta['zip_meta']['fname_len']
         if len(context.buffer.peek(fname_len)) < fname_len:
             raise EndOfDataException("Not enough data to parse file name")
-        
+
         data = context.buffer.read(fname_len)
         context.zip_entry.meta['fname'] = data[:fname_len].decode('utf-8')
 
@@ -188,7 +188,7 @@ class ZipParsingMagic(ZipParsingState):
     def parse_data(self, context: PObjParser):
         if len(context.buffer.peek(4)) < 4:
             raise EndOfDataException("Not enough data to detect zip magic")
-        
+
         data = context.buffer.read(4)
         if data[0:4] == ZIP_DIR_SIG:
             context._next_state(ZipParsingComplete)
@@ -229,5 +229,3 @@ class PartialUnzip(PObjParser):
 
     def process_data(self):
         pass
-
-    

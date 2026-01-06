@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
-import struct
 import logging
+import struct
+
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.protobuf.meta import OnnxPb, Field, Protobuf
-from thirdparty.pparse.lazy.protobuf.node import Node, NodeContext, NodeMap, NodeArray
+from thirdparty.pparse.lazy.protobuf.meta import Field, OnnxPb, Protobuf
+from thirdparty.pparse.lazy.protobuf.node import Node, NodeArray, NodeContext, NodeMap
 
 
 def unzigzag(v):
@@ -22,12 +23,12 @@ def zigzag_i64(n):
 
 
 class ProtobufParsingState(object):
-    def parse_data(self, parser: 'Parser', ctx: 'NodeContext'):
+    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
         raise NotImplementedError()
 
 
 # Example protobuf/onnx parse of GPT2.onnx
-'''
+"""
         ModelProto
         08 07   ir_version = 7
         12 07   producer_name LEN: 7
@@ -57,7 +58,7 @@ class ProtobufParsingState(object):
                 0a 05 name LEN: 5
                 76 61 6c 75 65 'value'
                 2a 0c TensorProto t LEN: 12
-                10 - int32 data_type 
+                10 - int32 data_type
                     07 - 7
                 4a 08 raw_data LEN: 8
                     00 00 00 00 00 00 00 00
@@ -85,27 +86,27 @@ class ProtobufParsingState(object):
             0a 09 input[0]
                 69 6e 70 75 74 5f 69 64 73 input_ids
             12 ...
-    00000150: ... 
-'''
+    00000150: ...
+"""
 
 
 class ProtobufParsingKey(ProtobufParsingState):
-    '''
-        TODO: Things not done:
-        - No zigzag support
-        - No map support
-        - No 2's complement
-        - No signed vs unsigned
-        - Needs heuristic guessing when pb2 can't help.
-        - Deferred loading not tested.
-        - No support for sgroup/egroup.
-    '''
-    def parse_data(self, parser: 'Parser', ctx: 'NodeContext'):
+    """
+    TODO: Things not done:
+    - No zigzag support
+    - No map support
+    - No 2's complement
+    - No signed vs unsigned
+    - Needs heuristic guessing when pb2 can't help.
+    - Deferred loading not tested.
+    - No support for sgroup/egroup.
+    """
 
+    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
         if ctx.left() == 0:
             if ctx._parent is None:
                 raise pparse.EndOfDataException("Nothing more to process.")
-            
+
             # Node length not set until after _end_container_node()
             parser._end_container_node(ctx)
 
@@ -124,13 +125,18 @@ class ProtobufParsingKey(ProtobufParsingState):
             field = ctx.node().field_by_id(field_num)
         elif isinstance(ctx.node(), NodeArray):
             field = ctx._parent.field_by_id(field_num)
-        else: #UNLIKELY
+        else:  # UNLIKELY
             breakpoint()
 
-        log.debug(f"\nPROCESSING FIELD (off: {ctx.tell()} left: {ctx.left()}): {field.name}   {field.type_name}\n")
+        log.debug(
+            f"\nPROCESSING FIELD (off: {ctx.tell()} left: {ctx.left()}): {field.name}   {field.type_name}\n"
+        )
 
-        if isinstance(parser.current, NodeArray) and \
-                ctx.key() and field.name != ctx.key().name:
+        if (
+            isinstance(parser.current, NodeArray)
+            and ctx.key()
+            and field.name != ctx.key().name
+        ):
             # Pop NodeArray if complete, but not done with parent NodeMap.
             log.debug(f"Ending NodeArray for repeated field {ctx.key().name}")
             parser._end_container_node(ctx)
@@ -138,7 +144,9 @@ class ProtobufParsingKey(ProtobufParsingState):
 
         # The following things are in an array, set that up first.
         # Note: Assuming you can not do NodeArray.value = [NodeArray]
-        if field.label == Field.LABEL_REPEATED and not isinstance(parser.current, NodeArray):
+        if field.label == Field.LABEL_REPEATED and not isinstance(
+            parser.current, NodeArray
+        ):
             log.debug(f"Creating NodeArray for repeated field {field.name}")
 
             ctx.mark_field_start()
@@ -159,7 +167,9 @@ class ProtobufParsingKey(ProtobufParsingState):
         ctx.skip(meta_length)
 
         if field.type == Field.TYPE_MESSAGE and value_length:
-            log.debug(f"  LENGTH: {value_length} (meta_length: {meta_length}) range: {ctx.tell()} - {ctx.tell()+value_length}")
+            log.debug(
+                f"  LENGTH: {value_length} (meta_length: {meta_length}) range: {ctx.tell()} - {ctx.tell() + value_length}"
+            )
 
             # Create the new node and make it active.
             parser._start_map_node(ctx, field)
@@ -183,10 +193,10 @@ class ProtobufParsingKey(ProtobufParsingState):
             ctx._next_state(ProtobufParsingKey)
             return
 
-        if field.type == Field.TYPE_FLOAT and wire_type == Protobuf.I32:            
+        if field.type == Field.TYPE_FLOAT and wire_type == Protobuf.I32:
             # Get the length of the sub-message.
             value = ctx.read(4)
-            float_value = struct.unpack('<f', value)[0]
+            float_value = struct.unpack("<f", value)[0]
             parser._apply_value(ctx, field, float_value)
 
             ctx._next_state(ProtobufParsingKey)
@@ -195,16 +205,20 @@ class ProtobufParsingKey(ProtobufParsingState):
         if field.type == Field.TYPE_STRING and wire_type == Protobuf.LEN:
             data = ctx.read(value_length)
             if len(data) <= 40:
-                log.debug(f'Whole String: {data}')
+                log.debug(f"Whole String: {data}")
             else:
-                log.debug(f'Part of String (length {len(data)}): {data.decode('utf-8')[:40]}')
+                log.debug(
+                    f"Part of String (length {len(data)}): {data.decode('utf-8')[:40]}"
+                )
 
-            log.debug(f'String: {data}')
+            log.debug(f"String: {data}")
             if (value_length > 0 and not data) or len(data) < value_length:
-                msg = "Not enough data to parse Protobuf LEN data. " \
+                msg = (
+                    "Not enough data to parse Protobuf LEN data. "
                     f"Offset: {ctx.tell()} Read: {len(data)} of {value_length}"
+                )
                 raise pparse.EndOfDataException(msg)
-            parser._apply_value(ctx, field, data.decode('utf-8'))
+            parser._apply_value(ctx, field, data.decode("utf-8"))
 
             ctx._next_state(ProtobufParsingKey)
             return
@@ -212,13 +226,15 @@ class ProtobufParsingKey(ProtobufParsingState):
         if field.type == Field.TYPE_BYTES:
             data = ctx.read(value_length)
             if len(data) <= 40:
-                log.debug(f'All Bytes: {data}')
+                log.debug(f"All Bytes: {data}")
             else:
-                log.debug(f'First Bytes (length {len(data)}): {data[:40]}')
+                log.debug(f"First Bytes (length {len(data)}): {data[:40]}")
 
             if (value_length > 0 and not data) or len(data) < value_length:
-                msg = "Not enough data to parse Protobuf LEN data. " \
+                msg = (
+                    "Not enough data to parse Protobuf LEN data. "
                     f"Offset: {ctx.tell()} Read: {len(data)} of {value_length}"
+                )
                 raise pparse.EndOfDataException(msg)
 
             parser._apply_value(ctx, field, data)
@@ -228,7 +244,6 @@ class ProtobufParsingKey(ProtobufParsingState):
 
         log.debug("UNKNOWN FIELD OR WIRE TYPE")
         breakpoint()
-    
+
         msg = f"Not a valid Protobuf wire type. Type: {wire_type} ({Protobuf.wire_type_str[wire_type]})"
         raise pparse.UnsupportedFormatException(msg)
-

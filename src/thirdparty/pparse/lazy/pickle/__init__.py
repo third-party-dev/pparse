@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-import sys
-import os
 import io
-from typing import Optional
 import logging
+import os
+import sys
+from typing import Optional
+
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
@@ -12,27 +13,21 @@ from thirdparty.pparse.lazy.pickle.node import NodePickleArray
 from thirdparty.pparse.lazy.pickle.state import PickleParsingPickleStream
 
 
-
-
-
 class Parser(pparse.Parser):
-
     @staticmethod
     def match_extension(fname: str):
         if not fname:
             return False
-        #for ext in ['.onnx']:
-        for ext in ['.pkl']:
+        # for ext in ['.onnx']:
+        for ext in [".pkl"]:
             if fname.endswith(ext):
                 return True
         return False
-
 
     @staticmethod
     def match_magic(cursor: pparse.Cursor):
         return False
 
-    
     def __init__(self, source: pparse.Extraction, id: str):
         super().__init__(source, id)
 
@@ -40,11 +35,12 @@ class Parser(pparse.Parser):
         self.current.ctx()._next_state(PickleParsingPickleStream)
         source._result[id] = self.current
 
-
     def _end_container_node(self, ctx):
         parent = ctx._parent
         if parent:
-            log.debug(f"end_container (off:{ctx.tell()}): Backtracking to parent {parent}.")
+            log.debug(
+                f"end_container (off:{ctx.tell()}): Backtracking to parent {parent}."
+            )
 
             # Set the end pointer to advance parent past field.
             ctx.mark_end()
@@ -58,9 +54,7 @@ class Parser(pparse.Parser):
             # Set current node to parent.
             self.current = parent
 
-    
     def scan_data(self):
-
         # Do the opcodes first.
         try:
             while True:
@@ -73,7 +67,6 @@ class Parser(pparse.Parser):
         except pparse.UnsupportedFormatException:
             raise
 
-
         # TODO: Do all the children.
-        
+
         return self

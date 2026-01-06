@@ -1,8 +1,9 @@
 import io
+import logging
 import pathlib
 
-import logging
 log = logging.getLogger(__name__)
+
 
 def has_mmap():
     try:
@@ -15,10 +16,12 @@ def has_mmap():
             m[0] = b"x"[0]
     except:
         return None
-    
+
     return mmap
 
+
 mmap = has_mmap()
+
 
 def hexdump(data, length=None):
     if isinstance(data, io.BytesIO):
@@ -29,10 +32,11 @@ def hexdump(data, length=None):
     data = data[:length]
 
     for i in range(0, len(data), 16):
-        chunk = data[i:i+16]
-        hex_part = ' '.join(f'{byte:02x}' for byte in chunk)
-        ascii_part = ''.join(chr(byte) if 32 <= byte <= 126 else '.' for byte in chunk)
-        print(f'{i:08x}: {hex_part:<47}  {ascii_part}')
+        chunk = data[i : i + 16]
+        hex_part = " ".join(f"{byte:02x}" for byte in chunk)
+        ascii_part = "".join(chr(byte) if 32 <= byte <= 126 else "." for byte in chunk)
+        print(f"{i:08x}: {hex_part:<47}  {ascii_part}")
+
 
 def find_project_root(start: pathlib.Path = None) -> pathlib.Path:
     if start is None:
@@ -43,7 +47,7 @@ def find_project_root(start: pathlib.Path = None) -> pathlib.Path:
     raise FileNotFoundError("pyproject.toml not found.")
 
 
-def pparse_repr(obj, depth = 0, step = '  '):
+def pparse_repr(obj, depth=0, step="  "):
     res = []
 
     if hasattr(obj, "pparse_repr"):
@@ -51,32 +55,32 @@ def pparse_repr(obj, depth = 0, step = '  '):
 
     elif isinstance(obj, dict):
         dict_spacer = depth * step
-        res.append('{\n')
+        res.append("{\n")
 
         # Assuming key is always string or scalar
         key_spacer = (depth + 1) * step
         for k, v in obj.items():
             if hasattr(v, "pparse_repr"):
-                res.append(f'{key_spacer}{k}: {v.pparse_repr(depth+1, step)}\n')
+                res.append(f"{key_spacer}{k}: {v.pparse_repr(depth + 1, step)}\n")
             else:
-                res.append(f'{key_spacer}{k}: {pparse_repr(v, depth+1, step)}')
+                res.append(f"{key_spacer}{k}: {pparse_repr(v, depth + 1, step)}")
 
-        res.append(dict_spacer + '}\n')
+        res.append(dict_spacer + "}\n")
 
     elif isinstance(obj, (list, tuple, set)):
         itr_spacer = depth * step
-        res.append('[\n')
+        res.append("[\n")
 
         elem_spacer = (depth + 1) * step
         for elem in obj:
             if hasattr(elem, "pparse_repr"):
-                res.append(f'{elem_spacer}{elem.pparse_repr(depth+1, step)}\n')
+                res.append(f"{elem_spacer}{elem.pparse_repr(depth + 1, step)}\n")
             else:
-                res.append(f'{elem_spacer}{pparse_repr(elem, depth+1, step)}')
+                res.append(f"{elem_spacer}{pparse_repr(elem, depth + 1, step)}")
 
-        res.append(itr_spacer + ']\n')
-    
+        res.append(itr_spacer + "]\n")
+
     else:
-        res.append(f'{obj}\n')
+        res.append(f"{obj}\n")
 
-    return ''.join(res)
+    return "".join(res)

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import logging
+
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
@@ -8,7 +9,7 @@ from thirdparty.pparse.lib import NodeContext as BaseNodeContext
 
 
 class NodeContext(BaseNodeContext):
-    def __init__(self, node: 'Node', parent: 'Node', reader: pparse.Reader):
+    def __init__(self, node: "Node", parent: "Node", reader: pparse.Reader):
         super().__init__(node, parent, reader)
 
     def left(self):
@@ -18,34 +19,32 @@ class NodeContext(BaseNodeContext):
 # For Zipfiles, Node will track the compressed data sections. The decompressed
 # data will be tracked as an Extraction that can be tracked in the node and the
 # parser's source Extraction.
-class Node():
-    def __init__(self, parent: 'Node', reader: pparse.Reader):
-        self._reader : Reader = reader.dup()  
+class Node:
+    def __init__(self, parent: "Node", reader: pparse.Reader):
+        self._reader: Reader = reader.dup()
         self.value = pparse.UNLOADED_VALUE
-        self._ctx = NodeContext(self, parent, reader.dup(), )
+        self._ctx = NodeContext(
+            self,
+            parent,
+            reader.dup(),
+        )
 
-    
     def ctx(self):
         return self._ctx
-
 
     def clear_ctx(self):
         self._ctx = None
         return self
 
-
     def tell(self):
         return self._reader.tell()
-
 
     def final_length(self, length):
         self._reader = pparse.Range(self._reader.dup(), length)
         return self
 
-
     def length(self):
         return self._reader.length()
-
 
     # Assumed that this method is not run until after the Extraction parsing is complete.
     # def load(self, parser):
@@ -70,10 +69,8 @@ class Node():
     #     except pparse.UnsupportedFormatException:
     #         raise
 
-    
     def unload(self):
         self.value = pparse.UNLOADED_VALUE
-
 
     # def dumps(self, depth=0, step=2):
     #     spacer = ' ' * depth
@@ -91,18 +88,19 @@ class NodeMap(Node):
         super().__init__(parent, reader)
         self.value = {}
 
-
     def dumps(self, depth=0, step=2):
-        spacer = ' ' * depth
-        result = [f'{spacer}<ZipMapNode length="{self.length()}" offset="{self.tell()}">' "{"]
-        for k,v in self.value.items():
+        spacer = " " * depth
+        result = [
+            f'{spacer}<ZipMapNode length="{self.length()}" offset="{self.tell()}">{{'
+        ]
+        for k, v in self.value.items():
             if isinstance(v, Node):
-                result.append(f"{spacer}{' '*step}{k}:")
-                result.append(f"{v.dumps(depth+(step*2))}")
+                result.append(f"{spacer}{' ' * step}{k}:")
+                result.append(f"{v.dumps(depth + (step * 2))}")
             else:
-                result.append(f"{spacer}{' '*step}{k}: {v}")
-        result.append(f"{spacer}" "}</ZipMapNode>")
-        return '\n'.join(result)
+                result.append(f"{spacer}{' ' * step}{k}: {v}")
+        result.append(f"{spacer}}}</ZipMapNode>")
+        return "\n".join(result)
 
 
 class NodeArray(Node):
@@ -110,14 +108,15 @@ class NodeArray(Node):
         super().__init__(parent, reader)
         self.value = []
 
-
     def dumps(self, depth=0, step=2):
-        spacer = ' ' * depth
-        result = [f'{spacer}<ZipArrayNode length="{self.length()}" offset="{self.tell()}">[']
+        spacer = " " * depth
+        result = [
+            f'{spacer}<ZipArrayNode length="{self.length()}" offset="{self.tell()}">['
+        ]
         for e in self.value:
             if isinstance(e, Node):
-                result.append(f"{spacer}{e.dumps(depth+step)}")
+                result.append(f"{spacer}{e.dumps(depth + step)}")
             else:
-                result.append(f"{spacer}{' '*step}{e}")
+                result.append(f"{spacer}{' ' * step}{e}")
         result.append(f"{spacer}]</ZipArrayNode>")
-        return '\n'.join(result)
+        return "\n".join(result)

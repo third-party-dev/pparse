@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
 
 import logging
+
 log = logging.getLogger(__name__)
 
-from thirdparty.pparse.lazy.safetensors.state import SafetensorsParsingLength
 import thirdparty.pparse.lib as pparse
+from thirdparty.pparse.lazy.safetensors.state import SafetensorsParsingLength
 
 
 class Node(pparse.Node):
-    def __init__(self, parent: 'Node', reader: pparse.Reader):
-        self._reader : Reader = reader.dup()        
+    def __init__(self, parent: "Node", reader: pparse.Reader):
+        self._reader: Reader = reader.dup()
         self.value = pparse.UNLOADED_VALUE
         self._ctx = pparse.NodeContext(self, parent, reader.dup())
         self.ctx()._next_state(SafetensorsParsingLength)
 
-
     def final_length(self, length):
         self._reader = pparse.Range(self._reader.dup(), length)
         return self
-
 
     # Assumed that this method is not run until after the Extraction parsing is complete.
     def load(self, parser):
@@ -43,35 +42,34 @@ class Node(pparse.Node):
         except pparse.UnsupportedFormatException:
             raise
 
-    
     def dumps(self, depth=0, step=2):
-        spacer = ' ' * depth
-        result = [f"{spacer}" f'<SafetensorsNode length="{self.length()}" offset="{self.tell()}">']
+        spacer = " " * depth
+        result = [
+            f'{spacer}<SafetensorsNode length="{self.length()}" offset="{self.tell()}">'
+        ]
         if isinstance(self.value, Node):
-            result.append(f"{spacer}{self.value.dumps(depth+step)}")
+            result.append(f"{spacer}{self.value.dumps(depth + step)}")
         else:
-            result.append(f"{spacer}{' '*step}{self.value}")
+            result.append(f"{spacer}{' ' * step}{self.value}")
         result.append(f"{spacer}</SafetensorsNode>")
-        return '\n'.join(result)
+        return "\n".join(result)
 
 
 class NodeInit(Node):
-    def __init__(self, parent: Node, reader: pparse.Reader, parser: pparse.Parser = None):
+    def __init__(
+        self, parent: Node, reader: pparse.Reader, parser: pparse.Parser = None
+    ):
         super().__init__(parent, reader)
 
         # Since there is only 1 NodeInit, we can keep more stuff here.
         self.parser = parser
 
-    
     def dumps(self, depth=0, step=2):
-        spacer = ' ' * depth
-        result = [f"{spacer}" f'<SafetensorsNodeInit>']
+        spacer = " " * depth
+        result = [f"{spacer}<SafetensorsNodeInit>"]
         if isinstance(self.value, Node):
-            result.append(f"{spacer}{self.value.dumps(depth+step)}")
+            result.append(f"{spacer}{self.value.dumps(depth + step)}")
         else:
             result.append(f"{spacer}{self.value}")
         result.append(f"{spacer}</SafetensorsNodeInit>")
-        return '\n'.join(result)
-
-
-
+        return "\n".join(result)

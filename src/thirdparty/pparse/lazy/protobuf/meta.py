@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
 import logging
+
 log = logging.getLogger(__name__)
 
 from google.protobuf import descriptor_pb2
 
 
-class Protobuf():
+class Protobuf:
     VARINT = 0
     I64 = 1
     LEN = 2
@@ -27,7 +28,7 @@ class Protobuf():
     }
 
 
-class Field():
+class Field:
     # From: google/protobuf/descriptor.proto (FieldDescriptorProto)
     TYPE_DOUBLE = 1
     TYPE_FLOAT = 2
@@ -59,16 +60,16 @@ class Field():
         8: "TYPE_BOOL",
         9: "TYPE_STRING",
         10: "TYPE_GROUP",
-        11:	"TYPE_MESSAGE",
-        12:	"TYPE_BYTES",
+        11: "TYPE_MESSAGE",
+        12: "TYPE_BYTES",
         13: "TYPE_UINT32",
-        14:	"TYPE_ENUM",
+        14: "TYPE_ENUM",
         15: "TYPE_SFIXED32",
         16: "TYPE_SFIXED64",
         17: "TYPE_SINT32",
         18: "TYPE_SINT64",
     }
-    
+
     LABEL_OPTIONAL = 1
     LABEL_REQUIRED = 2
     LABEL_REPEATED = 3
@@ -87,58 +88,51 @@ class Field():
         self.type_name = pbfield.type_name
         self.label = pbfield.label
 
-
     def type_str(self):
         return Field.types[self.type]
-
 
     def is_repeated(self):
         return self._pbfield.label == Field.LABEL_REPEATED
 
-
     def __repr__(self):
-        return f"  Field: {self.name} #{self.number} : {self.type_str()}({self.type_name})"
+        return (
+            f"  Field: {self.name} #{self.number} : {self.type_str()}({self.type_name})"
+        )
 
 
-class Msg(): 
-    def __init__(self, pbmsg, prefix): #pbfile=None):
-        #self.pbfile = pbfile
+class Msg:
+    def __init__(self, pbmsg, prefix):  # pbfile=None):
+        # self.pbfile = pbfile
         self.pbmsg = pbmsg
         self.name = pbmsg.name
         self._type_name = f"{prefix}.{pbmsg.name}"
         self._by_id = {}
         self._by_name = {}
 
-    
     def type_name(self):
         return self._type_name
-
 
     def add_field(self, pbfield):
         field = Field(pbfield)
         self._by_name[field.name] = field
         self._by_id[field.number] = field
 
-
     def by_name(self, name):
         return self._by_name[name]
 
-
     def by_id(self, id):
         return self._by_id[id]
-
 
     def __repr__(self):
         out = [f"MsgType: {self._type_name}"]
         for field in self._by_name.values():
             out.append(f"{field}")
-        return '\n'.join(out)
+        return "\n".join(out)
 
 
-class OnnxPb():
+class OnnxPb:
     def __init__(self):
         self.process_pb2()
-
 
     def process_descriptor_proto(self, pbmsgtypes, prefix):
         for pbmsg in pbmsgtypes:
@@ -148,7 +142,6 @@ class OnnxPb():
                 msg.add_field(field)
             self.process_descriptor_proto(pbmsg.nested_type, msg.type_name())
 
-
     def process_pb2(self):
         with open("proto/onnx.pb", "rb") as f:
             pbset = descriptor_pb2.FileDescriptorSet()
@@ -156,11 +149,9 @@ class OnnxPb():
 
         # Re-index to something that makes sense to me.
         self.db = {}
-        prefix = f'.{pbset.file[0].package}'
+        prefix = f".{pbset.file[0].package}"
         pbmsgtypes = pbset.file[0].message_type
         self.process_descriptor_proto(pbmsgtypes, prefix)
 
-
     def by_type_name(self, type_name):
         return self.db[type_name]
-

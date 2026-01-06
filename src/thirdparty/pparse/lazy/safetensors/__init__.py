@@ -1,14 +1,14 @@
-import sys
-import os
 import logging
+import os
+import sys
+
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.safetensors.node import Node, NodeInit
 from thirdparty.pparse.lazy.json import Parser as LazyJsonParser
+from thirdparty.pparse.lazy.safetensors.node import Node, NodeInit
 
-
-'''
+"""
 Roles:
 - **Data** points to _data source_ (i.e. a shared file descriptor).
 - **Reader** is something that can tell, seek, skip, peek, read, and dup.
@@ -42,12 +42,12 @@ Different Format Approaches To Consider:
 - Flexbuffers - Length delimited, bottom up. (Leaves parsed first.)
 - Flatbuffers - Length delimited, top down. (Ancestors parsed first.)
 
-'''
+"""
 
 
-'''
-I feel like this code base is 33% there. I've now successfully broken up the 
-main loop code from the actual node tree that does the parsing. The current 
+"""
+I feel like this code base is 33% there. I've now successfully broken up the
+main loop code from the actual node tree that does the parsing. The current
 issue is we don't have a way for the nodes to parse themselves in isolation
 from the rest of the tree.
 
@@ -69,37 +69,32 @@ Ideally, the nodes will minimize the state that they keep about themselves:
   - value - Need a new LazyJsonParser{TYPE}Node
 
 Nodes have states: scanning -> shelf -> parsing -> loaded -> shelf -> ...
-'''
+"""
 
 
 class Parser(pparse.Parser):
-
     # safetensors parser will only ever extract JSON header.
-    PARSER_REGISTRY = { 'json': LazyJsonParser }
-
+    PARSER_REGISTRY = {"json": LazyJsonParser}
 
     @staticmethod
     def match_extension(fname: str):
         if not fname:
             return False
-        for ext in ['.safetensors']:
+        for ext in [".safetensors"]:
             if fname.endswith(ext):
                 return True
         return False
-
 
     @staticmethod
     def match_magic(cursor: pparse.Cursor):
         return False
 
-    
     def __init__(self, source: pparse.Extraction, id: str):
         super().__init__(source, id)
-        
+
         # Current path of pending things.
         self.current = NodeInit(None, source.open(), self)
         source._result[id] = self.current
-
 
     def _scan_children(self):
         try:
@@ -111,11 +106,10 @@ class Parser(pparse.Parser):
         except Exception as e:
             log.debug(e)
             import traceback
+
             traceback.print_exc()
 
-    
     def scan_data(self):
-
         # While not end of data, keep parsing via states.
         try:
             while True:
@@ -134,6 +128,5 @@ class Parser(pparse.Parser):
 
         # TODO: Consider traversing all tensors in safetensors and creating
         # nodes that point to tensor data in the original Data
-
 
         return self

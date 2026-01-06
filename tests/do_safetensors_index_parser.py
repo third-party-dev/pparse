@@ -1,28 +1,30 @@
 #!/usr/bin/env python3
 
+import logging
 import sys
+from importlib import resources
 from pprint import pprint
 
-
-from importlib import resources
-import logging
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.safetensors.index import Parser as LazySafetensorsIndexParser
+from thirdparty.pparse.lazy.safetensors.index import (
+    Parser as LazySafetensorsIndexParser,
+)
 
 # Enable running test script without pytest.
 from thirdparty.pparse.utils import find_project_root
+
 sys.path.insert(0, str(find_project_root()))
 
 
-'''
+"""
 How should we handle a index file that points to other associated files? The associated files are
 bound into a single structure. When we parse, we are purely parsing those structures. But the user
 will expect to query the parts of the structure as if they were merged.
 
-A safetensors index file is JSON. To keep things more simple for the moment, we'll explicitly 
+A safetensors index file is JSON. To keep things more simple for the moment, we'll explicitly
 control what parsers are used from the view object. To handle the situations more gracefully, we'll
 likely need a better implementation of multi-level-drill-down and more comprehensive magic detection.
 
@@ -34,17 +36,16 @@ equally, how do we prevent JSON from blinding creating unnecessary Extractions o
 For safetensors index view object, the user should be able to query the tensors without knowledge
 of their source. The object should perform querying the metadata for the unique index or unique
 shards, but should a merged view of the metadata be considered?
-'''
+"""
 
 
 try:
-
     # Configure parser registry.
-    parser_reg = {'safetensors_index': LazySafetensorsIndexParser}
+    parser_reg = {"safetensors_index": LazySafetensorsIndexParser}
 
     # Point at initial index file.
-    idx_modpath = 'tests.data.models.whisper'
-    idx_fname = 'model.safetensors.index.fp32.json'
+    idx_modpath = "tests.data.models.whisper"
+    idx_fname = "model.safetensors.index.fp32.json"
     idx_fpath = str(resources.files(idx_modpath).joinpath(idx_fname))
 
     # Process the index file.
@@ -59,11 +60,12 @@ except pparse.EndOfDataException:
 except Exception as e:
     log.debug(e)
     import traceback
+
     traceback.print_exc()
 
-print(f'Extractions (Shard Files): {len(root._extractions)}')
-print(f'Extraction[0] Result: {root._extractions[0]._result}')
-print(f'Extraction[0] Safetensor Result: {root._extractions[0]._result['safetensors']}')
+print(f"Extractions (Shard Files): {len(root._extractions)}")
+print(f"Extraction[0] Result: {root._extractions[0]._result}")
+print(f"Extraction[0] Safetensor Result: {root._extractions[0]._result['safetensors']}")
 # JSON is at: root._extractions[0]._extractions[0]._result['json'].value.value
 # - root's child[0] is safetensors
 # - safetensors's child[0] is JSON
@@ -85,8 +87,8 @@ print(f'Extraction[0] Safetensor Result: {root._extractions[0]._result['safetens
 # # Dump with loaded things.
 # print(root._result['json'].dumps())
 
-#tensor_db = root._result['safetensors'].parser.source()._extractions[0]._result['json'].value.value
-#for k,v in tensor_db.items():
+# tensor_db = root._result['safetensors'].parser.source()._extractions[0]._result['json'].value.value
+# for k,v in tensor_db.items():
 #    print(f"{k}: {v}")
 
 # TODO: Consider converting each (non-"__metadata__") NodeMap into a NodeTensor. Each Tensor can
@@ -95,6 +97,6 @@ print(f'Extraction[0] Safetensor Result: {root._extractions[0]._result['safetens
 print("ALL DONE")
 breakpoint()
 
-'''
+"""
 
-'''
+"""

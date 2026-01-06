@@ -1,15 +1,15 @@
-import sys
-import os
 import logging
+import os
+import sys
+
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
+from thirdparty.pparse.lazy.zip.meta import Zip
 from thirdparty.pparse.lazy.zip.node import NodeArray
 from thirdparty.pparse.lazy.zip.state import ZipParsingMagic
-from thirdparty.pparse.lazy.zip.meta import Zip
 
-
-'''
+"""
 Roles:
 - **Data** points to _data source_ (i.e. a shared file descriptor).
 - **Reader** is something that can tell, seek, skip, peek, read, and dup.
@@ -43,12 +43,12 @@ Different Format Approaches To Consider:
 - Flexbuffers - Length delimited, bottom up. (Leaves parsed first.)
 - Flatbuffers - Length delimited, top down. (Ancestors parsed first.)
 
-'''
+"""
 
 
-'''
-I feel like this code base is 33% there. I've now successfully broken up the 
-main loop code from the actual node tree that does the parsing. The current 
+"""
+I feel like this code base is 33% there. I've now successfully broken up the
+main loop code from the actual node tree that does the parsing. The current
 issue is we don't have a way for the nodes to parse themselves in isolation
 from the rest of the tree.
 
@@ -70,20 +70,18 @@ Ideally, the nodes will minimize the state that they keep about themselves:
   - value - Need a new LazyJsonParser{TYPE}Node
 
 Nodes have states: scanning -> shelf -> parsing -> loaded -> shelf -> ...
-'''
+"""
 
 
 class Parser(pparse.Parser):
-
     @staticmethod
     def match_extension(fname: str):
         if not fname:
             return False
-        for ext in ['.zip']:
+        for ext in [".zip"]:
             if fname.endswith(ext):
                 return True
         return False
-
 
     @staticmethod
     def match_magic(cursor: pparse.Cursor):
@@ -91,15 +89,13 @@ class Parser(pparse.Parser):
             return True
         return False
 
-    
     def __init__(self, source: pparse.Extraction, id: str):
         super().__init__(source, id)
-        
+
         # Fundamentally, zip is an array of files.
         self.current = NodeArray(None, source.open())
         self.current.ctx()._next_state(ZipParsingMagic)
         source._result[id] = self.current
-
 
     def _end_container_node(self, ctx):
         parent = ctx._parent
@@ -118,9 +114,7 @@ class Parser(pparse.Parser):
             # Set current node to parent.
             self.current = parent
 
-    
     def scan_data(self):
-
         # While not end of data, keep parsing via states.
         try:
             while True:
@@ -133,5 +127,5 @@ class Parser(pparse.Parser):
             raise
 
         # TODO: Do all the children.
-        
+
         return self
