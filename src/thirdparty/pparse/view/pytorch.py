@@ -180,6 +180,32 @@ class PyTorch:
 
         return self
 
+    def as_safetensors_hasher(self):
+        result = {"__metadata__": {"format": "pt"}}
+        pkl = self._extraction._extractions[0]._result['pkl']
+        tensor_dict = pkl.value[0].value[0]
+        tensor_list = tensor_dict.keys()
+
+        for tensor_name in tensor_dict.keys():
+            reduce_call = tensor_dict[tensor_name]
+            shape = reduce_call.arg[2]
+            persid_call = reduce_call.arg[0]
+            type_tag = persid_call.arg[0]
+            type_name = '.'.join([p.decode('utf-8').strip() for p in persid_call.arg[1]])
+            # torch.FloatStorage => dtype=float32
+            data_key = persid_call.arg[2]
+            data_dest = persid_call.arg[3]
+            elem_cnt = persid_call.arg[4]
+
+            result[tensor_name] = {}
+            result[tensor_name]["dtype"] = Tensor.PKL_STTYPE_MAP[type_name]
+            result[tensor_name]["shape"] = shape
+            #result[tensor_name]["data_offsets"] = "meh"
+
+        import json
+        return json.dumps(result)
+
+
     def tensor(self, name):
         pkl = self._pkl_extraction._result["pkl"]
         tensor_dict = pkl.value[0].value[0]

@@ -13,7 +13,7 @@ def register_pparse_pytorch(subparsers):
 def pytorch_unpickle(args):
     # TODO: This code needs to be replaced with a view object.
     #from pprintpp import pprint
-    import thirdparty.pparse.lib as pparse 
+    import thirdparty.pparse.lib as pparse
     from thirdparty.pparse.lazy.pickle import Parser as LazyPickleParser
     from thirdparty.pparse.utils import pparse_repr
 
@@ -53,6 +53,10 @@ def pytorch_view(args):
 
     try:
         obj = PyTorch().open_fpath(args.path)
+
+        # DEBUG
+        #obj.as_safetensors_hasher()
+
         #obj.tensor('lm_head.weight').get_data_bytes()
 
     except Exception as e:
