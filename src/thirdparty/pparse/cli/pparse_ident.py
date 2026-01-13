@@ -20,8 +20,8 @@ def register_pparse_ident(subparsers):
 def ident_list(args):
     from thirdparty.pparse.ident.extensions import typedb
 
-    for k,v in typedb.items():
-        print(f'{k} - {v['name']}')
+    for k,val in typedb.items():
+        print(f'{k} - {val["name"]}')
 
     if hasattr(args, "breakpoint") and args.breakpoint:
         print(f'Locals: {list(locals().keys())}')
@@ -36,9 +36,9 @@ def ident_show(args):
         exit(1)
 
     obj = typedb[args.type_name]
-    print(f'Name: {obj['name']}')
-    print(f'Purpose: {obj['purpose']}')
-    print(f'Maintainer: {obj['maintainer']}')
+    print(f'Name: {obj["name"]}')
+    print(f'Purpose: {obj["purpose"]}')
+    print(f'Maintainer: {obj["maintainer"]}')
     if len(obj['links']) > 0:
         print(f'Links:')
         for link in obj['links']:
@@ -47,7 +47,7 @@ def ident_show(args):
         print(f'Notes:')
         for note in obj['notes']:
             print(f'- {note}')
-    print(f'Extentions: {obj['exts']}')
+    print(f'Extentions: {obj["exts"]}')
 
     if hasattr(args, "breakpoint") and args.breakpoint:
         print(f'Locals: {list(locals().keys())}')
@@ -62,7 +62,3 @@ def ident_byext(args):
     if hasattr(args, "breakpoint") and args.breakpoint:
         print(f'Locals: {list(locals().keys())}')
         breakpoint()
-
-
-
-
