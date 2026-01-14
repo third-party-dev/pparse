@@ -182,6 +182,8 @@ class PyTorch:
         return self
 
     def as_arc_hash(self):
+        import hashlib
+        import json
         from collections import OrderedDict
 
         result = OrderedDict()
@@ -191,19 +193,11 @@ class PyTorch:
         tensor_dict = pkl.value[0].value[0]
 
         for tensor_name in tensor_dict.keys():
-            reduce_call = tensor_dict[tensor_name]
-            shape = reduce_call.arg[2]
-            persid_call = reduce_call.arg[0]
-            type_name = ".".join(
-                [p.decode("utf-8").strip() for p in persid_call.arg[1]]
-            )
+            tensor = self.tensor(tensor_name)
 
             result[tensor_name] = OrderedDict()
-            result[tensor_name]["dtype"] = Tensor.PKL_STTYPE_MAP[type_name]
-            result[tensor_name]["shape"] = shape
-
-        import hashlib
-        import json
+            result[tensor_name]["dtype"] = tensor.get_type()
+            result[tensor_name]["shape"] = tensor.get_shape()
 
         sane_json = json.dumps(result, indent=None, separators=(",", ":"))
         return hashlib.sha256(sane_json.encode("utf-8")).hexdigest()
