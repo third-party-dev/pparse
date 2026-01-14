@@ -225,7 +225,7 @@ class PyTorch:
             result[tensor_name]["shape"] = tensor.get_shape()
             result[tensor_name]["data_offsets"] = [
                 current_offset,
-                current_offset + tensor.get_data_bytes(),
+                current_offset + len(tensor.get_data_bytes()),
             ]
             current_offset += result[tensor_name]["data_offsets"][1]
 

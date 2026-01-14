@@ -18,29 +18,29 @@ from thirdparty.pparse.lazy.safetensors.index import (
 
 class Tensor:
     STTYPE_STRUCT = {
-        "i8": "b",
-        "u8": "B",
-        "i16": "h",
-        "u16": "H",
-        "i32": "i",
-        "u32": "I",
-        "i64": "q",
-        "u64": "Q",
-        "f32": "f",
-        "f64": "d",
+        "I8": "b",
+        "U8": "B",
+        "I16": "h",
+        "U16": "H",
+        "I32": "i",
+        "U32": "I",
+        "I64": "q",
+        "U64": "Q",
+        "F32": "f",
+        "F64": "d",
     }
 
     STTYPE_SIZE = {
-        "i8": 1,
-        "u8": 1,
-        "i16": 2,
-        "u16": 2,
-        "i32": 4,
-        "u32": 4,
-        "i64": 8,
-        "u64": 8,
-        "f32": 4,
-        "f64": 8,
+        "I8": 1,
+        "U8": 1,
+        "I16": 2,
+        "U16": 2,
+        "I32": 4,
+        "U32": 4,
+        "I64": 8,
+        "U64": 8,
+        "F32": 4,
+        "F64": 8,
     }
 
     def __init__(self, safetensors, node_map):
@@ -49,7 +49,7 @@ class Tensor:
         self._node_map = node_map
 
     def get_type(self):
-        return self._node_map.value["dtype"].lower()
+        return self._node_map.value["dtype"].upper()
 
     def get_shape(self):
         return self._node_map.value["shape"].value
@@ -132,6 +132,23 @@ class SafeTensors:
         tensor_dict = self._extraction._extractions[0]._result["json"].value.value
         return [k for k in tensor_dict if k != "__metadata__"]
         # return self.header().keys()
+
+    def as_arc_hash(self):
+        import hashlib
+        import json
+        from collections import OrderedDict
+
+        result = OrderedDict()
+
+        for tensor_name in self.tensor_names():
+            tensor = self.tensor(tensor_name)
+
+            result[tensor_name] = OrderedDict()
+            result[tensor_name]["dtype"] = tensor.get_type()
+            result[tensor_name]["shape"] = tensor.get_shape()
+
+        sane_json = json.dumps(result, indent=None, separators=(",", ":"))
+        return hashlib.sha256(sane_json.encode("utf-8")).hexdigest()
 
     def open_fpath(self, fpath):
         try:
