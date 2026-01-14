@@ -92,7 +92,7 @@ class Tensor(pparse.Tensor):
 
     # Return (safetensors equivalent) shape
     def get_shape(self):
-        raise NotImplementedError()
+        return self._reduce_call.arg[2]
 
     # Return raw data as extracted from source
     def get_data_bytes(self):
@@ -105,6 +105,7 @@ class Tensor(pparse.Tensor):
         data_key = persid.arg[Tensor.DATA_KEY]
         elem_cnt = persid.arg[Tensor.ELEM_CNT]
 
+        # BUG: This assumes everything is always in memory.
         for member in self._view._extraction._result["zip"].value:
             fname_parts = Path(member.value["fname"]).parts
             if len(fname_parts) < 2 or fname_parts[-2] != "data":
@@ -180,31 +181,77 @@ class PyTorch:
 
         return self
 
-    def as_safetensors_hasher(self):
-        result = {"__metadata__": {"format": "pt"}}
-        pkl = self._extraction._extractions[0]._result['pkl']
+    def as_arc_hash(self):
+        from collections import OrderedDict
+
+        result = OrderedDict()
+
+        # BUG: Very presumptious.
+        pkl = self._extraction._extractions[0]._result["pkl"]
         tensor_dict = pkl.value[0].value[0]
-        tensor_list = tensor_dict.keys()
 
         for tensor_name in tensor_dict.keys():
             reduce_call = tensor_dict[tensor_name]
             shape = reduce_call.arg[2]
             persid_call = reduce_call.arg[0]
-            type_tag = persid_call.arg[0]
-            type_name = '.'.join([p.decode('utf-8').strip() for p in persid_call.arg[1]])
-            # torch.FloatStorage => dtype=float32
-            data_key = persid_call.arg[2]
-            data_dest = persid_call.arg[3]
-            elem_cnt = persid_call.arg[4]
+            type_name = ".".join(
+                [p.decode("utf-8").strip() for p in persid_call.arg[1]]
+            )
 
-            result[tensor_name] = {}
+            result[tensor_name] = OrderedDict()
             result[tensor_name]["dtype"] = Tensor.PKL_STTYPE_MAP[type_name]
             result[tensor_name]["shape"] = shape
-            #result[tensor_name]["data_offsets"] = "meh"
 
+        import hashlib
         import json
-        return json.dumps(result)
 
+        sane_json = json.dumps(result, indent=None, separators=(",", ":"))
+        return hashlib.sha256(sane_json.encode("utf-8")).hexdigest()
+
+    def as_safetensors(self, out_fpath="converted_output.safetensors"):
+        import json
+        import struct
+        from collections import OrderedDict
+
+        result = OrderedDict()
+        result["__metadata__"] = OrderedDict([("format", "pt")])
+
+        # BUG: Very presumptious.
+        pkl = self._extraction._extractions[0]._result["pkl"]
+        tensor_dict = pkl.value[0].value[0]
+        # tensor_list = tensor_dict.keys()
+
+        # Calculate offsets
+        current_offset = 0
+        for tensor_name in tensor_dict.keys():
+            tensor = self.tensor(tensor_name)
+
+            result[tensor_name] = OrderedDict()
+            result[tensor_name]["dtype"] = tensor.get_type()
+            result[tensor_name]["shape"] = tensor.get_shape()
+            result[tensor_name]["data_offsets"] = [
+                current_offset,
+                current_offset + tensor.get_data_bytes(),
+            ]
+            current_offset += result[tensor_name]["data_offsets"][1]
+
+        # Initially open file with truncation
+        size_and_hdr_len = 0
+        with open(out_fpath, "wb") as fobj:
+            # Write 8 zeros
+            fobj.write(struct.pack("<Q", size_and_hdr_len))
+            # Write header
+            fobj.write(json.dumps(result).encode("utf-8"))
+            size_and_hdr_len = fobj.tell()
+            # Write each tensor data section
+            for tensor_name in tensor_dict.keys():
+                tensor = self.tensor(tensor_name)
+                fobj.write(tensor.get_data_bytes())
+
+        # Re-open file and overwrite first 8 bytes.
+        with open(out_fpath, "r+b") as fobj:
+            fobj.seek(0)
+            fobj.write(struct.pack("<Q", size_and_hdr_len))
 
     def tensor(self, name):
         pkl = self._pkl_extraction._result["pkl"]
