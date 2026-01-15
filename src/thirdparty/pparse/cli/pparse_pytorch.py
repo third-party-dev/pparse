@@ -20,6 +20,21 @@ def register_pparse_pytorch(subparsers):
     pytorch_hash_parser = pytorch_subparser.add_parser(
         "hash", help="pytorch hash command"
     )
+    # debug argument
+    pytorch_hash_parser.add_argument(
+        "--hashed_data_path",
+        dest="hashed_data_path",
+        action="store",
+        help="hashed data output",
+        default=None,
+    )
+    pytorch_hash_parser.add_argument(
+        "--keep_lm_head",
+        dest="keep_lm_head",
+        action="store_true",
+        help="lm_head is removed without this flag",
+        default=False,
+    )
     pytorch_hash_parser.add_argument("path")
     pytorch_hash_parser.set_defaults(func=pytorch_hash)
 
@@ -100,7 +115,11 @@ def pytorch_hash(args):
 
     try:
         obj = PyTorch().open_fpath(args.path)
-        print(obj.as_arc_hash())
+        print(
+            obj.as_arc_hash(
+                hashed_data_path=args.hashed_data_path, keep_lm_head=args.keep_lm_head
+            )
+        )
 
     except Exception as e:
         print(e)

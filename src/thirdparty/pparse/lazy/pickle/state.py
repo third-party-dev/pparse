@@ -231,13 +231,13 @@ class NewCall(dict):
 
 class PickleInterpreter(PickleParsingState):
     scalar_append_ops = [
-        PklOp.BINUNICODE,
-        PklOp.BININT,
-        PklOp.BININT1,
-        PklOp.BININT2,
-        PklOp.BINFLOAT,
-        PklOp.LONG1,
-        PklOp.LONG4,
+        PklOp.BINUNICODE,  # unsigned
+        PklOp.BININT2,  # unsigned
+        PklOp.BININT1,  # unsigned
+        PklOp.BININT,  # signed
+        PklOp.BINFLOAT,  # signed
+        PklOp.LONG1,  # signed
+        PklOp.LONG4,  # signed
     ]
 
     def parse_data(self, parser: "Parser", ctx: "NodeContext"):

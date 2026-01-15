@@ -133,14 +133,15 @@ class SafeTensors:
         return [k for k in tensor_dict if k != "__metadata__"]
         # return self.header().keys()
 
-    def as_arc_hash(self):
+    def as_arc_hash(self, hashed_data_path=None):
         import hashlib
         import json
         from collections import OrderedDict
 
         result = OrderedDict()
+        tensor_names = sorted(self.tensor_names())
 
-        for tensor_name in self.tensor_names():
+        for tensor_name in tensor_names:
             tensor = self.tensor(tensor_name)
 
             result[tensor_name] = OrderedDict()
@@ -148,6 +149,9 @@ class SafeTensors:
             result[tensor_name]["shape"] = tensor.get_shape()
 
         sane_json = json.dumps(result, indent=None, separators=(",", ":"))
+        if not hashed_data_path is None:
+            with open(hashed_data_path, "wb") as fobj:
+                fobj.write(sane_json.encode("utf-8"))
         return hashlib.sha256(sane_json.encode("utf-8")).hexdigest()
 
     def open_fpath(self, fpath):

@@ -25,6 +25,13 @@ def register_pparse_safetensors(subparsers):
     safetensors_hash_parser = safetensors_subparser.add_parser(
         "hash", help="safetensors hash command"
     )
+    # debug argument
+    safetensors_hash_parser.add_argument("--hashed_data_path",
+        dest="hashed_data_path",
+        action="store",
+        help="hashed data output",
+        default=None
+    )
     safetensors_hash_parser.add_argument("path")
     safetensors_hash_parser.set_defaults(func=safetensors_hash)
 
@@ -69,7 +76,7 @@ def safetensors_hash(args):
 
     try:
         obj = SafeTensors().open_fpath(args.path)
-        print(obj.as_arc_hash())
+        print(obj.as_arc_hash(hashed_data_path=args.hashed_data_path))
 
     except Exception as e:
         print(e)

@@ -92,7 +92,9 @@ class Tensor(pparse.Tensor):
 
     # Return (safetensors equivalent) shape
     def get_shape(self):
-        return self._reduce_call.arg[2]
+        shape = [i for i in self._reduce_call.arg[2]]
+        shape.reverse()
+        return shape
 
     # Return raw data as extracted from source
     def get_data_bytes(self):
@@ -181,7 +183,7 @@ class PyTorch:
 
         return self
 
-    def as_arc_hash(self):
+    def as_arc_hash(self, hashed_data_path=None, keep_lm_head=False):
         import hashlib
         import json
         from collections import OrderedDict
@@ -191,15 +193,25 @@ class PyTorch:
         # BUG: Very presumptious.
         pkl = self._extraction._extractions[0]._result["pkl"]
         tensor_dict = pkl.value[0].value[0]
+        tensor_names = sorted(tensor_dict.keys())
 
-        for tensor_name in tensor_dict.keys():
+        for tensor_name in tensor_names:
+            if tensor_name == "lm_head.weight" and not keep_lm_head:
+                continue
+
             tensor = self.tensor(tensor_name)
 
             result[tensor_name] = OrderedDict()
             result[tensor_name]["dtype"] = tensor.get_type()
             result[tensor_name]["shape"] = tensor.get_shape()
 
+            # persid = tensor._reduce_call.arg[Tensor.PERSID_CALL]
+            # result[tensor_name]["key"] = persid.arg[Tensor.DATA_KEY]
+
         sane_json = json.dumps(result, indent=None, separators=(",", ":"))
+        if not hashed_data_path is None:
+            with open(hashed_data_path, "wb") as fobj:
+                fobj.write(sane_json.encode("utf-8"))
         return hashlib.sha256(sane_json.encode("utf-8")).hexdigest()
 
     def as_safetensors(self, out_fpath="converted_output.safetensors"):
