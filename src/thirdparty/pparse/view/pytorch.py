@@ -200,7 +200,6 @@ class PyTorch:
                 continue
 
             tensor = self.tensor(tensor_name)
-
             result[tensor_name] = OrderedDict()
             result[tensor_name]["dtype"] = tensor.get_type()
             result[tensor_name]["shape"] = tensor.get_shape()
@@ -214,7 +213,12 @@ class PyTorch:
                 fobj.write(sane_json.encode("utf-8"))
         return hashlib.sha256(sane_json.encode("utf-8")).hexdigest()
 
-    def as_safetensors(self, out_fpath="converted_output.safetensors"):
+    def as_safetensors(
+        self,
+        out_fpath="converted_output.safetensors",
+        keep_lm_head=False,
+        alignment_boundary=8,
+    ):
         import json
         import struct
         from collections import OrderedDict
@@ -225,39 +229,55 @@ class PyTorch:
         # BUG: Very presumptious.
         pkl = self._extraction._extractions[0]._result["pkl"]
         tensor_dict = pkl.value[0].value[0]
+        tensor_names = sorted(tensor_dict.keys())
         # tensor_list = tensor_dict.keys()
 
         # Calculate offsets
         current_offset = 0
-        for tensor_name in tensor_dict.keys():
-            tensor = self.tensor(tensor_name)
+        for tensor_name in tensor_names:
+            if tensor_name == "lm_head.weight" and not keep_lm_head:
+                continue
 
+            tensor = self.tensor(tensor_name)
             result[tensor_name] = OrderedDict()
             result[tensor_name]["dtype"] = tensor.get_type()
             result[tensor_name]["shape"] = tensor.get_shape()
+            tensor_size = len(tensor.get_data_bytes())
             result[tensor_name]["data_offsets"] = [
                 current_offset,
-                current_offset + len(tensor.get_data_bytes()),
+                current_offset + tensor_size,
             ]
-            current_offset += result[tensor_name]["data_offsets"][1]
+            current_offset += tensor_size
 
         # Initially open file with truncation
-        size_and_hdr_len = 0
+        hdr_len = 0
         with open(out_fpath, "wb") as fobj:
             # Write 8 zeros
-            fobj.write(struct.pack("<Q", size_and_hdr_len))
+            fobj.write(struct.pack("<Q", hdr_len))
             # Write header
-            fobj.write(json.dumps(result).encode("utf-8"))
-            size_and_hdr_len = fobj.tell()
+            json_str = json.dumps(result, indent=None, separators=(",", ":"))
+            fobj.write(json_str.encode("utf-8"))
+
+            # Padding between header and tensor data
+            tensor_start = fobj.tell() + (alignment_boundary - 1)
+            tensor_start //= alignment_boundary
+            tensor_start *= alignment_boundary
+            padding = (" " * (tensor_start - fobj.tell())).encode("utf-8")
+            fobj.write(padding)
+            # Update size (minus u64 size bytes themselves)
+            hdr_len = fobj.tell() - 8
+
             # Write each tensor data section
-            for tensor_name in tensor_dict.keys():
+            for tensor_name in result:
+                if tensor_name == "__metadata__":
+                    continue
                 tensor = self.tensor(tensor_name)
                 fobj.write(tensor.get_data_bytes())
 
         # Re-open file and overwrite first 8 bytes.
         with open(out_fpath, "r+b") as fobj:
             fobj.seek(0)
-            fobj.write(struct.pack("<Q", size_and_hdr_len))
+            fobj.write(struct.pack("<Q", hdr_len))
 
     def tensor(self, name):
         pkl = self._pkl_extraction._result["pkl"]

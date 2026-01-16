@@ -42,6 +42,13 @@ def register_pparse_pytorch(subparsers):
     pytorch_transform_parser = pytorch_subparser.add_parser(
         "transform", help="transform pytorch"
     )
+    pytorch_transform_parser.add_argument(
+        "--keep_lm_head",
+        dest="keep_lm_head",
+        action="store_true",
+        help="lm_head is removed without this flag",
+        default=False,
+    )
     pytorch_transform_parser.add_argument("path")
     pytorch_transform_parser.add_argument(
         "outpath", default="converted_output.safetensors"
@@ -139,7 +146,7 @@ def pytorch_transform(args):
 
     try:
         obj = PyTorch().open_fpath(args.path)
-        obj.as_safetensors(args.outpath)
+        obj.as_safetensors(args.outpath, keep_lm_head=args.keep_lm_head)
 
     except Exception as e:
         print(e)
