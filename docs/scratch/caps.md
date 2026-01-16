@@ -112,3 +112,29 @@ print(gm.graph)
 - call_function - bad
 - getattr - bad
 - .item() - bad
+
+
+
+# On fail, we stop.
+?yannt huggingface create?
+yannt transformers create \
+  --type gpt2 \
+  --model AutoModelForCausalLM \
+  --onnx_path model.onnx
+
+# On success?, we can continue
+yannt transformers create \
+  --type florence2 \
+  --model AutoModelForImageTextToText \
+  --onnx_path model.onnx
+
+# Pparse Onnx support
+yannt pparse onnx view model.onnx
+yannt pparse onnx hash model.onnx
+yannt pparse onnx transform model.onnx ./model.safetensors
+# Extract graph
+yannt pparse onnx graph model.onnx ./model-graph.json
+
+
+# Create torch.hub based things (e.g. yolov5)
+yannt torchhub create ...
