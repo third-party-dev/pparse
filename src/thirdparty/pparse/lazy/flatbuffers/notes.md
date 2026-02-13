@@ -1,3 +1,35 @@
+# Notes
+
+## Design
+
+Starting over ... we use the reflection.fbs to generate python bindings:
+
+```sh
+pip install flatbuffers
+flatc --python reflection.fbs
+```
+
+Then we'll compile the schema we want to process:
+
+`flatc --binary --schema path/to/tflite/schema.fbs`
+
+This will create `schema.bfbs`. We then parse `schema.bfbs` with the reflection bindings. Access to the schema in this way allows us to _pparse_ a target tflite file. Note: If you intend to load the whole tflite into memory at once, it'll be more straight forward to use a tflite binding.
+
+You can also parse the schema by serializing to JSON:
+
+`flatc --json --schema schema.fbs`
+
+
+
+`----------------------------------`
+
+
+
+
+
+
+
+
 `tensorflow/lite/schema/schema.fbs`
 
 `flatc --binary --schema --reflect-types --reflect-names schema.fbs`

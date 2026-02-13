@@ -4563,6 +4563,10 @@ class FlatbuffersSchema():
         for idx, obj in enumerate(self._schema.get('objects', [])):
             self.objects_by_index[idx] = obj
 
+        self.enums_by_index = {}
+        for idx, enum in enumerate(self._schema.get('enums', [])):
+            self.enums_by_index[idx] = enum
+
         # Type format strings for struct.unpack - using base_type string names
         self.TYPE_FORMATS = {
             'Bool': '<?',

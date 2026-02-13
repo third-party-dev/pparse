@@ -143,6 +143,11 @@ process the NodeVTable data and then switch to a state to finish the NodeTable
 that assumes the Node already exists.
 '''
 
+# class FlatbuffersParsingUnion(FlatbuffersParsingState):
+
+#     def parse_data(self, parser: "Parser", ctx: "NodeContext"):
+
+
 class FlatbuffersParsingTable(FlatbuffersParsingState):
 
     def parse_data(self, parser: "Parser", ctx: "NodeContext"):
@@ -235,42 +240,81 @@ class FlatbuffersParsingTable(FlatbuffersParsingState):
                 return
 
             if base_type == 'Union':
-                
-                enum_idx = field_type.get('enum_idx', 0)
-                if enum_idx == 0:
-                    # Nothing
-                    table.value[field_name] = None
-                    ctx.field_idx += 1
-                    return
-                enum_type = parser.schema.enums[enum_idx]
-                
-                # Fetch the enum value
-                # NOTE: I'm told the enum value is 1 byte?
-                ctx.seek(field_pos)
-                enum_value = parser.peek_u32(ctx)
+                # Skip and let the UType base_type drive both Union and UType parsing.
+                ctx.field_idx += 1
+                return
 
-                # Get the entry from enum_type who has the enum value as value
+            if base_type == 'UType':
+                
+                # Get the UType index
+                utype_idx = field_type.get('index', 0)
+
+                # # Check if the union has content.
+                # if utype_idx == 0:
+                #     # Nothing
+                #     table.value[field_name] = None
+                #     ctx.field_idx += 1
+                #     return
+
+                # Locate the paired Union field
+                union_desc = None
+                for field_entry in ctx.fields_desc:
+                    if 'type' in field_entry and 'index' in field_entry['type'] and \
+                        field_entry['type']['index'] == utype_idx:
+                        union_desc = field_entry
+                        break
+                if union_desc is None:
+                    raise ValueError(f"Union index {utype_idx} not found for {field_name}.")
+
+                union_name = union_desc['name']
+
+                # Get the enum type associated with utype_idx
+                enum_type = parser.schema.enums_by_index[utype_idx]
+                
+                # Get the enum value (utype). (enum_value == 0 means no content.)
+                # NOTE: Defined by underlying_type, but assuming 1 byte with 3 padded zeros.
+                ctx.seek(field_pos)
+                # TODO: Check for return.
+                enum_value = struct.unpack('B', ctx.peek(1))[0]
+                #enum_value = parser.peek_u32(ctx)
+                
+                forward_align = lambda value: value + (4 - value % 4) if value % 4 != 0 else value
+                union_offset_pos = forward_align(field_pos + 1)
+
+                # Get the union table offset (union)
+                ctx.seek(union_offset_pos)
+                union_pos = union_offset_pos + parser.peek_u32(ctx)
+
+                breakpoint()
+
+                # Get the entry from enum_type who has the enum_value as value
                 enum_desc = None
                 for enum_entry in enum_type['values']:
                     if enum_entry['value'] == enum_value:
                         enum_desc = enum_entry
                         break
                 if enum_desc is None:
-                    raise ValueError(f"Enum {enum_idx} desc for value {enum_value} not found.")
+                    raise ValueError(f"Enum {utype_idx} desc for value {enum_value} not found.")
                 
+                union_base_type = enum_desc['union_type']['base_type']
+
+                if union_base_type == 'Obj':
+                    table_pos = union_pos
+                    type_index = enum_desc['union_type']['index']
+                    type_desc = parser.schema.objects_by_index[type_index]
+                    table.value[union_name] = NodeTable(ctx.node(), ctx.reader(), union_pos, type_desc)
+
+                    parser.current = table.value[union_name]
+                    parser.current.ctx()._next_state(FlatbuffersParsingTable)
+                    ctx.field_idx += 1
+                    return
+
+                # Catch all for unsupported union_base_type
+                msg = f"Unsupported base type while parsing union {union_name} at {table.abs_offset()}"
+                print(msg)
                 breakpoint()
-
-                # ! If base_type is 'Obj':
-                # Use the enum_desc to get the actual table type.
-                table_desc = parser.schema.objects_by_index[enum_desc['union_type']['index']]
-
-
-
+                raise ValueError(msg)
                 
-
-                # Fetch the table offset
-                #parser.peek_u32(ctx)
-                #table_pos = field_pos + 
 
             if base_type == 'Obj':
                 # Seek to vector offset
