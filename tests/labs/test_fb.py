@@ -53,7 +53,7 @@ class TFlite:
 
 
 res = TFlite().open_fpath("./tests/data/models/yolo/yolov5su_float32.tflite")
-obj = res._extraction._result['flatbuffers']
+obj = res._extraction._result['flatbuffers'].value
 # obj.value.value['buffers'].value[0].value['data'].value
 breakpoint()
 

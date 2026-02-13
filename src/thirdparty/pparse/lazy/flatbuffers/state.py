@@ -182,7 +182,7 @@ class FlatbuffersParsingTable(FlatbuffersParsingState):
             ctx.field_idx = 0
             return
 
-        if ctx.field_idx < len(ctx.fields_desc):
+        while ctx.field_idx < len(ctx.fields_desc):
 
             ctx.field = ctx.fields_desc[ctx.field_idx]
 
@@ -198,13 +198,13 @@ class FlatbuffersParsingTable(FlatbuffersParsingState):
             if field_id >= len(table.vtable.field_offsets):
                 # Field not present (using default value)
                 ctx.field_idx += 1
-                return
+                continue
 
             field_offset_in_table = table.vtable.field_offsets[field_id]
             if field_offset_in_table == 0:
                 # Field not present in this instance
                 ctx.field_idx += 1
-                return
+                continue
 
             field_pos = table.abs_offset() + field_offset_in_table
             base_type = field_type.get('base_type')
@@ -215,7 +215,7 @@ class FlatbuffersParsingTable(FlatbuffersParsingState):
                 ctx.seek(field_pos)
                 table.value[field_name] = parser.read_scalar(ctx, base_type)
                 ctx.field_idx += 1
-                return
+                continue
 
             # Strings are nice an simple.
             if base_type == 'String':
@@ -225,7 +225,7 @@ class FlatbuffersParsingTable(FlatbuffersParsingState):
                 # TODO: Do we create a NodeString? Pythonic str for now.
                 table.value[field_name] = parser.read_string(ctx)
                 ctx.field_idx += 1
-                return
+                continue
 
             # Vectors are common and require a new node.
             if base_type == 'Vector':
@@ -242,7 +242,7 @@ class FlatbuffersParsingTable(FlatbuffersParsingState):
             if base_type == 'Union':
                 # Skip and let the UType base_type drive both Union and UType parsing.
                 ctx.field_idx += 1
-                return
+                continue
 
             if base_type == 'UType':
                 
@@ -284,8 +284,6 @@ class FlatbuffersParsingTable(FlatbuffersParsingState):
                 # Get the union table offset (union)
                 ctx.seek(union_offset_pos)
                 union_pos = union_offset_pos + parser.peek_u32(ctx)
-
-                breakpoint()
 
                 # Get the entry from enum_type who has the enum_value as value
                 enum_desc = None
@@ -344,7 +342,7 @@ class FlatbuffersParsingTable(FlatbuffersParsingState):
             raise ValueError(f"Unsupported byte type while parsing table: {base_type}")
 
         # If we're here, we pop the table back up to previous node.
-        print(f"Finished table @ {table.abs_offset()}")
+        #print(f"Finished table @ {table.abs_offset()}")
         parser.current = ctx.parent()
         if isinstance(parser.current, NodeTable):
             parser.current.ctx()._next_state(FlatbuffersParsingTable)
@@ -352,9 +350,15 @@ class FlatbuffersParsingTable(FlatbuffersParsingState):
         if isinstance(parser.current, NodeVector):
             parser.current.ctx()._next_state(FlatbuffersParsingVector)
             return
+        # Catch all?
+        if isinstance(parser.current, Node):
+            raise pparse.EndOfDataException("No more data to process in flatbuffers.")
         
         # Catch all for unsupported element_types
-        raise ValueError(f"Couldn't tell what parent node is at end of table.")
+        msg = f"Couldn't tell what parent node is at end of table."
+        print(msg)
+        breakpoint()
+        raise ValueError(msg)
 
 '''
 Union Notes
@@ -404,7 +408,7 @@ class FlatbuffersParsingVector(FlatbuffersParsingState):
         if not hasattr(ctx, "element_idx"):
             ctx.element_idx = 0
 
-        if ctx.element_idx < vector.element_count:
+        while ctx.element_idx < vector.element_count:
 
             # Scalars are inplace, do those first.
             if element_type in parser.schema.TYPE_SIZES:
@@ -414,7 +418,7 @@ class FlatbuffersParsingVector(FlatbuffersParsingState):
                 vector.value.append(parser.read_scalar(ctx, element_type))
                 ctx.element_idx += 1
 
-                return
+                continue
 
             # Strings are nice an simple.
             if element_type == 'String':
@@ -427,7 +431,7 @@ class FlatbuffersParsingVector(FlatbuffersParsingState):
                 vector.value.append(parser.read_string(ctx))
                 ctx.element_idx += 1
 
-                return
+                continue
 
             # Tables
             if element_type == 'Obj':
@@ -457,7 +461,7 @@ class FlatbuffersParsingVector(FlatbuffersParsingState):
             raise ValueError(f"Unsupported vector element type: {element_type}")
 
         # If we're here, we pop the table back up to previous node.
-        print(f"Finished vector @ {vector.abs_offset()}")
+        #print(f"Finished vector @ {vector.abs_offset()}")
         parser.current = ctx.parent()
         if isinstance(parser.current, NodeTable):
             parser.current.ctx()._next_state(FlatbuffersParsingTable)
