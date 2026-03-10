@@ -168,7 +168,8 @@ class PyTorch:
         if os.path.basename(self.data_pkl_meta["fname"]) != "data.pkl":
             raise Exception("data.pkl was not first file in zip as expected.")
 
-        # Assumption: decomp_data will have the data. Consider checking for unloaded_data.
+        # Assumption: decomp_data will have the data.
+        # TODO: Consider checking for unloaded_data.
         self.pkl_source = pparse.BytesIoData(self.data_pkl_meta["decomp_data"].value)
         self.pkl_range = pparse.Range(self.pkl_source.open(), self.pkl_source.length)
         PKL_PARSER_REGISTRY = {
@@ -190,7 +191,7 @@ class PyTorch:
 
         result = OrderedDict()
 
-        # BUG: Very presumptious.
+        # ! BUG: Very presumptuous.
         pkl = self._extraction._extractions[0]._result["pkl"]
         tensor_dict = pkl.value[0].value[0]
         tensor_names = sorted(tensor_dict.keys())
@@ -211,6 +212,7 @@ class PyTorch:
         if not hashed_data_path is None:
             with open(hashed_data_path, "wb") as fobj:
                 fobj.write(sane_json.encode("utf-8"))
+        print(f"Based on {len(tensor_names)} tensors seen.")
         return hashlib.sha256(sane_json.encode("utf-8")).hexdigest()
 
     def as_safetensors(

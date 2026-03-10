@@ -68,7 +68,7 @@ def pytorch_unpickle(args):
     try:
         #'output/gpt2-pytorch/data.pkl'
         parser_reg = {"pkl": LazyPickleParser}
-        data_source = pparse.Data(path=args.path)
+        data_source = pparse.FileData(path=args.path)
         data_range = pparse.Range(data_source.open(), data_source.length)
         root = pparse.BytesExtraction(name=args.path, reader=data_range)
         root.discover_parsers(parser_reg).scan_data()
@@ -82,6 +82,7 @@ def pytorch_unpickle(args):
 
         traceback.print_exc()
 
+    breakpoint()
     pkl = root._result["pkl"]
     obj = pkl.value[0].value[0]
     history = root._result["pkl"].value[0].history
