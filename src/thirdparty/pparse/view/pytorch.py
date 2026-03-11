@@ -37,6 +37,31 @@ from thirdparty.pparse.lazy.zip import Parser as LazyZipParser
 """
 
 
+'''
+topcall = obj._extraction._extractions[0]._result['pkl'].value[0].value[0]
+metrics = { 'param_cnt': 0 }
+traverse(topcall.state, ['top'], metrics)
+'''
+
+# Example of how to traverse into a pytorch that includes the compute graph only.
+def traverse_pt(state, path_arr, metrics={ 'param_cnt': 0 }):
+    print(f"Traversing into {'.'.join(path_arr)} id: {id(state)}")
+
+    if not isinstance(state, dict) or \
+        not ('_modules' in state or '_parameters' in state):
+        print(f"  - Dead end.")
+        return
+
+    if '_parameters' in state and len(state['_parameters'].keys()) > 0:
+        print(f"  - Parameters found.")
+        metrics['param_cnt'] += len(state['_parameters'].keys())
+
+
+    if '_modules':
+        for mod in state['_modules']:
+            traverse_pt(state['_modules'][mod].state, [*path_arr, mod], metrics)
+
+
 class Tensor(pparse.Tensor):
     PKL_STTYPE_MAP = {
         "torch.FloatStorage": "F32",
@@ -191,10 +216,36 @@ class PyTorch:
 
         result = OrderedDict()
 
-        # ! BUG: Very presumptuous.
+        '''
+        PyTorch files can be saved in a number of different formats and layouts. Three
+        conventions that I've seen include:
+        - 1. state_dict() only - Similar to the data in a safetensors. No compute graph.
+        - 2. Graph with embedded parameters (i.e. `torch.save(model, 'model.pt')`).
+        - 3. A combo of state_dict() and graph mapped into a top level dictionary:
+             `{'model_architecture': model, 'model_state_dict': model.state_dict()}`
+        - 4. A checkpoint dictionary:
+
+             ```
+             torch.save({
+                 "epoch": epoch,
+                 "model_state_dict": model.state_dict(),
+                 "optimizer_state_dict": optimizer.state_dict(),
+                 "loss": loss
+             }, "checkpoint.pt")
+             ```
+
+        The following code was only written for #1. ... TODO: We _can_ try harder to detect
+        the kind of data to improve the process. (See traverse_pt() above.)
+        '''
+
+        # Assumes the pt saved with torch.save(model.state_dict(), 'model.pt')
         pkl = self._extraction._extractions[0]._result["pkl"]
         tensor_dict = pkl.value[0].value[0]
         tensor_names = sorted(tensor_dict.keys())
+
+        if len(tensor_names) == 0:
+            # This is not a weights_only pt file!
+            raise Exception("No tensors found, likely not a weights only pt file.")
 
         for tensor_name in tensor_names:
             if tensor_name == "lm_head.weight" and not keep_lm_head:

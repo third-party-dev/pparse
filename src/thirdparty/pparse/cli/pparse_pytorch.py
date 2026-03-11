@@ -82,7 +82,6 @@ def pytorch_unpickle(args):
 
         traceback.print_exc()
 
-    breakpoint()
     pkl = root._result["pkl"]
     obj = pkl.value[0].value[0]
     history = root._result["pkl"].value[0].history
@@ -115,6 +114,29 @@ def pytorch_view(args):
         print(f"Locals: {list(locals().keys())}")
         breakpoint()
 
+'''
+topcall = obj._extraction._extractions[0]._result['pkl'].value[0].value[0]
+metrics = { 'param_cnt': 0 }
+traverse(topcall.state, ['top'], metrics)
+'''
+
+def traverse(state, path_arr, metrics={ 'param_cnt': 0 }):
+    print(f"Traversing into {'.'.join(path_arr)} id: {id(state)}")
+
+    if not isinstance(state, dict) or \
+        not ('_modules' in state or '_parameters' in state):
+        print(f"  - Dead end.")
+        return
+
+    if '_parameters' in state and len(state['_parameters'].keys()) > 0:
+        print(f"  - Parameters found.")
+        metrics['param_cnt'] += len(state['_parameters'].keys())
+
+
+    if '_modules':
+        for mod in state['_modules']:
+            traverse(state['_modules'][mod].state, [*path_arr, mod], metrics)
+
 
 def pytorch_hash(args):
     from thirdparty.pparse.view.pytorch import PyTorch
@@ -137,6 +159,7 @@ def pytorch_hash(args):
 
     if hasattr(args, "breakpoint") and args.breakpoint:
         print(f"Locals: {list(locals().keys())}")
+        #traverse(obj._extraction._extractions[0]._result['pkl'].value[0].value[0], ['top'])
         breakpoint()
 
 
