@@ -10,9 +10,6 @@ description = "Partial Parsing"
 requires-python = ">=3.9"
 
 dependencies = [
-    "torch",
-    "torchaudio",
-    "torchvision",
     "numpy",
     "protobuf",
     "flatbuffers"
@@ -36,9 +33,6 @@ safetensors = "thirdparty.pparse.cli.pparse_safetensors:register_pparse_safetens
 
 # Register pytorch as a pparse subcommand
 pytorch = "thirdparty.pparse.cli.pparse_pytorch:register_pparse_pytorch"
-
-# Register transformers as a pparse subcommand
-transformers = "thirdparty.pparse.cli.pparse_transformers:register_pparse_transformers"
 
 # Register ident as a pparse subcommand
 ident = "thirdparty.pparse.cli.pparse_ident:register_pparse_ident"
