@@ -7,3 +7,17 @@ bundles/
 models/
 outputs/
 
+# Forced clean commit
+src/thirdparty/pparse/lazy/flatbuffers/schema.json
+tests/labs/mnn/flatc-conv/
+tests/labs/mnn/notes.md
+tests/labs/onnx/
+tests/labs/safetensors/yolov5su.pt
+tests/labs/safetensors/yolov5su.safetensors
+tflite/clutter/
+tflite/notes.md
+tflite/reflection.json
+tflite/reflection/
+tflite/schema.bfbs
+tflite/schema.json
+tflite/yolov5su_float32.tflite
