@@ -9,7 +9,9 @@ else
 fi
 
 export PROJ_PATH=${PROJ_PATH:-$(realpath $(dirname $0)/..)}
-export BUNDLE_PATH=${PROJ_PATH}/cache/bundles
+cd ${PROJ_PATH}
+
+export BUNDLE_PATH=${PROJ_PATH}/outputs/bundles
 DAY_SECS=$(( $(date +%s) - $(date +%s -d "$(date +%Y-%m-%d) 00:00:00") ))
 SECS_ATETH=$(printf '%x' $(( ($DAY_SECS) / 8 )))
 FPATH=${BUNDLE_PATH}/pparse-$(date +%Y%m%d)-${SECS_ATETH}
