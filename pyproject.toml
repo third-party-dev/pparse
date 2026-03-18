@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "thirdparty-pparse"
-version = "0.0.1"
 description = "Partial Parsing"
+
 # Note: No idea the real version required at this time.
 requires-python = ">=3.9"
 
@@ -14,6 +14,13 @@ dependencies = [
     "protobuf",
     "flatbuffers"
 ]
+
+# Requires PEP 621 (setuptools>=61)
+dynamic = ["version"]
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
+
 
 [tool.setuptools.packages.find]
 where = ["src"]
