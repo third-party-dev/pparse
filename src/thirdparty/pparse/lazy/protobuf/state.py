@@ -4,11 +4,11 @@ import logging
 import struct
 
 log = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.protobuf.meta import Field, OnnxPb, Protobuf
 from thirdparty.pparse.lazy.protobuf.node import Node, NodeArray, NodeContext, NodeMap
-
 
 def unzigzag(v):
     return (v >> 1) ^ -(v & 1)
@@ -117,14 +117,28 @@ class ProtobufParsingKey(ProtobufParsingState):
             ctx._next_state(ProtobufParsingKey)
             return
 
+        # if ctx.node().msgtype().name not in [
+        #     'ModelDef', 'graph', 'GraphDef', 's', 'AttrEntry', 'input',
+        #     'op', 'OpDef', 'attr', 'AttrDef', 'ListValue', 'b', 'i', 'dst_name',
+        #     'dst_index', 'output_i', 'input_desc', 'dtype', 'TensorDescriptor',
+
+        #     ]:
+        #     breakpoint()
+
         # Get the key data.
         wire_type, field_num, meta_length, value_length = parser.peek_varint_key(ctx)
+
+        # if ctx.tell() == 113786:
+        #     breakpoint()
 
         field = None
         if isinstance(ctx.node(), NodeMap):
             field = ctx.node().field_by_id(field_num)
         elif isinstance(ctx.node(), NodeArray):
-            field = ctx._parent.field_by_id(field_num)
+            try:
+                field = ctx._parent.field_by_id(field_num)
+            except KeyError as e:
+                breakpoint()
         else:  # UNLIKELY
             breakpoint()
 
@@ -159,12 +173,32 @@ class ProtobufParsingKey(ProtobufParsingState):
             parser.current.value[field.name] = newarr
             parser.current = parser.current.value[field.name]
 
+            # We're in a new _repeated_ _numeric_ field with wire_type == 2,
+            # we're likely packed. Lets peek the length and verify it matches
+            # value_length.
+            # if value_length == 6:
+            #     if wire_type == Protobuf.LEN and field.type in [
+            #         Field.TYPE_INT64, Field.TYPE_UINT64,
+            #     ]:
+            #         # TODO: Should be new state.
+            #         # Read varints until value_length bytes consumed.
+            #         while (ctx.left() - meta_length) > 0:
+            #             print(parser.parse_varint(ctx))
+            #         parser._end_container_node(ctx)
+            #         breakpoint()
+            #         return
+            # else:
             ctx._next_state(ProtobufParsingKey)
+
             return
 
         # Progress past the key.
         ctx.set_key(field)
         ctx.skip(meta_length)
+
+        # if field.type in [Field.TYPE_INT64, Field.TYPE_UINT64] and wire_type == Protobuf.LEN:
+        #     breakpoint()
+        #     return
 
         if field.type == Field.TYPE_MESSAGE and value_length:
             log.debug(
@@ -178,7 +212,29 @@ class ProtobufParsingKey(ProtobufParsingState):
             parser.current.ctx().reinit(ctx.tell(), value_length)
             return
 
-        if field.type == Field.TYPE_INT64 or field.type == Field.TYPE_INT32:
+        # if field.type == Field.TYPE_BOOL:
+        #     value = parser.parse_varint(ctx)
+        #     parser._apply_value(ctx, field, value)
+        #     ctx._next_state(ProtobufParsingKey)
+        #     return
+
+        if field.type == Field.TYPE_INT64 or field.type == Field.TYPE_INT32 or \
+            field.type == Field.TYPE_UINT64 or field.type == Field.TYPE_UINT32 or \
+            field.type == Field.TYPE_BOOL:
+
+            if wire_type == Protobuf.LEN and isinstance(parser.current, NodeArray):
+                #breakpoint()
+                # Handle repeated-packed numerical things
+                while ctx.left() > 0:
+                    val = parser.parse_varint(ctx)
+                    #print(val)
+                    parser._apply_value(ctx, field, val)
+
+                #parser._end_container_node(ctx)
+                print(ctx.node().value)
+                ctx._next_state(ProtobufParsingKey)
+                return
+
             # TODO: Should this handle 2's compliment?
             value = parser.parse_varint(ctx)
             parser._apply_value(ctx, field, value)
@@ -242,7 +298,7 @@ class ProtobufParsingKey(ProtobufParsingState):
             ctx._next_state(ProtobufParsingKey)
             return
 
-        log.debug("UNKNOWN FIELD OR WIRE TYPE")
+        log.debug(f"UNKNOWN FIELD OR WIRE TYPE {wire_type} {field.type}")
         breakpoint()
 
         msg = f"Not a valid Protobuf wire type. Type: {wire_type} ({Protobuf.wire_type_str[wire_type]})"

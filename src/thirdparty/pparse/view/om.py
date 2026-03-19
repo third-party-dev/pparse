@@ -8,7 +8,7 @@ log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.protobuf import make_protobuf_parser
-from thirdparty.pparse.lazy.protobuf.meta import OnnxPb
+from thirdparty.pparse.lazy.protobuf.meta import OmPb
 from thirdparty.pparse.lazy.protobuf.node import Node, NodeArray, NodeMap
 
 """
@@ -17,14 +17,14 @@ from thirdparty.pparse.lazy.protobuf.node import Node, NodeArray, NodeMap
 """
 
 
-class Onnx:
+class Om:
     def __init__(self):
         self._extraction = None
 
     def open_fpath(self, fpath):
-        ONNX_PARSER = {
+        OM_PARSER = {
             "protobuf": make_protobuf_parser(
-                ext_list=[".onnx"], init_msgtype=".onnx.ModelProto", proto=OnnxPb(),
+                ext_list=[".pb"], init_msgtype=".ge.proto.ModelDef", proto=OmPb()
             ),
         }
 
@@ -32,14 +32,14 @@ class Onnx:
             data_source = pparse.FileData(path=fpath)
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
-            self._extraction.discover_parsers(ONNX_PARSER)
+            self._extraction.discover_parsers(OM_PARSER)
             self._extraction.scan_data()
 
             # Some light post processing.
-            self.model = self._extraction._result["protobuf"].value
-            self.graph = self.model["graph"].value
-            self.nodes = self.graph["node"].value
-            self.initializers = self.graph["initializer"].value
+            #self.model = self._extraction._result["protobuf"].value
+            #self.graph = self.model["graph"].value
+            #self.nodes = self.graph["node"].value
+            #self.initializers = self.graph["initializer"].value
 
         except pparse.EndOfDataException as e:
             print(e)

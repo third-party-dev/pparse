@@ -130,6 +130,19 @@ class Msg:
         return "\n".join(out)
 
 
+class DumbPb:
+    def __init__(self):
+        self.process_pb2()
+
+    def process_descriptor_proto(self, pbmsgtypes, prefix):
+        pass
+
+    def process_pb2(self):
+        pass
+
+    def by_type_name(self, type_name):
+        raise NotImplementedError()
+
 class OnnxPb:
     def __init__(self):
         self.process_pb2()
@@ -143,7 +156,38 @@ class OnnxPb:
             self.process_descriptor_proto(pbmsg.nested_type, msg.type_name())
 
     def process_pb2(self):
+        # protoc --proto_path=. --descriptor_set_out=onnx.pb --include_imports onnx.proto3
         with open("proto/onnx.pb", "rb") as f:
+            pbset = descriptor_pb2.FileDescriptorSet()
+            pbset.ParseFromString(f.read())
+
+        # Re-index to something that makes sense to me.
+        self.db = {}
+        prefix = f".{pbset.file[0].package}"
+        pbmsgtypes = pbset.file[0].message_type
+        self.process_descriptor_proto(pbmsgtypes, prefix)
+
+    def by_type_name(self, type_name):
+        return self.db[type_name]
+
+
+class OmPb:
+    def __init__(self):
+        self.process_pb2()
+
+    def process_descriptor_proto(self, pbmsgtypes, prefix):
+        for pbmsg in pbmsgtypes:
+            msg = Msg(pbmsg, prefix)
+            self.db[msg.type_name()] = msg
+            for field in pbmsg.field:
+                msg.add_field(field)
+            self.process_descriptor_proto(pbmsg.nested_type, msg.type_name())
+
+    def process_pb2(self):
+        # protoc --proto_path=. --descriptor_set_out=om.pb --include_imports om.proto
+        import os
+        print(os.getcwd())
+        with open("./packages/thirdparty_pparse/proto/ge_ir.pb", "rb") as f:
             pbset = descriptor_pb2.FileDescriptorSet()
             pbset.ParseFromString(f.read())
 
