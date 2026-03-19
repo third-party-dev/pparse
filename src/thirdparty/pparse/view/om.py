@@ -8,7 +8,7 @@ log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.protobuf import make_protobuf_parser
-from thirdparty.pparse.lazy.protobuf.meta import OmPb
+from thirdparty.pparse.lazy.protobuf.meta import PbImport
 from thirdparty.pparse.lazy.protobuf.node import Node, NodeArray, NodeMap
 
 """
@@ -22,9 +22,12 @@ class Om:
         self._extraction = None
 
     def open_fpath(self, fpath):
+        from importlib import resources
+        data_path = resources.files("thirdparty.pparse") / "data"
+        proto = PbImport(data_path / "proto" / "ge_ir.pb")
         OM_PARSER = {
             "protobuf": make_protobuf_parser(
-                ext_list=[".pb"], init_msgtype=".ge.proto.ModelDef", proto=OmPb()
+                ext_list=[".pb"], init_msgtype=".ge.proto.ModelDef", proto=proto
             ),
         }
 

@@ -4,10 +4,10 @@ import logging
 import struct
 
 log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
+#logging.basicConfig(level=logging.DEBUG)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.protobuf.meta import Field, OnnxPb, Protobuf
+from thirdparty.pparse.lazy.protobuf.meta import Field, Protobuf
 from thirdparty.pparse.lazy.protobuf.node import Node, NodeArray, NodeContext, NodeMap
 
 def unzigzag(v):
@@ -230,8 +230,6 @@ class ProtobufParsingKey(ProtobufParsingState):
                     #print(val)
                     parser._apply_value(ctx, field, val)
 
-                #parser._end_container_node(ctx)
-                print(ctx.node().value)
                 ctx._next_state(ProtobufParsingKey)
                 return
 

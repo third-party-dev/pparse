@@ -8,14 +8,6 @@ import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lib import NodeContext as BaseNodeContext
 
 
-class UnloadedValue:
-    def __repr__(self):
-        return "<UNLOADED_VALUE />"
-
-
-UNLOADED_VALUE = UnloadedValue()
-
-
 class NodeContext(BaseNodeContext):
     def __init__(
         self,
@@ -45,7 +37,7 @@ class NodeContext(BaseNodeContext):
         return self._reader._init(start_offset, length, current_offset)
 
 
-class Node:
+class Node(pparse.Node):
     # Note: All readers are Ranges. Range is required to process protobuf.
     def __init__(self, parent: "Node", reader: pparse.Reader, abs_offset=0):
         from thirdparty.pparse.lazy.flatbuffers.state import FlatbuffersParsingRootTableOffset
@@ -62,22 +54,27 @@ class Node:
     def field_by_id(self, field_num):
         return self._type.by_id(field_num)
 
-    def ctx(self):
-        return self._ctx
+    # DUPLICATE
+    #def ctx(self):
+    #    return self._ctx
 
-    def clear_ctx(self):
-        self._ctx = None
-        return self
+    # DUP
+    #def clear_ctx(self):
+    #    self._ctx = None
+    #    return self
 
-    def tell(self):
-        return self._reader.tell()
+    # DUP
+    #def tell(self):
+    #    return self._reader.tell()
 
-    def final_length(self, length):
-        self._reader = pparse.Range(self._reader.dup(), length)
-        return self
+    # DUP
+    #def final_length(self, length):
+    #    self._reader = pparse.Range(self._reader.dup(), length)
+    #    return self
 
-    def length(self):
-        return self._reader.length()
+    # DUP
+    #def length(self):
+    #    return self._reader.length()
 
     def msgtype(self):
         return self._type
@@ -107,8 +104,9 @@ class Node:
         # except pparse.UnsupportedFormatException:
         #     raise
 
-    def unload(self):
-        self.value = UNLOADED_VALUE
+    # DUP
+    #def unload(self):
+    #    self.value = pparse.UNLOADED_VALUE
 
     def dumps(self, depth=0, step=2):
         # spacer = " " * depth

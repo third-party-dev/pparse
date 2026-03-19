@@ -8,7 +8,7 @@ log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.protobuf import make_protobuf_parser
-from thirdparty.pparse.lazy.protobuf.meta import OnnxPb
+from thirdparty.pparse.lazy.protobuf.meta import PbImport
 from thirdparty.pparse.lazy.protobuf.node import Node, NodeArray, NodeMap
 
 """
@@ -22,9 +22,12 @@ class Onnx:
         self._extraction = None
 
     def open_fpath(self, fpath):
+        from importlib import resources
+        data_path = resources.files("thirdparty.pparse") / "data"
+        proto = PbImport(data_path / "proto" / "onnx.pb")
         ONNX_PARSER = {
             "protobuf": make_protobuf_parser(
-                ext_list=[".onnx"], init_msgtype=".onnx.ModelProto", proto=OnnxPb(),
+                ext_list=[".onnx"], init_msgtype=".onnx.ModelProto", proto=proto,
             ),
         }
 

@@ -15,9 +15,10 @@ class Node(pparse.Node):
         self._ctx = pparse.NodeContext(self, parent, reader.dup())
         self.ctx()._next_state(SafetensorsParsingLength)
 
-    def final_length(self, length):
-        self._reader = pparse.Range(self._reader.dup(), length)
-        return self
+    # DUP
+    #def final_length(self, length):
+    #    self._reader = pparse.Range(self._reader.dup(), length)
+    #    return self
 
     # Assumed that this method is not run until after the Extraction parsing is complete.
     def load(self, parser):

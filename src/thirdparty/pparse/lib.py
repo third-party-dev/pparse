@@ -266,7 +266,6 @@ class Node:
     def tell(self):
         return self._reader.tell()
 
-    # TODO: Is this common enough?!
     def final_length(self, length):
         self._reader = Range(self._reader.dup(), length)
         return self

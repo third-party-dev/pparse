@@ -9,8 +9,15 @@ om = Om().open_fpath('modeldef.pb')
 # graph.op.input.attr.
 
 graph = om._extraction._result['protobuf'].value['graph'].value[0]
+with open('om.xml', 'w') as fobj:
+    fobj.write(om._extraction._result['protobuf'].dumps())
 first_packed = graph.value['op'].value[0].value['attr'].value[2].value['value'].value['list'].value['i'].value
 
+desc = graph.value['op'].value[3].value['attr'].value[7].value['value'].value['t'].value['desc'].value
+offset = desc['data_offset']
+size = desc['weight_size']
+dtype = desc['dtype']
+shape = desc['shape'].value['dim'].value
 '''
 graph_list = om._extraction._result['protobuf'].value['graph']
 graph = graph_list.value[0]

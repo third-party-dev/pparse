@@ -28,9 +28,10 @@ class Node(pparse.Node):
         super().__init__(parent, reader, ctx)
         self.ctx()._next_state(JsonParsingStart)
 
-    def final_length(self, length):
-        self._reader = pparse.Range(self._reader.dup(), length)
-        return self
+    # DUP
+    #def final_length(self, length):
+    #    self._reader = pparse.Range(self._reader.dup(), length)
+    #    return self
 
     # Assumed that this method is not run until after the Extraction parsing is complete.
     def load(self, parser):

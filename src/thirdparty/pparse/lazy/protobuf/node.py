@@ -63,22 +63,27 @@ class Node(pparse.Node):
     def field_by_id(self, field_num):
         return self._type.by_id(field_num)
 
-    def ctx(self):
-        return self._ctx
+    # DUP
+    #def ctx(self):
+    #    return self._ctx
 
-    def clear_ctx(self):
-        self._ctx = None
-        return self
+    # DUP
+    #def clear_ctx(self):
+    #    self._ctx = None
+    #    return self
 
-    def tell(self):
-        return self._reader.tell()
+    # DUP
+    #def tell(self):
+    #    return self._reader.tell()
 
-    def final_length(self, length):
-        self._reader = pparse.Range(self._reader.dup(), length)
-        return self
+    # DUP
+    #def final_length(self, length):
+    #    self._reader = pparse.Range(self._reader.dup(), length)
+    #    return self
 
-    def length(self):
-        return self._reader.length()
+    # DUP
+    #def length(self):
+    #    return self._reader.length()
 
     def msgtype(self):
         return self._type
@@ -107,8 +112,9 @@ class Node(pparse.Node):
         except pparse.UnsupportedFormatException:
             raise
 
-    def unload(self):
-        self.value = UNLOADED_VALUE
+    # DUP
+    #def unload(self):
+    #    self.value = UNLOADED_VALUE
 
     def dumps(self, depth=0, step=2):
         spacer = " " * depth

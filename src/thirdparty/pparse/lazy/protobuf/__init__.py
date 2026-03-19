@@ -9,12 +9,12 @@ from typing import Optional
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.protobuf.meta import Protobuf, DumbPb
+from thirdparty.pparse.lazy.protobuf.meta import Protobuf, PbImport
 from thirdparty.pparse.lazy.protobuf.node import Node, NodeArray, NodeMap
 from thirdparty.pparse.lazy.protobuf.state import ProtobufParsingKey
 
 # make_protobuf_parser(ext_list=['.onnx'], init_msgtype='.onnx.ModelProto')
-def make_protobuf_parser(ext_list=[], init_msgtype="", proto=DumbPb()):
+def make_protobuf_parser(ext_list=[], init_msgtype="", proto=PbImport()):
     class Parser(pparse.Parser):
         @staticmethod
         def match_extension(fname: str):

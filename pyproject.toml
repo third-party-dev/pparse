@@ -26,6 +26,14 @@ version = {file = "VERSION"}
 where = ["src"]
 namespaces = true
 
+[tool.setuptools.package-data]
+"thirdparty_pparse" = [
+    "data/proto/*.pb",
+    "data/proto/*.proto",
+    "data/proto/*.proto3",
+    "data/fbs/*.fbs",
+]
+
 [project.scripts]
 pparse = "thirdparty.pparse.cli:main"
 
