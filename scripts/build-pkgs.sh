@@ -10,7 +10,7 @@ else
   VERSION=$1
 fi
 
-echo "$VERSION"
+echo "$VERSION" > ${PROJ_PATH}/VERSION
 
 python -m build --outdir ${PROJ_PATH}/outputs/dist
 python -m build --sdist --outdir ${PROJ_PATH}/outputs/dist
