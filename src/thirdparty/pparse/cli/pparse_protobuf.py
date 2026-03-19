@@ -1,0 +1,42 @@
+
+
+
+def register_pparse_protobuf(subparsers):
+    protobuf_parser = subparsers.add_parser("protobuf", help="protobuf command")
+    protobuf_subparser = protobuf_parser.add_subparsers(dest="protobuf_command", required=True)
+
+    protobuf_parse_parser = protobuf_subparser.add_parser("parse", help="protobuf parse command")
+    protobuf_parse_parser.add_argument("--dump", default=None)
+    protobuf_parse_parser.add_argument("path")
+    protobuf_parse_parser.add_argument("pbpath")
+    protobuf_parse_parser.add_argument("msgtype")
+    protobuf_parse_parser.set_defaults(func=protobuf_parse)
+
+def protobuf_parse(args):
+    from thirdparty.pparse.view.protobuf import ProtobufParser
+
+    print(f"Parsing protobuf from: {args.path}")
+
+    try:
+        obj = ProtobufParser().open_fpath(args.path, args.pbpath, args.msgtype)
+
+        if args.dump:
+            print(f"Dumping parsed structure to: {args.dump}")
+            with open(args.dump, "w") as fobj:
+                fobj.write(obj._extraction._result['protobuf'].dumps())
+
+    except Exception as e:
+        print(e)
+        import traceback
+        traceback.print_exc()
+
+    if hasattr(args, "breakpoint") and args.breakpoint:
+        print(f"Locals: {list(locals().keys())}")
+        print(f"Example:")
+        print(f"  root = obj._extraction._result['protobuf']")
+        print(f"Pattern:")
+        print(f"  root.value[_field1_].value[_field2_].value[_field3_].value ...")
+        breakpoint()
+
+
+

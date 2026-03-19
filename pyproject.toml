@@ -51,3 +51,9 @@ pytorch = "thirdparty.pparse.cli.pparse_pytorch:register_pparse_pytorch"
 
 # Register ident as a pparse subcommand
 ident = "thirdparty.pparse.cli.pparse_ident:register_pparse_ident"
+
+# Register protobuf as a pparse subcommand
+protobuf = "thirdparty.pparse.cli.pparse_protobuf:register_pparse_protobuf"
+
+# Register protobuf as a pparse subcommand
+om = "thirdparty.pparse.cli.pparse_om:register_pparse_om"
