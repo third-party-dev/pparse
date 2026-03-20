@@ -7,30 +7,31 @@ import struct
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.protobuf import make_protobuf_parser
-from thirdparty.pparse.lazy.protobuf.meta import PbImport
-from thirdparty.pparse.lazy.protobuf.node import Node, NodeArray, NodeMap
+from thirdparty.pparse.lazy.flatbuffers import make_flatbuffers_parser
+from thirdparty.pparse.lazy.flatbuffers.node import Node, NodeVector, NodeTable
 
-
-class ProtobufParser:
+class MNN:
     def __init__(self):
         self._extraction = None
 
-    def open_fpath(self, fpath, pbpath, msgtype):
-        
+    def open_fpath(self, fpath):
+
+        import json
         from importlib import resources
         from pathlib import Path
-        PROTOBUF_PARSER = {
-            "protobuf": make_protobuf_parser(
-                ext_list=[Path(fpath).suffix], init_msgtype=msgtype, proto=PbImport(pbpath)
-            ),
+        data_path = resources.files("thirdparty.pparse")/"data"
+        with open(data_path/"fbs"/"mnn"/"MNN.json", "r") as fobj:
+            json_schema = json.loads(fobj.read())
+        MNN_PARSER = {
+            "flatbuffers": make_flatbuffers_parser(
+                ext_list=[Path(fpath).suffix], json_schema=json_schema),
         }
 
         try:
             data_source = pparse.FileData(path=fpath)
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
-            self._extraction.discover_parsers(PROTOBUF_PARSER)
+            self._extraction.discover_parsers(MNN_PARSER)
             self._extraction.scan_data()
 
         except pparse.EndOfDataException as e:
@@ -43,4 +44,7 @@ class ProtobufParser:
             traceback.print_exc()
 
         return self
+
+
+
 

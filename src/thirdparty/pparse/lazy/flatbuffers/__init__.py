@@ -7,12 +7,11 @@ log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.flatbuffers.node import Node, NodeVector, NodeTable
-from thirdparty.pparse.lazy.flatbuffers.meta import tflite3_json_schema, FlatbuffersSchema
+from thirdparty.pparse.lazy.flatbuffers.meta import FlatbuffersSchema
 
 #proto = OnnxPb()
 
-# make_protobuf_parser(ext_list=['.onnx'], init_msgtype='tflite.Model')
-def make_tflite_parser(ext_list=['.tflite'], schema=tflite3_json_schema): #, init_msgtype="tflite.Model"):
+def make_flatbuffers_parser(ext_list=['.unknown'], json_schema={}):
     class Parser(pparse.Parser):
         @staticmethod
         def match_extension(fname: str):
@@ -38,7 +37,7 @@ def make_tflite_parser(ext_list=['.tflite'], schema=tflite3_json_schema): #, ini
             '''
 
             self.top_reader = source.open()
-            self.schema = FlatbuffersSchema(schema_obj=tflite3_json_schema)
+            self.schema = FlatbuffersSchema(schema_obj=json_schema)
             self.current = Node(None, source.open(), 0)
             source._result[id] = self.current
 

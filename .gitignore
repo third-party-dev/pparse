@@ -4,10 +4,5 @@
 VERSION
 outputs/
 
-# Forced clean commit
-tests/labs/mnn/flatc-conv/
-tests/labs/mnn/notes.md
-tests/labs/onnx/
-tests/labs/safetensors/yolov5su.pt
-tests/labs/safetensors/yolov5su.safetensors
-tflite/
+
+tests/data/models

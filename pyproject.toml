@@ -31,7 +31,10 @@ namespaces = true
     "data/proto/*.pb",
     "data/proto/*.proto",
     "data/proto/*.proto3",
-    "data/fbs/*.fbs",
+    "data/fbs/tflite/*.fbs",
+    "data/fbs/tflite/*.json",
+    "data/fbs/mnn/*.fbs",
+    "data/fbs/mnn/*.json",
 ]
 
 [project.scripts]
@@ -63,3 +66,12 @@ pickle = "thirdparty.pparse.cli.pparse_pickle:register_pparse_pickle"
 
 # Register protobuf as a pparse subcommand
 onnx = "thirdparty.pparse.cli.pparse_onnx:register_pparse_onnx"
+
+# Register protobuf as a pparse subcommand
+tflite = "thirdparty.pparse.cli.pparse_tflite:register_pparse_tflite"
+
+# Register protobuf as a pparse subcommand
+flatbuffers = "thirdparty.pparse.cli.pparse_flatbuffers:register_pparse_flatbuffers"
+
+# Register protobuf as a pparse subcommand
+mnn = "thirdparty.pparse.cli.pparse_mnn:register_pparse_mnn"

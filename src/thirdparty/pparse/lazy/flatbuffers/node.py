@@ -46,35 +46,13 @@ class Node(pparse.Node):
 
         # top_reader offset
         self._abs_offset = abs_offset
-        self.value = UNLOADED_VALUE
+        self.value = pparse.UNLOADED_VALUE
 
     def abs_offset(self):
         return self._abs_offset
 
     def field_by_id(self, field_num):
         return self._type.by_id(field_num)
-
-    # DUPLICATE
-    #def ctx(self):
-    #    return self._ctx
-
-    # DUP
-    #def clear_ctx(self):
-    #    self._ctx = None
-    #    return self
-
-    # DUP
-    #def tell(self):
-    #    return self._reader.tell()
-
-    # DUP
-    #def final_length(self, length):
-    #    self._reader = pparse.Range(self._reader.dup(), length)
-    #    return self
-
-    # DUP
-    #def length(self):
-    #    return self._reader.length()
 
     def msgtype(self):
         return self._type
@@ -104,9 +82,6 @@ class Node(pparse.Node):
         # except pparse.UnsupportedFormatException:
         #     raise
 
-    # DUP
-    #def unload(self):
-    #    self.value = pparse.UNLOADED_VALUE
 
     def dumps(self, depth=0, step=2):
         # spacer = " " * depth
@@ -154,22 +129,21 @@ class NodeTable(Node):
         return self._type
 
     def dumps(self, depth=0, step=2):
-        # spacer = " " * depth
+        spacer = " " * depth
         # proto_type = self.msgtype().name
-        # result = [
-        #     f'{spacer}<ProtobufMapNode type="{proto_type}" offset="{self.tell()}">{{'
-        # ]
-        # for k, v in self.value.items():
-        #     if isinstance(v, Node):
-        #         result.append(f"{spacer}{' ' * step}{k}:")
-        #         result.append(f"{v.dumps(depth + (step * 2))}")
-        #     else:
-        #         v_str = f"{v}"
-        #         if len(v_str) < 40:
-        #             result.append(f"{spacer}{' ' * step}{k}: {v}")
-        # result.append(f"{spacer}}}</ProtobufMapNode>")
-        # return "\n".join(result)
-        return ''
+        result = [
+            f'{spacer}<FlatbuffersNodeTable offset="{self.tell()}">{{'
+        ]
+        for k, v in self.value.items():
+            if isinstance(v, Node):
+                result.append(f"{spacer}{' ' * step}{k}:")
+                result.append(f"{v.dumps(depth + (step * 2))}")
+            else:
+                v_str = f"{v}"
+                if len(v_str) < 40:
+                    result.append(f"{spacer}{' ' * step}{k}: {v}")
+        result.append(f"{spacer}}}</FlatbuffersNodeTable>")
+        return "\n".join(result)
 
     # def __repr__(self):
     #     # Designed for usage in breakpoint()s and REPLs
@@ -195,19 +169,18 @@ class NodeVector(Node):
         return self._type
 
     def dumps(self, depth=0, step=2):
-        # spacer = " " * depth
+        spacer = " " * depth
         # proto_type = self.msgtype().name
-        # result = [
-        #     f'{spacer}<ProtobufArrayNode type="{proto_type}" offset="{self.tell()}">['
-        # ]
-        # for e in self.value:
-        #     if isinstance(e, Node):
-        #         result.append(f"{e.dumps(depth + step)}")
-        #     else:
-        #         result.append(f"{spacer}{' ' * step}{e}")
-        # result.append(f"{spacer}]</ProtobufArrayNode>")
-        # return "\n".join(result)
-        return ''
+        result = [
+            f'{spacer}<FlatbuffersNodeVector offset="{self.tell()}">['
+        ]
+        for e in self.value:
+            if isinstance(e, Node):
+                result.append(f"{e.dumps(depth + step)}")
+            else:
+                result.append(f"{spacer}{' ' * step}{e}")
+        result.append(f"{spacer}]</FlatbuffersNodeVector>")
+        return "\n".join(result)
 
     # def __repr__(self):
     #     # # Designed for usage in breakpoint()s and REPLs

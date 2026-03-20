@@ -7,9 +7,9 @@ def register_pparse_protobuf(subparsers):
 
     protobuf_parse_parser = protobuf_subparser.add_parser("parse", help="protobuf parse command")
     protobuf_parse_parser.add_argument("--dump", default=None)
-    protobuf_parse_parser.add_argument("path")
     protobuf_parse_parser.add_argument("pbpath")
     protobuf_parse_parser.add_argument("msgtype")
+    protobuf_parse_parser.add_argument("path")
     protobuf_parse_parser.set_defaults(func=protobuf_parse)
 
 def protobuf_parse(args):
