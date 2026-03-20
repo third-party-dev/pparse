@@ -75,3 +75,6 @@ flatbuffers = "thirdparty.pparse.cli.pparse_flatbuffers:register_pparse_flatbuff
 
 # Register protobuf as a pparse subcommand
 mnn = "thirdparty.pparse.cli.pparse_mnn:register_pparse_mnn"
+
+# Register protobuf as a pparse subcommand
+zip = "thirdparty.pparse.cli.pparse_zip:register_pparse_zip"

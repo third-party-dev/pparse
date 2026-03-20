@@ -72,15 +72,15 @@ class Node:
     def unload(self):
         self.value = pparse.UNLOADED_VALUE
 
-    # def dumps(self, depth=0, step=2):
-    #     spacer = ' ' * depth
-    #     result = [f"{spacer}" f'<JsonNode length="{self.length()}" offset="{self.tell()}">']
-    #     if isinstance(self.value, Node):
-    #         result.append(f"{spacer}{self.value.dumps(depth+step)}")
-    #     else:
-    #         result.append(f"{spacer}{' '*step}{self.value}")
-    #     result.append(f"{spacer}</JsonNode>")
-    #     return '\n'.join(result)
+    def dumps(self, depth=0, step=2):
+        spacer = ' ' * depth
+        result = [f"{spacer}" f'<ZipNode length="{self.length()}" offset="{self.tell()}">']
+        if isinstance(self.value, Node):
+            result.append(f"{spacer}{self.value.dumps(depth+step)}")
+        else:
+            result.append(f"{spacer}{' '*step}{self.value}")
+        result.append(f"{spacer}</ZipNode>")
+        return '\n'.join(result)
 
 
 class NodeMap(Node):
