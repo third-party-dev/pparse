@@ -57,3 +57,9 @@ protobuf = "thirdparty.pparse.cli.pparse_protobuf:register_pparse_protobuf"
 
 # Register protobuf as a pparse subcommand
 om = "thirdparty.pparse.cli.pparse_om:register_pparse_om"
+
+# Register protobuf as a pparse subcommand
+pickle = "thirdparty.pparse.cli.pparse_pickle:register_pparse_pickle"
+
+# Register protobuf as a pparse subcommand
+onnx = "thirdparty.pparse.cli.pparse_onnx:register_pparse_onnx"

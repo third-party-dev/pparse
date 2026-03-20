@@ -5,6 +5,7 @@ def register_pparse_onnx(subparsers):
     onnx_subparser = onnx_parser.add_subparsers(dest="onnx_command", required=True)
 
     onnx_view_parser = onnx_subparser.add_parser("view", help="onnx parse command")
+    onnx_view_parser.add_argument("--print", action="store_true", default=False, help="print to stdout")
     onnx_view_parser.add_argument("path")
     onnx_view_parser.set_defaults(func=onnx_view)
 
@@ -55,6 +56,9 @@ def onnx_view(args):
     try:
         obj = Onnx().open_fpath(args.path)
         # obj.tensor('lm_head.weight').get_data_bytes()
+
+        if args.print:
+            print(obj._extraction._result['protobuf'].dumps())
 
     except Exception as e:
         print(e)
