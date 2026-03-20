@@ -46,35 +46,39 @@ pparse = "thirdparty.pparse.cli.yannt_plugin:register_pparse"
 
 [project.entry-points."pparse_command"]
 
-# Register safetensors as a pparse subcommand
-safetensors = "thirdparty.pparse.cli.pparse_safetensors:register_pparse_safetensors"
-
-# Register pytorch as a pparse subcommand
-pytorch = "thirdparty.pparse.cli.pparse_pytorch:register_pparse_pytorch"
+# Register flatbuffers as a pparse subcommand
+flatbuffers = "thirdparty.pparse.cli.pparse_flatbuffers:register_pparse_flatbuffers"
 
 # Register ident as a pparse subcommand
 ident = "thirdparty.pparse.cli.pparse_ident:register_pparse_ident"
 
-# Register protobuf as a pparse subcommand
-protobuf = "thirdparty.pparse.cli.pparse_protobuf:register_pparse_protobuf"
+# Register json as a pparse subcommand
+json = "thirdparty.pparse.cli.pparse_json:register_pparse_json"
 
-# Register protobuf as a pparse subcommand
+# Register mnn as a pparse subcommand
+mnn = "thirdparty.pparse.cli.pparse_mnn:register_pparse_mnn"
+
+# Register om as a pparse subcommand
 om = "thirdparty.pparse.cli.pparse_om:register_pparse_om"
 
-# Register protobuf as a pparse subcommand
+# Register onnx as a pparse subcommand
+onnx = "thirdparty.pparse.cli.pparse_onnx:register_pparse_onnx"
+
+# Register pickle as a pparse subcommand
 pickle = "thirdparty.pparse.cli.pparse_pickle:register_pparse_pickle"
 
 # Register protobuf as a pparse subcommand
-onnx = "thirdparty.pparse.cli.pparse_onnx:register_pparse_onnx"
+protobuf = "thirdparty.pparse.cli.pparse_protobuf:register_pparse_protobuf"
 
-# Register protobuf as a pparse subcommand
+# Register pytorch as a pparse subcommand
+pytorch = "thirdparty.pparse.cli.pparse_pytorch:register_pparse_pytorch"
+
+# Register safetensors as a pparse subcommand
+safetensors = "thirdparty.pparse.cli.pparse_safetensors:register_pparse_safetensors"
+
+# Register tflite as a pparse subcommand
 tflite = "thirdparty.pparse.cli.pparse_tflite:register_pparse_tflite"
 
-# Register protobuf as a pparse subcommand
-flatbuffers = "thirdparty.pparse.cli.pparse_flatbuffers:register_pparse_flatbuffers"
-
-# Register protobuf as a pparse subcommand
-mnn = "thirdparty.pparse.cli.pparse_mnn:register_pparse_mnn"
-
-# Register protobuf as a pparse subcommand
+# Register zip as a pparse subcommand
 zip = "thirdparty.pparse.cli.pparse_zip:register_pparse_zip"
+

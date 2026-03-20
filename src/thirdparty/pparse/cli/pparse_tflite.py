@@ -4,6 +4,7 @@ def register_pparse_tflite(subparsers):
 
 
     tflite_view_parser = tflite_subparser.add_parser("view", help="tflite view command")
+    tflite_view_parser.add_argument("--print", action="store_true", help="print to stdout")
     tflite_view_parser.add_argument("path")
     tflite_view_parser.set_defaults(func=tflite_view)
 
@@ -16,6 +17,9 @@ def tflite_view(args):
     try:
         obj = TFLite().open_fpath(args.path)
         tflite = obj._extraction._result['flatbuffers'].value
+
+        if args.print:
+            print(tflite.dumps())
 
     except Exception as e:
         print(e)
