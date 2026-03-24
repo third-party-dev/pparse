@@ -164,14 +164,18 @@ class Tensor(pparse.Tensor):
         elem_cnt = persid.arg[Tensor.ELEM_CNT]
         buffer = self.get_data_bytes()
         np_type = pparse.Tensor.STTYPE_NP_MAP[self.get_type()]
-        print(f"len {len(buffer)} np_type {np_type} elem_cnt {elem_cnt}")
-        return numpy.frombuffer(buffer, dtype=np_type, count=elem_cnt)
+        #print(f"len {len(buffer)} np_type {np_type} elem_cnt {elem_cnt}")
+        arr = numpy.frombuffer(buffer, dtype=np_type, count=elem_cnt)
+        return arr.reshape(self.get_shape())
         # TEST: obj.tensor('lm_head.weight').as_numpy()
 
 
 class PyTorch:
-    def __init__(self, extraction=None):
+    def __init__(self, extraction=None, force_traverse=False):
         self._extraction = extraction
+
+        self._tensor_meta = {}
+        self._forced_traversal = force_traverse
 
     def open_fpath(self, fpath):
         # --- Scan the zip ---
@@ -207,7 +211,40 @@ class PyTorch:
         self._extraction._extractions.append(self._pkl_extraction)
         self._pkl_extraction.discover_parsers(PKL_PARSER_REGISTRY).scan_data()
 
+        # Auto-detect if this is a weights only model or not.
+        if len(self._pkl_extraction._result["pkl"].value[0].value[0]) == 0 \
+            or self._forced_traversal:
+            arr = []
+            pkl = self._pkl_extraction._result['pkl'].value[0].value[0]
+            self._traverse_pt(pkl.state)
+        else:
+            pkl = self._pkl_extraction._result["pkl"].value[0].value[0]
+            for name in pkl:
+                self._tensor_meta[name] = Tensor(self, pkl[name], name)
+
         return self
+
+
+    def _traverse_pt(self, state, path_arr=[], metrics={ 'param_cnt': 0 }):
+        if not isinstance(state, dict) or \
+            not ('_modules' in state or '_parameters' in state):
+            #print(f"  - Dead end.")
+            return
+
+        if '_parameters' in state and len(state['_parameters'].keys()) > 0:
+            metrics['param_cnt'] += len(state['_parameters'].keys())
+            for k in state['_parameters'].keys():
+                param_name = f"{'.'.join(path_arr)}.{k}"
+                # ! Being presumptuous on our part.
+                reduce_call = state['_parameters'][k].arg[2]
+                tensor = Tensor(self, reduce_call, param_name)
+                # ! TODO: Check if the parameter name has already been set!
+                self._tensor_meta[param_name] = tensor
+
+        if '_modules':
+            for mod in state['_modules']:
+                self._traverse_pt(state['_modules'][mod].state, [*path_arr, mod], metrics)
+
 
     def as_arc_hash(self, hashed_data_path=None, keep_lm_head=False):
         import hashlib
@@ -238,16 +275,11 @@ class PyTorch:
         the kind of data to improve the process. (See traverse_pt() above.)
         '''
 
-        # Assumes the pt saved with torch.save(model.state_dict(), 'model.pt')
-        pkl = self._extraction._extractions[0]._result["pkl"]
-        tensor_dict = pkl.value[0].value[0]
-        tensor_names = sorted(tensor_dict.keys())
-
-        if len(tensor_names) == 0:
+        if len(self._tensor_meta.keys()) == 0:
             # This is not a weights_only pt file!
             raise Exception("No tensors found, likely not a weights only pt file.")
 
-        for tensor_name in tensor_names:
+        for tensor_name in sorted(self._tensor_meta.keys()):
             if tensor_name == "lm_head.weight" and not keep_lm_head:
                 continue
 
@@ -263,8 +295,9 @@ class PyTorch:
         if not hashed_data_path is None:
             with open(hashed_data_path, "wb") as fobj:
                 fobj.write(sane_json.encode("utf-8"))
-        print(f"Based on {len(tensor_names)} tensors seen.")
+        print(f"Based on {len(self._tensor_meta.keys())} tensors seen.")
         return hashlib.sha256(sane_json.encode("utf-8")).hexdigest()
+
 
     def as_safetensors(
         self,
@@ -279,15 +312,9 @@ class PyTorch:
         result = OrderedDict()
         result["__metadata__"] = OrderedDict([("format", "pt")])
 
-        # BUG: Very presumptious.
-        pkl = self._extraction._extractions[0]._result["pkl"]
-        tensor_dict = pkl.value[0].value[0]
-        tensor_names = sorted(tensor_dict.keys())
-        # tensor_list = tensor_dict.keys()
-
         # Calculate offsets
         current_offset = 0
-        for tensor_name in tensor_names:
+        for tensor_name in sorted(self._tensor_meta.keys()):
             if tensor_name == "lm_head.weight" and not keep_lm_head:
                 continue
 
@@ -332,18 +359,16 @@ class PyTorch:
             fobj.seek(0)
             fobj.write(struct.pack("<Q", hdr_len))
 
-    def tensor(self, name):
-        pkl = self._pkl_extraction._result["pkl"]
-        tensor_dict = pkl.value[0].value[0]
-        if name not in tensor_dict:
-            raise KeyError("Tensor name not found.")
 
-        return Tensor(self, tensor_dict[name], name)
+    def tensor(self, name):
+        if name not in self._tensor_meta:
+            raise KeyError("Tensor name not found.")
+        return self._tensor_meta[name]
+
 
     def tensor_names(self):
-        pkl = self._pkl_extraction._result["pkl"]
-        tensor_dict = pkl.value[0].value[0]
-        return [k for k in tensor_dict]
+        return list(self._tensor_meta.keys())
+
 
         """
             pkl = obj._extraction._extractions[0]._result['pkl']
