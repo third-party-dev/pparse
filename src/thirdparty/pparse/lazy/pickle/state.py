@@ -133,13 +133,20 @@ class PersistentCall:
         return "".join(res)
 
 
+def try_decode_and_strip(val):
+    newval = val
+    if isinstance(val, bytes):
+        newval = val.decode("utf-8")
+    return newval.strip()
+
+
 class ReduceCall(dict):
     def __init__(self, module_call, arg, opcode):
         super().__init__()
 
         self.module_call = module_call
-        self.module = self.module_call[0].decode("utf-8").strip()
-        self.function = self.module_call[1].decode("utf-8").strip()
+        self.module = try_decode_and_strip(self.module_call[0])
+        self.function = try_decode_and_strip(self.module_call[1])
         self.arg = arg
         self.opcode = opcode
         self.state = None
@@ -493,6 +500,30 @@ class PickleInterpreter(PickleParsingState):
             ctx.history.append(op)
 
             # TODO: Record instructions that involve tuple.
+            return
+        
+        if op.opcode == PklOp.SHORT_BINUNICODE:
+            ctx.stack.append(op.param)
+            ctx.history.append(op)
+            return
+
+        if op.opcode == PklOp.MEMOIZE:
+            ctx.memo[ctx.next_memo] = ctx.stack[-1]
+            ctx.next_memo += 1
+            ctx.history.append(op)
+            return
+
+        if op.opcode == PklOp.STACK_GLOBAL:
+            mod = ctx.stack.pop()
+            name = ctx.stack.pop()
+            # TODO: Track this import better?
+            ctx.stack.append((mod, name))
+            ctx.history.append(op)
+            return
+
+        if op.opcode == PklOp.FRAME:
+            # Skipping Frame. Supposedly only a chunk wrapper.
+            ctx.history.append(op)
             return
 
         log.debug(f"Unhandled Opcode: {op}")

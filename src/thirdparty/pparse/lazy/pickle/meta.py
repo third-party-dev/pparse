@@ -86,7 +86,7 @@ class PklOp:
     NEWOBJ_EX = 146
     STACK_GLOBAL = 147
     MEMOIZE = 148
-    # FRAME = 149
+    FRAME = 149
 
     # Proto 5
     BYTEARRAY8 = 150

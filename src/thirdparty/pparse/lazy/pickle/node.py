@@ -24,6 +24,7 @@ class NodeVmContext(pparse.NodeContext):
         self.current_op = None
         self.stack = []
         self.memo = {}
+        self.next_memo = 0
 
         # Note: Save the history to the node, forever allocating that memory.
         node.history = []

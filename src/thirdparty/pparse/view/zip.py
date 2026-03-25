@@ -18,14 +18,12 @@ class Zip:
     def __init__(self, extraction=None):
         self._extraction = extraction
 
-    def open_fpath(self, fpath):
-
+    def _parse(self, data_source, fname="unnamed.zip"):
         ZIP_PARSER_REGISTRY = { "zip": LazyZipParser, }
 
         try:
-            data_source = pparse.FileData(path=fpath)
             data_range = pparse.Range(data_source.open(), data_source.length)
-            self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
+            self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
             self._extraction.discover_parsers(ZIP_PARSER_REGISTRY)
             self._extraction.scan_data()
         
@@ -39,5 +37,14 @@ class Zip:
             traceback.print_exc()
 
         return self
+
+
+    def open_fpath(self, fpath):
+        return self._parse(pparse.FileData(path=fpath), fname=fpath)
+
+
+    def from_bytesio(self, bytes_io, fname="unnamed.zip"):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)
+
 
     

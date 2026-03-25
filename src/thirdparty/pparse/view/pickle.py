@@ -12,16 +12,16 @@ from thirdparty.pparse.utils import pparse_repr
 
 class Pickle:
 
-    def open_fpath(self, fpath, header_only=False):
+    def _parse(self, data_source, fname="unnamed.pkl"):
+
+        PICKLE_PARSER = {"pkl": LazyPickleParser}
 
         try:
-            PICKLE_PARSER = {"pkl": LazyPickleParser}
-            data_source = pparse.FileData(path=fpath)
             data_range = pparse.Range(data_source.open(), data_source.length)
-            self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
+            self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
             self._extraction.discover_parsers(PICKLE_PARSER)
             self._extraction.scan_data()
-
+        
         except pparse.EndOfDataException as e:
             print(e)
             pass
@@ -32,4 +32,12 @@ class Pickle:
             traceback.print_exc()
 
         return self
+
+
+    def open_fpath(self, fpath):
+        return self._parse(pparse.FileData(path=fpath), fname=fpath)
+
+
+    def from_bytesio(self, bytes_io, fname="unnamed.pkl"):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)
 
