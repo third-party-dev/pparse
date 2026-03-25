@@ -107,8 +107,9 @@ class ZipParsingContinueDecompress(ZipParsingState):
 
     def _decompress_data(self, ctx: "NodeContext", comp_data):
         eof = False
+        buffer = ctx.node().value
         dedata = self.decompressor.decompress(comp_data)
-        context.zip_entry.add_data(dedata)
+        buffer.write(dedata)
         unused = len(self.decompressor.unused_data)
         used = len(comp_data) - unused
         return (used, unused, self.decompressor.eof)
@@ -159,10 +160,14 @@ class ZipParsingContinueDecompress(ZipParsingState):
                     buffer.write(compressed_data[:desc_off])
                     return (desc_off, len(compressed_data) - desc_off, eof)
 
-        elif meta["compressed"] == 8:
+        elif meta["compression"] == 8:
             if not self._has_desc and meta["uncomp_size"] == buffer.tell():
                 return (meta["comp_size"], 0, True)
-            return self._decompress_data(context, compressed_data)
+            return self._decompress_data(ctx, compressed_data)
+        elif meta["compression"] == 12:
+            raise Exception(f"BZIP2 Compression not currently supported.")
+        elif meta["compression"] == 14:
+            raise Exception(f"LZMA Compression not currently supported.")
         else:
             raise Exception(f"Compression not supported. {meta['compression']}")
 
@@ -195,7 +200,7 @@ class ZipParsingEntryExtra(ZipParsingState):
         meta = ctx.node().value
         extra_len = meta["extra_len"]
         data = ctx.peek(extra_len)
-        if not data or len(data) < extra_len:
+        if (extra_len != 0 and not data) or len(data) < extra_len:
             raise pparse.EndOfDataException("Not enough data to parse entry extra.")
 
         ctx.skip(extra_len)
