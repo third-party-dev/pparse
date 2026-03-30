@@ -48,8 +48,8 @@ def str_table_scan(buf):
     str_tbl = {}
     min_str_len = 3
     for off in range(0, len(buf), 4):
-        if off % 0x1000 == 0:
-            print(f"{off} offsets processed, {len(str_tbl)} strings found.")
+        #if off % 0x1000 == 0:
+        #    print(f"{off} offsets processed, {len(str_tbl)} strings found.")
 
         try:
             pot_len = struct.unpack_from("<I", buf, off)[0]
@@ -77,10 +77,94 @@ def str_table_scan(buf):
         str_tbl[off] = pot
     return str_tbl
 
+class FB_Vector():
+    def __init__(self, field=None, abs_off=None):
+        self.field = field
+        self.abs_off = abs_off
+
+        self.likely_tbls = False
+        self.likely_strs = False
+
+        self._tbls = None
+        self._tbls_list = None
+        self._strs = None
+        self._strs_list = None
+    
+    def get_count(self):
+        return struct.unpack_from("<I", self.field.tbl.buf, self.abs_off)[0]
+
+    def _idx_off(self, idx):
+        return 4 + (idx * 4)
+
+    def deref_u32(self, idx):
+        return struct.unpack_from("<I", self.field.tbl.buf, self.abs_off + self._idx_off(idx))[0]
+    
+    def deref_off(self, idx):
+        return self.abs_off + self._idx_off(idx) + self.deref_u32(idx)
+
+    # Common Pattern For "Normal" Vectors
+    def always_decreasing(self) -> bool:
+        last_val = 0xFFFFFFFF
+        for idx in range(self.get_count()):
+            val = self.deref_u32(idx)
+            if val < last_val:
+                last_val = val
+            else:
+                return False
+        return True
+    
+    def all_tables(self, tbl_tbl) -> bool:
+        tbls = {}
+        tbls_list = []
+        for idx in range(self.get_count()):
+            tbl_off = self.deref_off(idx)
+            if tbl_off not in tbl_tbl:
+                return False
+            tbls_list.append(tbl_off)
+            tbls[tbl_off] = tbl_tbl[tbl_off]
+        self._tbls = tbls
+        self._tbls_list = tbls_list
+        return True
+    
+    def all_strings(self, str_tbl) -> bool:
+        strs = {}
+        strs_list = []
+        for idx in range(self.get_count()):
+            str_off = self.deref_off(idx)
+            if str_off not in str_tbl:
+                return False
+            strs_list.append(str_off)
+            strs[str_off] = str_tbl[str_off]
+        self._strs = strs
+        self._strs_list = strs_list
+        return True
+
+    def dump(self, d=0, spacer="  "):
+        print(f'{spacer*(d)}<FB_Vector abs_off="{self.abs_off:08x}" count="{self.get_count()}">')
+
+        if self.likely_strs:
+            print(f'{spacer*(d+1)}<asStrings>')
+            for s in self._strs_list:
+                print(f'{spacer*(d+2)}<String abs_off="{s:x}">{self._strs[s]}</String>')
+            print(f'{spacer*(d+1)}</asStrings>')
+
+        if self.likely_tbls:
+            print(f'{spacer*(d+1)}<asTables>')
+            for t in self._tbls_list:
+                self._tbls[t].dump(d+2, spacer)
+            print(f'{spacer*(d+1)}</asTables>')
+
+        print(f'{spacer*(d)}</FB_Vector>')
+
 class FB_Field():
-    def __init__(self, tbl=None, abs_off=None):
-        # The table this field is associated with.
+    def __init__(self, tbl=None, abs_off=None, idx=None):
+        # The table this field is associated with (think up).
         self.tbl = tbl
+        self.idx = idx
+        # This field as a table
+        self._tbl = None
+        # This field as a string
+        self._str = None
         # Offset of field from start of buffer.
         self.abs_off = abs_off
 
@@ -97,6 +181,9 @@ class FB_Field():
         self.likely_tbl = False
         # When set, is the abs_off of first elem of vector
         self.likely_vec_of_tbl = None
+        self.likely_vec_of_str = None
+
+        self._vec = None
 
         self._do_heuristics()
 
@@ -111,9 +198,10 @@ class FB_Field():
             self.likely_value = True
         
         try:
-            self.deref_str()
+            self._str = self.deref_str()
             self.likely_str = True
         except:
+            self._str = None
             pass
 
         # TODO: We can try to detect float:
@@ -134,10 +222,19 @@ class FB_Field():
 
         if not self.likely_str:
             try:
-                MAX_VECTOR_LEN = 0x800 # (2048)
-                val = self.deref_u32()
-                if val > 0 and val < MAX_VECTOR_LEN:
+                # MAX_VECTOR_LEN = 0x800 # (2048)
+                # val = self.deref_u32()
+                # if val > 0 and val < MAX_VECTOR_LEN:
+                #     self.likely_vec = True
+                if self.deref_u32() == 0:
                     self.likely_vec = True
+                    # We can't detect vector_of here.
+                else:
+                    vec = FB_Vector(self, self.as_offset())
+                    if vec.always_decreasing():
+                        self._vec = vec
+                        self.likely_vec = True
+
             except:
                 pass
 
@@ -245,32 +342,67 @@ class FB_Field():
     # TODO: - vectors can be scalars, enums, structs, tables, strings, and unions
 
     def __repr__(self):
-        lines = []
-        parts = []
-        parts.append(f"off {self.as_offset():08x}")
-        parts.append(f"as-u32 {self.cast_u32():08x}")
-        parts.append(\
-            f'{"S" if self.likely_str else "-"}'\
-            f'{"V" if self.likely_vec else "-"}'\
-            f'{"N" if self.likely_value else "-"}'\
-            f'{"T" if self.likely_tbl else "-"}'\
-            f'{"!f" if self.unlikely_float else "--"}'\
-        )
-        if self.slot:
-            parts.append(f"slot {''.join(f'\\x{b:02x}' for b in self.slot)}")
-        lines.append(' '.join(parts))
+        # ! fixme
+        # lines = []
+        # parts = []
+        # parts.append(f"off {self.as_offset():08x}")
+        # parts.append(f"as-u32 {self.cast_u32():08x}")
+        # parts.append(\
+        #     f'{"S" if self.likely_str else "-"}'\
+        #     f'{"V" if self.likely_vec else "-"}'\
+        #     f'{"N" if self.likely_value else "-"}'\
+        #     f'{"T" if self.likely_tbl else "-"}'\
+        #     f'{"!f" if self.unlikely_float else "--"}'\
+        # )
+        # if self.slot:
+        #     parts.append(f"slot {''.join(f'\\x{b:02x}' for b in self.slot)}")
+        # lines.append(' '.join(parts))
         
-        if self.likely_str:
-            lines.append(f"  str: {self.deref_str()[:60]}")
+        # if self.likely_str:
+        #     lines.append(f"  str: {self.deref_str()[:60]}")
+        # if self.likely_vec:
+        #     seen = ''.join(f'\\x{b:02x}' for b in self.deref_bytes(18)[4:])
+        #     # # !fix me
+        #     # if self._vec.likely_tbls:
+        #     #     lines.append(f"  vec-len: {self.deref_u32()} tbl: {self.likely_vec_of_tbl:08x}")
+        #     # else:
+        #     #     lines.append(f"  vec-len: {self.deref_u32()} peek: {seen}")
+        # if self.likely_tbl:
+        #     lines.append(f"  tbl abs_off: {self.as_offset():08x}")
+        # return '\n'.join(lines)
+        return ''
+    
+    def dump(self, d=0, spacer="  "):
+        v_flag = '--'
         if self.likely_vec:
-            seen = ''.join(f'\\x{b:02x}' for b in self.deref_bytes(18)[4:])
-            if self.likely_vec_of_tbl:
-                lines.append(f"  vec-len: {self.deref_u32()} tbl: {self.likely_vec_of_tbl:08x}")
-            else:
-                lines.append(f"  vec-len: {self.deref_u32()} peek: {seen}")
+            v_flag = 'V-'
+            if self._vec and self._vec.likely_tbls:
+                v_flag = 'Vt'
+            if self._vec and self._vec.likely_strs:
+                v_flag = 'Vs'
+        flags = ''.join([
+            f'{"S" if self.likely_str else "-"}',
+            f'{"T" if self.likely_tbl else "-"}',
+            f'{v_flag}',
+        ])
+
+        print(f'{spacer*(d)}<FB_Field abs_off="{self.as_offset():08x}" idx="{self.idx}" flags="{flags}">')
+        if self.likely_str:
+            print(f'{spacer*(d+1)}<asString>{self._str}</asString>')
         if self.likely_tbl:
-            lines.append(f"  tbl abs_off: {self.as_offset():08x}")
-        return '\n'.join(lines)
+            #print(f'{spacer*(d+1)}<asTable>')
+            self._tbl.dump(d+2, spacer)
+            #print(f'{spacer*(d+1)}</asTable>')
+        if self.likely_vec:
+            
+            if self._vec:
+                self._vec.dump(d+1, spacer)
+        if not self.likely_str and not self.likely_tbl and not self.likely_vec:
+            print(f'{spacer*(d+1)}<asUint32>{self.cast_u32()}</asUint32>')
+            sample = ''.join(f'\\x{b:02x}' for b in self.slot)
+            print(f"{spacer*(d+1)}<asU8Sample>{sample}</asU8Sample>")
+            
+        print(f'{spacer*(d)}</FB_Field>')
 
 
 class FB_VTable():
@@ -365,7 +497,7 @@ class FB_Table():
                 continue
 
             field_abs_off = self.abs_off + self.vtbl.entry[idx]
-            field[idx] = FB_Field(tbl=self, abs_off=self.abs_off + self.vtbl.entry[idx])
+            field[idx] = FB_Field(tbl=self, abs_off=self.abs_off + self.vtbl.entry[idx], idx=idx)
         
         return field
 
@@ -378,13 +510,21 @@ class FB_Table():
             lines.append("- "*38)
         return '\n'.join(lines)
 
+
+    def dump(self, d=0, spacer="  "):
+        print(f'{spacer*(d)}<FB_Table abs_off="{self.abs_off:08x}" setfields="{len(self.field)}" fieldcnt="{self.vtbl.cnt}">')
+        for idx in self.field:
+            self.field[idx].dump(d+1)
+        print(f'{spacer*(d)}</FB_Table>')
+
+
 def fb_table_scan(buf):
     tbl_tbl = {}
 
     # For each absolute table offset (on a 4 byte alignment).
     for tbl_abs in range(0, len(buf), 4):
-        if tbl_abs % 0x1000 == 0:
-            print(f"{tbl_abs} offsets processed, {len(tbl_tbl)} tables found.")
+        #if tbl_abs % 0x1000 == 0:
+        #    print(f"{tbl_abs} offsets processed, {len(tbl_tbl)} tables found.")
 
         try:
             # Generate the table and vtable objects.
@@ -403,7 +543,7 @@ def fb_table_scan(buf):
 with open(sys.argv[1], "rb") as f:
     buf = f.read()
 
-#str_tbl = str_table_scan(buf)
+str_tbl = str_table_scan(buf)
 tbl_tbl = fb_table_scan(buf)
 
 
@@ -412,17 +552,24 @@ for tbl_idx in tbl_tbl:
     tbl = tbl_tbl[tbl_idx]
     for idx in tbl.field:
         if tbl.field[idx].as_offset() in tbl_tbl:
+            tbl.field[idx]._tbl = tbl_tbl[tbl.field[idx].as_offset()]
             tbl.field[idx].likely_tbl = True
 
 # Scan all "likely vectors" and check first "offset" if its a valid table.
 for tbl in tbl_tbl.values():
     for field in tbl.field.values():
-        if field.likely_vec:
-            v_elem_ref_abs_off = field.as_offset() + 4
-            v_elem_val_rel_off = struct.unpack("<I", field.deref_bytes(8)[4:])[0]
-            v_elem_val_abs_off = v_elem_ref_abs_off + v_elem_val_rel_off
-            if v_elem_val_abs_off in tbl_tbl:
-                field.likely_vec_of_tbl = v_elem_val_abs_off
+        if field.likely_vec and field._vec:
+            if field._vec.all_tables(tbl_tbl):
+                field._vec.likely_tbls = True
+                #field.likely_vec_of_tbl = True
+            elif field._vec.all_strings(str_tbl):
+                field._vec.likely_strs = True
+                #field.likely_vec_of_str = True
+
+#tbl_tbl[0x88].dump()
+
+
+
 
 
 # # Print all tables with a field that is likely_str
@@ -447,24 +594,24 @@ for tbl in tbl_tbl.values():
 
 
 
-# Scan for highest flatbuffers tbl offset
-highest_tbl_off = 0
-for tbl_off in tbl_tbl:
-    if tbl_off > highest_tbl_off:
-        highest_tbl_off = tbl_off
-print(f"Highest tbl offset: {highest_tbl_off}")
+# # Scan for highest flatbuffers tbl offset
+# highest_tbl_off = 0
+# for tbl_off in tbl_tbl:
+#     if tbl_off > highest_tbl_off:
+#         highest_tbl_off = tbl_off
+# print(f"Highest tbl offset: {highest_tbl_off}")
 
-# Scan for highest flatbuffers field offset
-highest_field_off = 0
-for tbl in tbl_tbl.values():
-    for field in tbl.field.values():
-        if field.likely_str:
-            if field.as_offset() > highest_field_off:
-                highest_field_off = field.as_offset()
-print(f"Highest field offset: {highest_field_off}")
+# # Scan for highest flatbuffers field offset
+# highest_field_off = 0
+# for tbl in tbl_tbl.values():
+#     for field in tbl.field.values():
+#         if field.likely_str:
+#             if field.as_offset() > highest_field_off:
+#                 highest_field_off = field.as_offset()
+# print(f"Highest field offset: {highest_field_off}")
 
 # Print root table
-print(tbl_tbl[0x88])
+#print(tbl_tbl[0x88])
 
 # # Print all tables
 # for tbl in tbl_tbl.values():
@@ -472,7 +619,7 @@ print(tbl_tbl[0x88])
 
 
 
-breakpoint()
+#breakpoint()
 
 
 
