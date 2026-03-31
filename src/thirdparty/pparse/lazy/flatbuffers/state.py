@@ -187,8 +187,11 @@ class FlatbuffersParsingTable(FlatbuffersParsingState):
             ctx.field = ctx.fields_desc[ctx.field_idx]
 
             field_name = ctx.field['name']
+            #print(f"PARSING: {table.type_desc()['name']}.{field_name}")
+            # if f"{table.type_desc()['name']}.{field_name}" == 'rknn.root_f2_f1_f8.f1':
+            #     breakpoint()
             field_type = ctx.field['type']
-            
+
             # Get the field ID (which determines position in vtable)
             # Fields are indexed by their 'id' if present, otherwise by order
             field_id = ctx.field.get('id', 0)
@@ -343,6 +346,8 @@ class FlatbuffersParsingTable(FlatbuffersParsingState):
 
         # If we're here, we pop the table back up to previous node.
         #print(f"Finished table @ {table.abs_offset()}")
+        # if ctx.parent().type_name() == 'rknn.root_f2':
+        #     breakpoint()
         parser.current = ctx.parent()
         if isinstance(parser.current, NodeTable):
             parser.current.ctx()._next_state(FlatbuffersParsingTable)
@@ -410,6 +415,9 @@ class FlatbuffersParsingVector(FlatbuffersParsingState):
 
         while ctx.element_idx < vector.element_count:
 
+            # if 'f2_graph' in vector.ctx().parent().value:
+            #     breakpoint()
+
             # Scalars are inplace, do those first.
             if element_type in parser.schema.TYPE_SIZES:
 
@@ -442,16 +450,21 @@ class FlatbuffersParsingVector(FlatbuffersParsingState):
                     raise ValueError("Vector of objects missing 'index' field")
                 if type_index not in parser.schema.objects_by_index:
                     raise ValueError(f"Unknown object index: {type_index}")
-                type_desc = parser.schema.objects_by_index[type_index]
+                elem_desc = parser.schema.objects_by_index[type_index]
+
+                # Store elem_desc for printing. Consider reusing as cached value.
+                ctx.node().elem_desc = elem_desc
+
                 
                 # Create a new table and start processing
                 element_pos = vector.abs_offset() + (ctx.element_idx * element_size) + 4
                 ctx.seek(element_pos)
                 table_offset = element_pos + parser.peek_u32(ctx)
-                new_table = NodeTable(ctx.node(), ctx.reader(), table_offset, type_desc)
+                new_table = NodeTable(ctx.node(), ctx.reader(), table_offset, elem_desc)
                 vector.value.append(new_table)
                 ctx.element_idx += 1
 
+                ## ! Note: Observing an unintentional decision to parse depth first.
                 parser.current = new_table
                 parser.current.ctx()._next_state(FlatbuffersParsingTable)
 

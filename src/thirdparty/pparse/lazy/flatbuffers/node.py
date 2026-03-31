@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import logging
+import numbers
 
 log = logging.getLogger(__name__)
 
@@ -128,20 +129,26 @@ class NodeTable(Node):
     def type_desc(self):
         return self._type
 
+    def type_name(self):
+        return self.type_desc()['name'] if 'name' in self.type_desc() else 'UNSET'
+
     def dumps(self, depth=0, step=2):
         spacer = " " * depth
         # proto_type = self.msgtype().name
         result = [
-            f'{spacer}<FlatbuffersNodeTable offset="{self.tell()}">{{'
+            f'{spacer}<FlatbuffersNodeTable abs_off="0x{self.abs_offset():x}" type="{self.type_name()}">{{'
         ]
         for k, v in self.value.items():
             if isinstance(v, Node):
                 result.append(f"{spacer}{' ' * step}{k}:")
                 result.append(f"{v.dumps(depth + (step * 2))}")
             else:
-                v_str = f"{v}"
-                if len(v_str) < 40:
-                    result.append(f"{spacer}{' ' * step}{k}: {v}")
+                if isinstance(v, numbers.Number):
+                    result.append(f"{spacer}{' ' * step}{k}: {v} {hex(v)}")
+                else:
+                    v_str = f"{v}"
+                    if len(v_str) < 40:
+                        result.append(f"{spacer}{' ' * step}{k}: {v}")
         result.append(f"{spacer}}}</FlatbuffersNodeTable>")
         return "\n".join(result)
 
@@ -159,6 +166,17 @@ class NodeTable(Node):
     #     return ''
 
 
+def hex_sample(data):
+    if len(data) <= 16:
+        return " ".join(f"{b:02x}" for b in data)
+
+    return (
+        " ".join(f"{b:02x}" for b in data[:8])
+        + " ... "
+        + " ".join(f"{b:02x}" for b in data[-8:])
+    )
+
+
 class NodeVector(Node):
     def __init__(self, parent: Node, reader: pparse.Reader, abs_offset=0, type_desc=None):
         super().__init__(parent, reader, abs_offset)
@@ -167,18 +185,29 @@ class NodeVector(Node):
 
     def type_desc(self):
         return self._type
+    
+    def type_name(self):
+        # Look up vector types by index.
+        if self.type_desc()['element'] == 'Obj':
+            return self.elem_desc['name']
+        if self.type_desc()['element'] in ['UByte', 'String']:
+            return self.type_desc()['element']
+        return 'UNSET'
 
     def dumps(self, depth=0, step=2):
         spacer = " " * depth
         # proto_type = self.msgtype().name
         result = [
-            f'{spacer}<FlatbuffersNodeVector offset="{self.tell()}">['
+            f'{spacer}<FlatbuffersNodeVector abs_off="0x{self.tell():x}" count="{len(self.value)}" type="{self.type_name()}">['
         ]
-        for e in self.value:
-            if isinstance(e, Node):
-                result.append(f"{e.dumps(depth + step)}")
-            else:
-                result.append(f"{spacer}{' ' * step}{e}")
+        if self.type_desc()['element'] == 'UByte':
+            result.append(f"{spacer}{' ' * step}{hex_sample(self.value)}")
+        else:
+            for e in self.value:
+                if isinstance(e, Node):
+                    result.append(f"{e.dumps(depth + step)}")
+                else:
+                    result.append(f"{spacer}{' ' * step}{e}")
         result.append(f"{spacer}]</FlatbuffersNodeVector>")
         return "\n".join(result)
 

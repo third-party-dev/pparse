@@ -1,0 +1,181 @@
+
+
+namespace rknn;
+
+// table has 14 bytes for field data, but vtable only maps first?
+table Section {
+    data:[ubyte];
+}
+
+table root_f19 {
+  f0:uint64;
+  f1:uint64;
+  f2:uint64;
+}
+
+table root_f17_f0 {
+  f0:[uint32];
+}
+
+table root_f17 {
+  f0:[root_f17_f0]; // dims?
+}
+
+table root_f2_f0 {
+  f0:uint8;
+  f1:uint8;
+  f2:uint8;
+  f3:[uint32];
+  f4:[uint32];
+  f5:string; // e.g. fc7
+  f6:string; // e.g. layer
+  f7:string; // e.g. int8
+  f8:[uint32]; // vector e.g. ['e8 93 5a c1']
+  f9:[uint32]; // vector e.g. ['b5 7d c8 41']
+  f10:[uint32]; // vector e.g. ['54 7f 1b 3e']
+  f11:[uint32]; // vector e.g. ['da ff ff ff'] (-38d) (NaNf) signed?
+  f12:uint32;
+  f13:uint32;
+  f14:uint8; // vector unseen
+  f15:[uint32]; // vector unseen
+  f16:[uint32]; // vector unseen
+  f17:[uint32]; // vector unseen
+  f18:uint32; //                      index??
+  f19:uint8; // unseen
+  f20:[uint32]; // looks signed?
+}
+
+table root_f2_f1_f8 {
+  f0:string;
+  f1:uint32; // crashing pparse, down graded from [uint32]
+  f2:uint32; // value e.g. 0x90
+  f3:uint32; // crashing pparse, down graded from [uint32]
+  f4:uint32; // crashing pparse, down graded from [uint32]
+  f5:uint32; // crashing pparse, down graded from [uint32]
+}
+
+table root_f2_f1 {
+  f0:uint8;
+  f1:string;
+  f2:string;
+  f3:uint8; // e.g. 2
+  f4:[uint32]; // vector
+  f5:[uint32]; // vector  index??
+  f6:uint8; // ?
+  f7:uint8; // e.g. 1
+  f8:uint8; // crashing pparse, down graded from [root_f2_f1_f8]
+  f9:[uint8]; // vector ?
+  f10:[uint32];
+  f11:[uint32];
+}
+
+table root_f2_f7 {
+  f0:string;
+  f1:[uint64]; // aligns w/ u64, but like u32s, maybe [double]?
+  f2:uint8; // vector ? unseen
+}
+
+table root_f2_f4 {
+  f0:[uint32]; // very large numbers
+  f1:[uint32]; // very large numbers
+  f2:[uint32];
+}
+
+table root_f2_f8_f1 {
+  // doubles?
+  f0:uint64;
+  f1:uint64;
+  f2:uint64;
+  f3:uint64;
+  f4:uint64;
+  f5:uint64;
+  f6:uint64;
+  f7:uint64;
+  f8:uint64;
+}
+
+table root_f2_f8 {
+  f0:string; // e.g. data
+  f1:[root_f2_f8_f1];
+}
+
+// ** same as root_f2_f8 **
+table root_f2_f9 {
+  f0:string; // e.g. data
+  f1:[root_f2_f8_f1];
+}
+
+table root_f2_f10 {
+  // TBD
+}
+
+table root_f2_f12_f1 {
+  // doubles?
+  f0:uint64;
+  f1:uint64;
+  f2:uint64;
+  f3:uint64;
+  f4:uint64;
+  f5:uint64;
+  f6:uint64;
+  f7:uint64;
+  f8:uint64;
+  f9:uint64;
+  f10:uint64;
+  f11:uint64;
+  f12:uint64;
+}
+
+table root_f2_f12 {
+  f0:string; // e.g. prob
+  f1:root_f2_f12_f1;
+}
+
+table root_f2 {
+  f0:[root_f2_f0]; // vector (len 177)  ... union?!
+  f1:[root_f2_f1]; // vector (len 59) [0] -> points to vector [1]
+  f2:[uint32];
+  f3:[uint32];
+  f4:[root_f2_f4]; // vector (len 1) -> points to table
+  f5:uint32; // empty
+  f6:uint32; // vector (len 0)
+  f7:[root_f2_f7]; // vector (len 234) -> points to table
+  f8:[root_f2_f8]; // vector (len 1) -> points to table
+  f9:[root_f2_f9]; // vector (len 1) -> points to table
+  f10:uint32; // vector (len 0)
+  f11:uint32; // empty
+  f12:[root_f2_f12]; // vector (len 1) -> points to table
+  f13:[uint8]; // vector (len 0)
+  f14:[uint8]; // vector (len 0)
+  f15:[uint8]; // vector (len 0)
+  f16:[uint8]; // vector (len 0)
+}
+
+table Root {
+  // note: use fX:uint8 as dummy entry.
+  rknn_version:uint32 (id: 0);
+  libname:string (id: 1);
+  f2_graph:[root_f2] (id: 2);
+  f3_json:string (id: 3);
+  f4:uint8 (id: 4);
+  f5:uint8 (id: 5);
+  f6:uint8 (id: 6);
+  compiler:string (id: 7);
+  target:string (id: 8);
+  model_format:string (id: 9);
+  model_version:uint8 (id: 10);
+  f11:uint8 (id: 11);
+  f12_unk:string (id: 12);
+  f13_unk:string (id: 13);
+  f14_unk:uint8 (id: 14);
+  f15:[string] (id: 15); // e.g. pool6_2conv0_i1
+  f16_unk:string (id: 16); // e.g. dynamic_shape
+  f17:[root_f17] (id: 17);
+  names:[string] (id: 18);
+  f19:root_f19 (id: 19); // vector len 10
+  sections:[Section] (id: 20);
+  config_data:uint (id: 21);
+}
+
+root_type Root;
+

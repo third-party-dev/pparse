@@ -2,47 +2,11 @@
 
 import struct
 import sys
+import hashlib
+import json
+from collections import OrderedDict
 from pprint import pprint
 
-'''
-Next steps:
-
-I've now determined a few techniques that can be used to flesh out an understanding
-of a flatbuffers file without a schema. Additionally, I've fleshed out a few nuggets
-about the rknn file format, namely the header, and beginning of flatbuffers plus
-the table that defines the start of each section of the file (outside of the
-flatbuffers stream).
-
-With that knowledge, I am thinking I need to take a step back and work on my pparse
-implementation of flatbuffers. In general, I'd like to have a workflow whereby I can
-compile a flatbuffers schema into JSON. The pparse flatbuffers would then have the
-ability to parse the parts of the schema it can identify (deterministically) and perhaps
-also be hinted to do unlinked (i.e. dynamically discovered) parts.
-
-Until we base the parsing on a schema, it gets very ugly very quit with regards to
-boiler plate code or code that locks into a specific format for simple things like
-"get the u64 from this table in this vector". `import flatbuffers` is utterly useless
-and amounts to a wrapper for `import struct` without a schema and assumption that
-you aren't doing partial parsing!
-'''
-
-
-
-'''Idea:
-
-- scan entire file for any strings length >= 3.
-- its only a valid string if the preceding 4 bytes match the length of a valid string
-- record the offset of the string length field
-- scan all offsets as a offset from itself and match against any string entries
-- build table and measure coverage of the file.
-
-- Note: strings in vectors may not map
-- Note: we may capture tensor descriptor tables via name.
-  - Once table field known, need to discover field index via vtable discovery?
-    - probably requires brute force walking from field backwards looking for pointer to start of field
-    - if we walked to the start of the file, need to walk from the end of the field to end of the file.
-
-'''
 
 def str_table_scan(buf):
     str_tbl = {}
@@ -76,6 +40,7 @@ def str_table_scan(buf):
 
         str_tbl[off] = pot
     return str_tbl
+
 
 class FB_Vector():
     def __init__(self, field=None, abs_off=None):
@@ -155,6 +120,7 @@ class FB_Vector():
             print(f'{spacer*(d+1)}</asTables>')
 
         print(f'{spacer*(d)}</FB_Vector>')
+
 
 class FB_Field():
     def __init__(self, tbl=None, abs_off=None, idx=None):
@@ -386,7 +352,12 @@ class FB_Field():
             f'{v_flag}',
         ])
 
-        print(f'{spacer*(d)}<FB_Field abs_off="{self.as_offset():08x}" idx="{self.idx}" flags="{flags}">')
+        tbl_hdr = [f'{spacer*(d)}<FB_Field abs_off="{self.as_offset():08x}" idx="{self.idx}" flags="{flags}"']
+        if self.likely_vec:
+            tbl_hdr.append(f'vcnt="{self._vec.get_count()}"' if self._vec else f'vcnt="0"')
+        tbl_hdr.append(">")
+        print(' '.join(tbl_hdr))
+
         if self.likely_str:
             print(f'{spacer*(d+1)}<asString>{self._str}</asString>')
         if self.likely_tbl:
@@ -394,11 +365,12 @@ class FB_Field():
             self._tbl.dump(d+2, spacer)
             #print(f'{spacer*(d+1)}</asTable>')
         if self.likely_vec:
-            
             if self._vec:
                 self._vec.dump(d+1, spacer)
         if not self.likely_str and not self.likely_tbl and not self.likely_vec:
-            print(f'{spacer*(d+1)}<asUint32>{self.cast_u32()}</asUint32>')
+            print(f'{spacer*(d+1)}<asUint32 dec="{self.cast_u32()}" hex="0x{self.cast_u32():x}" />')
+            print(f'{spacer*(d+1)}<asFloat f32="{self.cast_f32()}" f64="{self.cast_f64()}" />')
+            print(f'{spacer*(d+1)}<asOffset addr="0x{self.as_offset():08x}" />')
             sample = ''.join(f'\\x{b:02x}' for b in self.slot)
             print(f"{spacer*(d+1)}<asU8Sample>{sample}</asU8Sample>")
             
@@ -502,17 +474,45 @@ class FB_Table():
         return field
 
 
+    def make_sig(self):
+        FLAG_LIKELY_STR = 1 << 0
+        FLAG_LIKELY_TBL = 1 << 1
+        FLAG_LIKELY_VEC = 1 << 2
+        FLAG_LIKELY_TBLVEC = 1 << 3
+        FLAG_LIKELY_STRVEC = 1 << 4
+
+        field_meta = OrderedDict()
+        field_meta['total'] = self.vtbl.cnt
+        field_meta['fields'] = []
+
+        for i in range(self.vtbl.cnt):
+            flags = 0
+            if i in self.field:
+                field = self.field[i]
+                flags |= FLAG_LIKELY_STR if field.likely_str else 0
+                flags |= FLAG_LIKELY_TBL if field.likely_tbl else 0
+                flags |= FLAG_LIKELY_VEC if field.likely_vec else 0
+                if field._vec:
+                    flags |= FLAG_LIKELY_TBLVEC if field._vec.likely_tbls else 0
+                    flags |= FLAG_LIKELY_STRVEC if field._vec.likely_strs else 0
+            field_meta['fields'].append(flags)
+        
+        sane_json = json.dumps(field_meta, indent=None, separators=(",", ":"))
+        return hashlib.sha256(sane_json.encode("utf-8")).hexdigest()
+
+
     def __repr__(self):
-        lines = [f"FB_Table (abs_off {self.abs_off:08x})"]
-        lines.append("-"*78)
-        for idx in self.field:
-            lines.append(f"{idx:02}: {self.field[idx]}")
-            lines.append("- "*38)
-        return '\n'.join(lines)
+        # lines = [f"FB_Table (abs_off {self.abs_off:08x})"]
+        # lines.append("-"*78)
+        # for idx in self.field:
+        #     lines.append(f"{idx:02}: {self.field[idx]}")
+        #     lines.append("- "*38)
+        # return '\n'.join(lines)
+        return f'<FB_Table abs_off="0x{self.abs_off:x}" set="{len(self.field)}" tot="{self.vtbl.cnt}" sig="{self.make_sig()[:4]}"/>'
 
 
     def dump(self, d=0, spacer="  "):
-        print(f'{spacer*(d)}<FB_Table abs_off="{self.abs_off:08x}" setfields="{len(self.field)}" fieldcnt="{self.vtbl.cnt}">')
+        print(f'{spacer*(d)}<FB_Table abs_off="{self.abs_off:08x}" set="{len(self.field)}" tot="{self.vtbl.cnt}" sig="{self.make_sig()[:4]}">')
         for idx in self.field:
             self.field[idx].dump(d+1)
         print(f'{spacer*(d)}</FB_Table>')
@@ -539,90 +539,45 @@ def fb_table_scan(buf):
     return tbl_tbl
 
 
-# Example usage:
+def process_fbdata(buf):
+
+    str_tbl = str_table_scan(buf)
+    tbl_tbl = fb_table_scan(buf)
+    typ_tbl = {}
+
+    # Post process relationships after we know all tables
+    for tbl in tbl_tbl.values():
+        for field in tbl.field.values():
+            if field.as_offset() in tbl_tbl:
+                field._tbl = tbl_tbl[field.as_offset()]
+                field.likely_tbl = True
+            if field.likely_vec and field._vec:
+                if field._vec.all_tables(tbl_tbl):
+                    field._vec.likely_tbls = True
+                    #field.likely_vec_of_tbl = True
+                elif field._vec.all_strings(str_tbl):
+                    field._vec.likely_strs = True
+                    #field.likely_vec_of_str = True
+        
+        # Organize tables by signature
+        sig = tbl.make_sig()
+        if sig not in typ_tbl:
+            typ_tbl[sig] = []
+        typ_tbl[sig].append(tbl)
+
+    return tbl_tbl, str_tbl, typ_tbl
+
+
+
 with open(sys.argv[1], "rb") as f:
     buf = f.read()
 
-str_tbl = str_table_scan(buf)
-tbl_tbl = fb_table_scan(buf)
-
-
-# Scan table fields for fields that point to existing tables and mark likely table.
-for tbl_idx in tbl_tbl:
-    tbl = tbl_tbl[tbl_idx]
-    for idx in tbl.field:
-        if tbl.field[idx].as_offset() in tbl_tbl:
-            tbl.field[idx]._tbl = tbl_tbl[tbl.field[idx].as_offset()]
-            tbl.field[idx].likely_tbl = True
-
-# Scan all "likely vectors" and check first "offset" if its a valid table.
-for tbl in tbl_tbl.values():
-    for field in tbl.field.values():
-        if field.likely_vec and field._vec:
-            if field._vec.all_tables(tbl_tbl):
-                field._vec.likely_tbls = True
-                #field.likely_vec_of_tbl = True
-            elif field._vec.all_strings(str_tbl):
-                field._vec.likely_strs = True
-                #field.likely_vec_of_str = True
-
-#tbl_tbl[0x88].dump()
-
-
-
-
-
-# # Print all tables with a field that is likely_str
-# for tbl_idx in tbl_tbl:
-#     tbl = tbl_tbl[tbl_idx]
-#     for idx in tbl.field:
-#         if tbl.field[idx].likely_tbl:
-#             print(tbl)
-#             break
-
-
-# # Print all tables with a field that is likely_str
-# for tbl_idx in tbl_tbl:
-#     has_str = False
-#     tbl = tbl_tbl[tbl_idx]
-#     for idx in tbl.field:
-#         if tbl.field[idx].likely_str:
-#             print(tbl)
-#             break
-
-
-
-
-
-# # Scan for highest flatbuffers tbl offset
-# highest_tbl_off = 0
-# for tbl_off in tbl_tbl:
-#     if tbl_off > highest_tbl_off:
-#         highest_tbl_off = tbl_off
-# print(f"Highest tbl offset: {highest_tbl_off}")
-
-# # Scan for highest flatbuffers field offset
-# highest_field_off = 0
-# for tbl in tbl_tbl.values():
-#     for field in tbl.field.values():
-#         if field.likely_str:
-#             if field.as_offset() > highest_field_off:
-#                 highest_field_off = field.as_offset()
-# print(f"Highest field offset: {highest_field_off}")
-
-# Print root table
-#print(tbl_tbl[0x88])
-
-# # Print all tables
-# for tbl in tbl_tbl.values():
-#     print(tbl)
-
-
-
+tbl_tbl, str_tbl, typ_tbl = process_fbdata(buf)
+tbl_tbl[0x88].dump()
 #breakpoint()
 
 
-
 '''
-assume every offset is a table with an offset to vtable, if the vtable 
+(SIMPLE) if vtable is all_ascending, we can guess field size
+(COMPLEX) if table u32's are _mostly_ decending with outliers, the decending line are pointers, outliers are values.
 '''

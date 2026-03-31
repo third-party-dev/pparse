@@ -8,6 +8,7 @@ def register_pparse_flatbuffers(subparsers):
 
     flatbuffers_view_parser = flatbuffers_subparser.add_parser("view", help="flatbuffers view command")
     flatbuffers_view_parser.add_argument("--print", action="store_true", help="print to stdout")
+    flatbuffers_view_parser.add_argument("--offset", type=int, default=0)
     flatbuffers_view_parser.add_argument("json_schema_path")
     flatbuffers_view_parser.add_argument("path")
     flatbuffers_view_parser.set_defaults(func=flatbuffers_view)
