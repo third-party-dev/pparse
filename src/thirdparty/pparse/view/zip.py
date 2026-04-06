@@ -19,13 +19,13 @@ class Zip:
         self._extraction = extraction
 
     def _parse(self, data_source, fname="unnamed.zip"):
-        ZIP_PARSER_REGISTRY = { "zip": LazyZipParser, }
 
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            self._extraction.discover_parsers(ZIP_PARSER_REGISTRY)
-            self._extraction.scan_data()
+            self._extraction.discover_parsers({ "zip": LazyZipParser, })
+            self._extraction._parser['zip']._root.load()
+            #self._extraction.scan_data()
         
         except pparse.EndOfDataException as e:
             print(e)

@@ -89,9 +89,6 @@ class Tensor:
 
 
 class SafeTensors:
-    PARSER_REGISTRY = {
-        "safetensors": LazySafetensorsParser,
-    }
 
     def __init__(self, extraction=None):
         self._extraction = extraction
@@ -156,12 +153,14 @@ class SafeTensors:
 
     def open_fpath(self, fpath):
         try:
-            cursor = pparse.FileData(path=fpath).open()
-            length = os.path.getsize(fpath)
-            rrange = pparse.Range(cursor, length)
-            self._extraction = pparse.BytesExtraction(name=fpath, reader=rrange)
-            self._extraction.discover_parsers(SafeTensors.PARSER_REGISTRY)
-            self._extraction.scan_data()
+            data_source = pparse.FileData(path=fpath)
+            data_range = pparse.Range(data_source.open(), data_source.length)
+            self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
+            self._extraction.discover_parsers({"safetensors": LazySafetensorsParser,})
+            # TODO: Generalize the 'safetensors' key below?
+            self._extraction._parser['safetensors']._root.load()
+            #self._extraction.scan_data()
+
         except pparse.EndOfDataException:
             pass
         except Exception as e:
@@ -174,7 +173,7 @@ class SafeTensors:
 
 
 class SafeTensorsIndex:
-    PARSER_REGISTRY = {"safetensors_index": LazySafetensorsIndexParser}
+    SAFETENSORS_INDEX_PARSER = {"safetensors_index": LazySafetensorsIndexParser}
 
     def __init__(self):
         self._extraction = None
@@ -214,7 +213,8 @@ class SafeTensorsIndex:
             idx_data = pparse.Data(path=fpath)
             idx_range = pparse.Range(idx_data.open(), idx_data.length)
             self._extraction = pparse.BytesExtraction(name=fpath, reader=idx_range)
-            self._extraction.discover_parsers(SafeTensorsIndex.PARSER_REGISTRY)
+            self._extraction.discover_parsers(SAFETENSORS_INDEX_PARSER)
+            self._extraction._parser['json']._root.load()
             self._extraction.scan_data()
 
             # Create SafeTensor objects

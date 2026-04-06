@@ -7,14 +7,14 @@ def register_pparse_pickle(subparsers):
     )
 
     pickle_parse_parser = pickle_subparser.add_parser(
-        "parse", help="pickle parse command"
+        "view", help="pickle parse command"
     )
     pickle_parse_parser.add_argument("--print", action="store_true", help="print to stdout")
     pickle_parse_parser.add_argument("path")
-    pickle_parse_parser.set_defaults(func=pickle_parse)
+    pickle_parse_parser.set_defaults(func=pickle_view)
 
 
-def pickle_parse(args):
+def pickle_view(args):
     # TODO: This code needs to be replaced with a view object.
     # from pprintpp import pprint
     from thirdparty.pparse.view.pickle import Pickle
@@ -25,7 +25,7 @@ def pickle_parse(args):
     try:
         obj = Pickle().open_fpath(args.path)
         pkl = obj._extraction._result["pkl"].value[0].value[0]
-        history = obj._extraction._result["pkl"].value[0].history
+        history = obj._extraction._result["pkl"].value[0].ctx().history
 
     except Exception as e:
         print(e)

@@ -14,13 +14,12 @@ class Pickle:
 
     def _parse(self, data_source, fname="unnamed.pkl"):
 
-        PICKLE_PARSER = {"pkl": LazyPickleParser}
-
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            self._extraction.discover_parsers(PICKLE_PARSER)
-            self._extraction.scan_data()
+            self._extraction.discover_parsers({"pkl": LazyPickleParser})
+            self._extraction._parser['pkl']._root.load()
+            #self._extraction.scan_data()
         
         except pparse.EndOfDataException as e:
             print(e)

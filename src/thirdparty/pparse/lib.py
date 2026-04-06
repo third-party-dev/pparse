@@ -15,6 +15,18 @@ from thirdparty.pparse.utils import has_mmap, hexdump, mmap
 
 PARSERS = {}
 
+# Generally, rerun the parser on same node.
+AGAIN = 1
+# Generally, run the parser on parent node.
+ASCEND = 2
+COMPLETE = 3
+
+# OBE ?
+# # Generally, run the parser on child node.
+# DESCEND = 2
+# # Generally, run the parser across all child nodes.
+# DESCEND_ALL = 4
+
 
 class EndOfDataException(Exception):
     pass
@@ -182,17 +194,16 @@ class Cursor(Reader):
 
 
 class NodeContext:
-    def __init__(self, node: "Node", parent: "Node", reader: Reader):
-        self._node = node
+    def __init__(self, parent: "Node", reader: Reader, parser: "Parser"):
         self._reader = reader.dup()
         self._reader.seek(reader.tell())
         self._state = None
         self._parent = parent  # Parent Node (None for root)
         self._start = self.tell()
         self._end = None
-
-    def node(self):
-        return self._node
+        self._parser = parser
+        # When doing a recursive parse, list of descendent references.
+        self._descendants = []
 
     def parent(self):
         return self._parent
@@ -208,15 +219,18 @@ class NodeContext:
     def state(self):
         return self._state
 
+    def parser(self):
+        return self._parser
+
     def _next_state(self, state):
         self._state = state()
 
     def set_remaining(self, length):
         self._end = self.tell() + length
 
-    def mark_end(self):
+    def mark_end(self, node):
         self._end = self.tell()
-        self._node.final_length(self._end - self._start)
+        node.set_length(self._end - self._start)
 
     def mark_field_start(self):
         self._field_start = self.tell()
@@ -248,37 +262,131 @@ class NodeContext:
         return self._reader.left()
 
 
+'''
+    NEW PLAN:
+    - phase 1: ctx is always loaded and node always UNLOADED until parent says otherwise
+    - phase 2: ctx can be archived and unloaded (optionally cleared archive)
+               root node always has ctx
+    - phase 3: ability to replay from root to re-acquire ctx
+
+    Things To Work Out:
+    - we can prefer to not parse until referenced by using .value, but if we want to 
+      intentionally pre-parse everything, we need a load(recursive=True) or something.
+    - with new plan, we should have generic node for 99% of cases. NodeContext is the parser
+      specific class going forward. (maybe a generic self._attrs:dict required at node level)
+'''
 class Node:
-    def __init__(self, parent: "Node", reader: Reader, ctx: NodeContext = None):
+    def __init__(self, reader: Reader, parser: "Parser", default_value = UNLOADED_VALUE, parent: "Node" = None, ctx_class: NodeContext = None, ctx_args={}):
+
+        # Reference to the start of data for parsing node.
         self._reader = reader.dup()
-        self._ctx = ctx
-        if not self._ctx:
-            self._ctx = NodeContext(self, parent, reader.dup())
-        self.value = UNLOADED_VALUE
+
+        '''
+            weird situation here where I don't want to double bind Node and 
+            NodeContext, but they are indirectly double bound by NodeContext
+            knowing parent of node. This is intentional so that we can throw
+            away unnecessary references to parents later.
+        '''
+
+        # Reference to the parser in context of node.
+        if not ctx_class:
+            self._ctx = NodeContext(parent, reader.dup(), parser)
+        else:
+            self._ctx = ctx_class(parent, reader.dup(), parser, **ctx_args)
+
+        # Reference to the value(s) of node (e.g. dict, list, scalars, or Node)
+        self._value = default_value
+
+    @property
+    def value(self):
+        if self._value == UNLOADED_VALUE:
+            #breakpoint()
+            self.load()
+        return self._value
 
     def ctx(self):
         return self._ctx
 
     def clear_ctx(self):
+        # TODO: Archive context here. Archive in parser?
         self._ctx = None
         return self
 
     def tell(self):
         return self._reader.tell()
 
-    def final_length(self, length):
+    def set_length(self, length):
         self._reader = Range(self._reader.dup(), length)
         return self
 
-    # TODO: Check for range?
     def length(self):
+        # TODO: Check for range?
         return self._reader.length()
 
-    def load(self, parser):
-        raise NotImplementedError()
+    def load(self, recursive=False):
+        '''
+            RULE: load() should handle the recursive behavior, not the parser state.
+
+            json is weird because you have to recurse every time. Since I implemented
+            JSON first, I believe its driving some of the anti-patterns in pparse. If
+            we want to save on memory for JSON, we could theoretically parse and allocate
+            nodes and as we complete branches of a depth first parse we deallocated.
+            I naturally want to do this for recursive=False, but since recursive=False
+            is default, it makes it feel like unnecessary thrashing of the CPU. 
+            
+            PLAN: After we get an initial parse of JSON, we can re-eval a callback param
+            for this function that is responsible for determining the deallocation policy.
+        '''
+
+        # Maybe a naughty pattern, but for now we retry until 
+        # Retry until state returns UnsupportedFormatException or EndOfNodeException
+        # ! When EndOfDataException raised, we need a way to retry. For now, fail.
+        try:
+            # RULE: AGAIN is a Parser return. Not a Node is complete status!
+            res = AGAIN
+            while res == AGAIN:
+                
+                #breakpoint()
+                res = self.ctx().state().parse_data(self)
+
+                # if res == COMPLETE:
+                #     breakpoint()
+                #     #return self.ctx().parent()
+
+                '''
+                    - The parser is responsible for populating _decendents.
+                    - Whenever Node.load() sees elements in _decendents, it immediately
+                    calls the load() method on those elements.
+                '''
+                while self.ctx()._descendants:
+                    #breakpoint()self
+                    # ! Here, we're making Node responsible for _descendants cleanup.
+                    child = self.ctx()._descendants.pop()
+                    child.load(recursive=recursive)
+
+                # if len(self.ctx()._descendants) > 0:
+                #     breakpoint()
+                #     for child in node.ctx()._descendants:
+                #         child.load(recursive)
+
+            #breakpoint()
+
+        except EndOfNodeException as e:
+            pass
+        except EndOfDataException as e:
+            raise
+        except UnsupportedFormatException:
+            raise
+
+        #breakpoint()
+        # TODO: if recursive, for node in value: node.ctx().state().parse_data(node)
+
+        return self
 
     def unload(self):
+        # TODO: Do we have context?
         self.value = pparse.UNLOADED_VALUE
+
 
 
 # Data Considerations:
@@ -618,6 +726,7 @@ class BytesExtraction(Extraction):
 
 # Base Parser for Extraction parsers.
 class Parser:
+    
     def __init__(self, source: Extraction, id: str):
         if not isinstance(source, Extraction):
             raise TypeError("source must be an Extraction")

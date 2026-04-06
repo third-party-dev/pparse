@@ -8,16 +8,20 @@ log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.pickle.meta import PklOp
-from thirdparty.pparse.lazy.pickle.node import NodePickle, NodePickleArray
+from thirdparty.pparse.lazy.pickle.node import NodeVmContext
+#from thirdparty.pparse.lazy.pickle.node import NodePickle, NodePickleArray
 
 
 class PickleParsingState:
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
+    def parse_data(self, node: pparse.Node):
         raise NotImplementedError()
 
 
 class PickleParsingReadlineParam(PickleParsingState):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+
         op = ctx.current_op
         data = ctx.peek(0x4000)
         if not data or len(data) < 1:
@@ -37,18 +41,22 @@ class PickleParsingReadlineParam(PickleParsingState):
             op.param2 = data[0 : offset + 1]
             ctx.skip(offset + 1)
             ctx._next_state(PickleInterpreter)
-            return
+            return pparse.AGAIN
 
         op.param = data[0 : offset + 1]
         ctx.skip(offset + 1)
         if op.opcode == PklOp.GLOBAL:
             # Keep going.
-            return
+            return pparse.AGAIN
         ctx._next_state(PickleInterpreter)
+        return pparse.AGAIN
 
 
 class PickleParsingSimpleParam(PickleParsingState):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+
         op = ctx.current_op
         data = ctx.peek(op.pbytes)
         if not data or len(data) < op.pbytes:
@@ -60,9 +68,14 @@ class PickleParsingSimpleParam(PickleParsingState):
         ctx.skip(op.pbytes)
         ctx._next_state(PickleInterpreter)
 
+        return pparse.AGAIN
+
 
 class PickleParsingLengthParam(PickleParsingState):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+
         op = ctx.current_op
         data = ctx.peek(op.byte_len)
         if op.byte_len > 0 and (not data or len(data) < op.byte_len):
@@ -86,9 +99,14 @@ class PickleParsingLengthParam(PickleParsingState):
         ctx.skip(op.byte_len)
         ctx._next_state(PickleInterpreter)
 
+        return pparse.AGAIN
+
 
 class PickleParsingLengthPrefix(PickleParsingState):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+
         op = ctx.current_op
         data = ctx.peek(op.lbytes)
         if len(data) < op.lbytes:
@@ -99,6 +117,8 @@ class PickleParsingLengthPrefix(PickleParsingState):
         op.byte_len = struct.unpack(op.fmt, data[0 : op.lbytes])[0]
         ctx.skip(op.lbytes)
         ctx._next_state(PickleParsingLengthParam)
+
+        return pparse.AGAIN
 
 
 class StackMark:
@@ -247,61 +267,63 @@ class PickleInterpreter(PickleParsingState):
         PklOp.LONG4,  # signed
     ]
 
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
         op = ctx.current_op
 
         # Setup for next opcode before we handle current op.
         ctx._next_state(PickleParsingOpCode)
 
         if op.opcode == PklOp.PROTO:
-            if ctx.node().proto is not None:
+            if ctx.proto is not None:
                 raise UnsupportedFormatException(
                     "PROTO defined twice in single stream?!"
                 )
-            ctx.node().proto = op.param
+            ctx.proto = op.param
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.EMPTY_DICT:
             ctx.stack.append({})
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.EMPTY_LIST:
             ctx.stack.append([])
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.EMPTY_SET:
             ctx.stack.append(set())
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.EMPTY_TUPLE:
             ctx.stack.append(tuple())
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode in [PklOp.BINPUT, PklOp.LONG_BINPUT]:
             ctx.memo[op.param] = ctx.stack[-1]
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.MARK:
             # Note: Not sure if we need to be more explicit.
             ctx.stack.append(StackMark(op))
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode in PickleInterpreter.scalar_append_ops:
             ctx.stack.append(op.param)
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.GLOBAL:
             ctx.stack.append((op.param, op.param2))
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.TUPLE:
             # Build Tuple
@@ -316,13 +338,13 @@ class PickleInterpreter(PickleParsingState):
             ctx.history.append(op)
 
             # TODO: Record instructions that involve tuple.
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.BINPERSID:
             arg = ctx.stack.pop()
             ctx.stack.append(PersistentCall(op.param, arg, op))
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.TUPLE3:
             if len(ctx.stack) < 3:
@@ -331,7 +353,7 @@ class PickleInterpreter(PickleParsingState):
             value = (ctx.stack.pop(), ctx.stack.pop(), ctx.stack.pop())
             ctx.stack.append(value)
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.TUPLE2:
             if len(ctx.stack) < 2:
@@ -339,7 +361,7 @@ class PickleInterpreter(PickleParsingState):
             value = (ctx.stack.pop(), ctx.stack.pop())
             ctx.stack.append(value)
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.TUPLE1:
             if len(ctx.stack) < 1:
@@ -347,22 +369,22 @@ class PickleInterpreter(PickleParsingState):
             value = tuple([ctx.stack.pop()])
             ctx.stack.append(value)
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.NEWFALSE:
             ctx.stack.append(False)
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.NEWTRUE:
             ctx.stack.append(True)
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.NONE:
             ctx.stack.append(None)
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.REDUCE:
             arg = ctx.stack.pop()
@@ -370,12 +392,12 @@ class PickleInterpreter(PickleParsingState):
             newop = ReduceCall(module_call, arg, op)
             ctx.stack.append(newop)
             ctx.history.append(newop)
-            return
+            return pparse.AGAIN
 
         if op.opcode in [PklOp.BINGET, PklOp.LONG_BINGET]:
             ctx.stack.append(ctx.memo[op.param])
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.SETITEM:
             value = ctx.stack.pop()
@@ -383,14 +405,14 @@ class PickleInterpreter(PickleParsingState):
             dict_obj = ctx.stack[-1]
             dict_obj[key] = value
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.APPEND:
             value = ctx.stack.pop()
             arr_obj = ctx.stack[-1]
             arr_obj.append(value)
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.NEWOBJ:
             class_args = ctx.stack.pop()
@@ -398,7 +420,7 @@ class PickleInterpreter(PickleParsingState):
             newop = NewCall(class_name, class_args, op)
             ctx.stack.append(newop)
             ctx.history.append(newop)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.BUILD:
             """
@@ -426,7 +448,7 @@ class PickleInterpreter(PickleParsingState):
             obj.state = state
 
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.SETITEMS:
             # Expect dict before mark.
@@ -466,7 +488,7 @@ class PickleInterpreter(PickleParsingState):
             ctx.history.append(op)
 
             # TODO: Record instructions that involve tuple.
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.APPENDS:
             # Expect dict before mark.
@@ -500,18 +522,18 @@ class PickleInterpreter(PickleParsingState):
             ctx.history.append(op)
 
             # TODO: Record instructions that involve tuple.
-            return
+            return pparse.AGAIN
         
         if op.opcode == PklOp.SHORT_BINUNICODE:
             ctx.stack.append(op.param)
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.MEMOIZE:
             ctx.memo[ctx.next_memo] = ctx.stack[-1]
             ctx.next_memo += 1
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.STACK_GLOBAL:
             mod = ctx.stack.pop()
@@ -519,19 +541,22 @@ class PickleInterpreter(PickleParsingState):
             # TODO: Track this import better?
             ctx.stack.append((mod, name))
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         if op.opcode == PklOp.FRAME:
             # Skipping Frame. Supposedly only a chunk wrapper.
             ctx.history.append(op)
-            return
+            return pparse.AGAIN
 
         log.debug(f"Unhandled Opcode: {op}")
         breakpoint()
 
 
 class PickleParsingOpCode(PickleParsingState):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+
         data = ctx.read(1)
         if not data or len(data) < 1:
             breakpoint()
@@ -546,37 +571,49 @@ class PickleParsingOpCode(PickleParsingState):
         if PklOp.no_params(data[0]):
             if op.opcode == PklOp.STOP:
                 # End of the Pickle stream, pop it.
-                ctx.node().value = ctx.stack
-                parser._end_container_node(ctx)
-                parser.current.ctx()._next_state(PickleParsingPickleStream)
+                node._value = ctx.stack
+                parser._end_container_node(node)
                 ctx.history.append(op)
-                return
+                return pparse.ASCEND
+
             # Do interpreter with new code.
             ctx._next_state(PickleInterpreter)
-            return
+            return pparse.AGAIN
         elif PklOp.is_simple(data[0]):
             ctx._next_state(PickleParsingSimpleParam)
-            return
+            return pparse.AGAIN
         elif PklOp.has_length(data[0]):
             ctx._next_state(PickleParsingLengthPrefix)
-            return
+            return pparse.AGAIN
         elif PklOp.is_readline(data[0]):
             ctx._next_state(PickleParsingReadlineParam)
-            return
+            return pparse.AGAIN
         else:
             raise UnsupportedFormatException(f"Invalid pickle opcode: {hex(data[0])}")
 
 
 # State where we switch pickle streams, delimited by STOP.
 class PickleParsingPickleStream(PickleParsingState):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+        
         data = ctx.peek(1)
         if not data or len(data) < 1:
             raise pparse.EndOfDataException("Not enough data to parse pickle opcode")
 
-        parent = parser.current
-        newpkl = NodePickle(parent, ctx.reader())
-        newpkl.ctx()._next_state(PickleParsingOpCode)
-        parent.value.append(newpkl)
-        parser.current = newpkl
+        # ! TODO: Consider handling PROTO as part of the stream.
+        pkl_stream = pparse.Node(ctx.reader(), parser, default_value=None, parent=node, ctx_class=NodeVmContext)
+        node._value.append(pkl_stream)
+        pkl_stream.ctx()._next_state(PickleParsingOpCode)
+        # Let Node.load() drive.
+        node.ctx()._descendants.append(pkl_stream)
+
+        #parent = parser.current
+        #newpkl = NodePickle(parent, ctx.reader())
+        #newpkl.ctx()._next_state(PickleParsingOpCode)
+        #parent.value.append(newpkl)
+        #parser.current = newpkl
         log.debug("Starting new pkl stream.")
+
+        return pparse.AGAIN

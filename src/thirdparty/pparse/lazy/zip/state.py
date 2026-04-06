@@ -6,34 +6,43 @@ import struct
 import zlib
 
 log = logging.getLogger(__name__)
+#logging.basicConfig(level=logging.DEBUG, format='%(levelname)s:%(message)s')
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.zip.meta import Zip
-from thirdparty.pparse.lazy.zip.node import Node, NodeArray, NodeMap
 
 
 class ZipParsingState(object):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
+    def parse_data(self, node: pparse.Node):
         raise NotImplementedError()
 
 
 class ZipParsingComplete(ZipParsingState):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+
+        return pparse.ASCEND
         # TODO: Do we spin?
         # context._next_state(ZipParsingComplete)
         raise pparse.EndOfDataException("No more data to process in zip.")
 
 
 class ZipParsingFinishDecompress(ZipParsingState):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
-        parser._end_container_node(ctx)
+    def parse_data(self, node: pparse.Node):
+        #breakpoint()
+        ctx = node.ctx()
+        parser = ctx.parser()
+        parser._end_container_node(node)
         # TODO: Not sure this is required.
-        parser.current.ctx()._next_state(ZipParsingMagic)
-        return
+        #parser.current.ctx()._next_state(ZipParsingMagic)
+        return pparse.ASCEND
 
 
 class ZipParsingDataDescFooter(ZipParsingState):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
         data = ctx.peek(Zip.FOOTER_LEN)
         if len(data) < Zip.FOOTER_LEN:
             return pparse.EndOfDataException(
@@ -42,17 +51,19 @@ class ZipParsingDataDescFooter(ZipParsingState):
 
         desc = {}
         (desc["sig"], desc["crc32"], desc["comp_size"], desc["uncomp_size"]) = (
-            struct.unpack("<IIII", data[: Zip.FOOTER_LEN])
+            struct.unpack("<IIII", data[:Zip.FOOTER_LEN])
         )
-        meta = ctx.node().value
+        meta = node._value
 
         if meta["crc32"] != 0 and meta["crc32"] != desc["crc32"]:
             ctx._next_state(ZipParsingFinishDecompress)
-            return
+            return pparse.AGAIN
 
         ctx.skip(Zip.FOOTER_LEN)
         meta["zip_desc"] = desc
         ctx._next_state(ZipParsingFinishDecompress)
+
+        return pparse.AGAIN
 
 
 class ZipParsingContinueDecompress(ZipParsingState):
@@ -66,7 +77,10 @@ class ZipParsingContinueDecompress(ZipParsingState):
     def _compare_crc32(self, given, data):
         return zlib.crc32(data) & 0xFFFFFFFF == given
 
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+
         data = ctx.peek(4)
         if not data or len(data) < 4:
             raise pparse.EndOfDataException("Not enough data to continue decompression")
@@ -74,12 +88,16 @@ class ZipParsingContinueDecompress(ZipParsingState):
         # TODO: This should be able to handle anything between 4-N bytes, but
         # TODO: we should consider how we will chunk out very large buffers.
 
-        meta = ctx.parent().value
-        buffer = ctx.node().value
+        meta = ctx.parent()._value
+        if node._value == pparse.UNLOADED_VALUE:
+            node._value = io.BytesIO()
+        buffer = node._value
+
         # TODO: Is this a MemoryView or copy?
+        #breakpoint()
         data = ctx.peek(ctx.left())
         log.debug(f"Looking at {meta['fname']} data. Length: {len(data)}")
-        (used, unused, eof) = self.decompress_data(ctx, data)
+        (used, unused, eof) = self.decompress_data(node, data)
         log.debug(f"Decompress data results: used {used} unused {unused} eof {eof}")
 
         ctx.skip(used)
@@ -87,36 +105,41 @@ class ZipParsingContinueDecompress(ZipParsingState):
             if meta["compression"] == 8:
                 dedata = self.decompressor.flush()
                 buffer.write(dedata)
+                return pparse.ASCEND
 
             # flags & 0x08 == true means we explicitly have a data desc
             # it is possible for a data desc to show up without the flags too
             if self._has_desc or self._found_desc(ctx):
-                parser._end_container_node(ctx)
-                ctx.parent_ctx()._next_state(ZipParsingDataDescFooter)
+                parser._end_container_node(node)
+                ctx.parent().ctx()._next_state(ZipParsingDataDescFooter)
                 log.debug(
-                    f"End Of File Compression via footer desc (length {ctx.node().length()})"
+                    f"End Of File Compression via footer desc (length {node.length()})"
                 )
-                return
+                return pparse.ASCEND
             else:
                 parser._end_container_node(ctx)
-                ctx.parent_ctx()._next_state(ZipParsingFinishDecompress)
+                ctx.parent().ctx()._next_state(ZipParsingFinishDecompress)
                 log.debug(
-                    f"End Of File Compression via EOF marker (length {ctx.node().length()})"
+                    f"End Of File Compression via EOF marker (length {node.length()})"
                 )
-                return
+                return pparse.ASCEND
 
-    def _decompress_data(self, ctx: "NodeContext", comp_data):
+        return pparse.AGAIN
+
+    def _decompress_data(self, node: pparse.Node, comp_data):
         eof = False
-        buffer = ctx.node().value
+        buffer = node._value
         dedata = self.decompressor.decompress(comp_data)
         buffer.write(dedata)
         unused = len(self.decompressor.unused_data)
         used = len(comp_data) - unused
         return (used, unused, self.decompressor.eof)
 
-    def decompress_data(self, ctx: "NodeContext", compressed_data):
-        meta = ctx.parent().value
-        buffer = ctx.node().value
+    def decompress_data(self, node: pparse.Node, compressed_data):
+        ctx = node.ctx()
+        meta = ctx.parent()._value
+        buffer = node._value
+
         # Be pesimistic
         used = 0
         unused = len(compressed_data)
@@ -163,7 +186,7 @@ class ZipParsingContinueDecompress(ZipParsingState):
         elif meta["compression"] == 8:
             if not self._has_desc and meta["uncomp_size"] == buffer.tell():
                 return (meta["comp_size"], 0, True)
-            return self._decompress_data(ctx, compressed_data)
+            return self._decompress_data(node, compressed_data)
         elif meta["compression"] == 12:
             raise Exception(f"BZIP2 Compression not currently supported.")
         elif meta["compression"] == 14:
@@ -175,116 +198,116 @@ class ZipParsingContinueDecompress(ZipParsingState):
 
 
 class ZipParsingStartDecompress(ZipParsingState):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
-        # TODO: How do we determine if we want to skip? Should bias towards lazy.
-        parent = parser.current
-        newnode = Node(parent, ctx.reader())
-        newnode.ctx()._next_state(ZipParsingContinueDecompress)
-        # TODO: Being lazy atm moment, we should probably be able to
-        #       write directly to an Extraction.
-        newnode.value = io.BytesIO()
-        ctx.node().value["decomp_data"] = newnode
-        parser.current = newnode
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+
+        # TODO: If we can skip (because we have length), skip. Otherwise continue.
+
+        node._value["decomp_data"] = parser.new_data_node(node)
+        node._value["decomp_data"].ctx()._next_state(ZipParsingContinueDecompress)
+        # Let Node.load() drive
+        node.ctx()._descendants.append(node._value["decomp_data"])
 
         log.debug(
-            f"Done initializing new Node for decompression for: {ctx.node().value['fname']}"
+            f"Done initializing new Node for decompression for: {node._value['fname']}"
         )
+
+        return pparse.AGAIN
 
 
 class ZipParsingEntryExtra(ZipParsingState):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
-        if not isinstance(ctx.node(), NodeMap):
-            log.debug("Expected NodeMap parsing EntryFilename")
-            breakpoint()
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
 
-        meta = ctx.node().value
-        extra_len = meta["extra_len"]
+        extra_len = node._value["extra_len"]
         data = ctx.peek(extra_len)
         if (extra_len != 0 and not data) or len(data) < extra_len:
             raise pparse.EndOfDataException("Not enough data to parse entry extra.")
 
         ctx.skip(extra_len)
-        meta["extra"] = data[:extra_len]
+        node._value["extra"] = data[:extra_len]
 
-        log.debug(f"Done getting extra data for: {meta['fname']}")
+        log.debug(f"Done getting extra data for: {node._value['fname']}")
         ctx._next_state(ZipParsingStartDecompress)
+        return pparse.AGAIN
 
 
 class ZipParsingEntryFilename(ZipParsingState):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
-        if not isinstance(ctx.node(), NodeMap):
-            log.debug("Expected NodeMap parsing EntryFilename")
-            breakpoint()
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
 
-        meta = ctx.node().value
-        fname_len = meta["fname_len"]
+        fname_len = node._value["fname_len"]
         data = ctx.peek(fname_len)
         if not data or len(data) < fname_len:
             raise pparse.EndOfDataException("Not enough data to parse file name")
 
         ctx.skip(fname_len)
-        meta["fname"] = data[:fname_len].decode("utf-8")
+        node._value["fname"] = data[:fname_len].decode("utf-8")
 
-        log.debug(f"Done getting filename for new file: {meta['fname']}")
+        log.debug(f"Done getting filename for new file: {node._value['fname']}")
         ctx._next_state(ZipParsingEntryExtra)
+        return pparse.AGAIN
 
 
 class ZipParsingEntryHeader(ZipParsingState):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
-        if not isinstance(ctx.node(), NodeMap):
-            log.debug("Expected NodeMap parsing Header")
-            breakpoint()
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
 
         data = ctx.peek(Zip.HEADER_LEN)
         if not data or len(data) < Zip.HEADER_LEN:
-            raise pparse.EndOfDataException(
-                "Not enough data to parse zip entry header."
-            )
+            raise pparse.EndOfDataException("Not enough data to parse zip entry header.")
 
-        meta = ctx.node().value
         ctx.skip(Zip.HEADER_LEN)
         (
-            meta["version"],
-            meta["flags"],
-            meta["compression"],
-            meta["mod_time"],
-            meta["mod_date"],
-            meta["crc32"],
-            meta["comp_size"],
-            meta["uncomp_size"],
-            meta["fname_len"],
-            meta["extra_len"],
-        ) = struct.unpack("<HHHHHIIIHH", data[: Zip.HEADER_LEN])
+            node._value["version"],
+            node._value["flags"],
+            node._value["compression"],
+            node._value["mod_time"],
+            node._value["mod_date"],
+            node._value["crc32"],
+            node._value["comp_size"],
+            node._value["uncomp_size"],
+            node._value["fname_len"],
+            node._value["extra_len"],
+        ) = struct.unpack("<HHHHHIIIHH", data[:Zip.HEADER_LEN])
 
         log.debug("Done getting header for new file")
         ctx._next_state(ZipParsingEntryFilename)
+        return pparse.AGAIN
 
 
 class ZipParsingMagic(ZipParsingState):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+
         data = ctx.peek(4)
         if not data or len(data) < 4:
             raise pparse.EndOfDataException("Not enough data to detect zip magic")
 
         ctx.skip(4)
         if data[0:4] == Zip.DIR_SIG:
+            # TODO: Try to parse it?
             ctx._next_state(ZipParsingComplete)
-            return
+            return pparse.ASCEND
 
         if data[0:4] == Zip.LOCAL_FILE_HEADER:
+            # TODO: Try to parse it?
             ctx._next_state(ZipParsingComplete)
-            return
+            return pparse.ASCEND
 
         if data[0:4] == Zip.SIGNATURE:
-            if not isinstance(parser.current, NodeArray):
-                log.debug("Expected NodeArray")
-                breakpoint()
+            new_map = parser.new_map_node(node)
+            new_map.ctx()._next_state(ZipParsingEntryHeader)
+            node._value.append(new_map)
+            # Let Node.load() drive.
+            node.ctx()._descendants.append(new_map)
 
-            newmap = NodeMap(parser.current, ctx.reader())
-            newmap.ctx()._next_state(ZipParsingEntryHeader)
-            parser.current.value.append(newmap)
-            parser.current = newmap
-            return
+            return pparse.AGAIN
 
         breakpoint()
         # pprint(parser.source()._result['zip'].value[0].value)

@@ -9,7 +9,6 @@ from typing import Optional
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.pickle.node import NodePickleArray
 from thirdparty.pparse.lazy.pickle.state import PickleParsingPickleStream
 
 
@@ -28,14 +27,19 @@ class Parser(pparse.Parser):
     def match_magic(cursor: pparse.Cursor):
         return False
 
-    def __init__(self, source: pparse.Extraction, id: str):
+    def __init__(self, source: pparse.Extraction, id: str, parent: pparse.Node = None):
         super().__init__(source, id)
 
-        self.current = NodePickleArray(None, source.open())
-        self.current.ctx()._next_state(PickleParsingPickleStream)
-        source._result[id] = self.current
+        self._root = pparse.Node(source.open(), self, default_value=[], parent=parent)
+        self._root.ctx()._next_state(PickleParsingPickleStream)
+        source._result[id] = self._root
 
-    def _end_container_node(self, ctx):
+        # self.current = NodePickleArray(None, source.open())
+        # self.current.ctx()._next_state(PickleParsingPickleStream)
+        # source._result[id] = self.current
+
+    def _end_container_node(self, node: pparse.Node):
+        ctx = node.ctx()
         parent = ctx._parent
         if parent:
             log.debug(
@@ -43,16 +47,16 @@ class Parser(pparse.Parser):
             )
 
             # Set the end pointer to advance parent past field.
-            ctx.mark_end()
+            ctx.mark_end(node)
 
             # In parent, fast forward past the bit we just parsed.
             parent.ctx().seek(ctx._end)
 
-            # Kill ctx (hopefully reclaiming memory).
-            ctx.node().clear_ctx()
+            # # Kill ctx (hopefully reclaiming memory).
+            # node.clear_ctx()
 
-            # Set current node to parent.
-            self.current = parent
+            # # Set current node to parent.
+            # self.current = parent
 
     def scan_data(self):
         # Do the opcodes first.

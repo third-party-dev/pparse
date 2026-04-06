@@ -47,14 +47,7 @@ class Node(pparse.Node):
 
         # top_reader offset
         self._abs_offset = abs_offset
-        self._value = pparse.UNLOADED_VALUE
-
-    @property
-    def value(self):
-        if self._value == pparse.UNLOADED_VALUE:
-            # parse it now
-            pass
-        return self._value
+        self.value = pparse.UNLOADED_VALUE
 
     def abs_offset(self):
         return self._abs_offset
@@ -116,8 +109,8 @@ class Node(pparse.Node):
 
 
 class NodeVTable(Node):
-    def __init__(self, parent: Node, reader: pparse.Reader, type_desc=None):
-        super().__init__(parent, reader)
+    def __init__(self, parent: Node, reader: pparse.Reader, abs_offset=0, type_desc=None):
+        super().__init__(parent, reader, abs_offset)
         self._type = type_desc
         self.table_length = 0
         self.vtable_length = 0
@@ -127,19 +120,11 @@ class NodeVTable(Node):
         return self._type
 
 class NodeTable(Node):
-    def __init__(self, parent: Node, reader: pparse.Reader, type_desc=None):
-        super().__init__(parent, reader)
+    def __init__(self, parent: Node, reader: pparse.Reader, abs_offset=0, type_desc=None):
+        super().__init__(parent, reader, abs_offset)
         self._type = type_desc
         self.vtable = None
-        self._value = pparse.UNLOADED_VALUE
-
-    @property
-    def value(self):
-        if self._value == pparse.UNLOADED_VALUE:
-            # parse it now
-            pass
-        return self._value
-
+        self.value = {}
 
     def type_desc(self):
         return self._type
@@ -190,151 +175,6 @@ def hex_sample(data):
         + " ... "
         + " ".join(f"{b:02x}" for b in data[-8:])
     )
-
-
-class NodeField(Node):
-    def __init__(self, parent: Node, reader: pparse.Reader, abs_offset=0, type_desc=None):
-        super().__init__(parent, reader, abs_offset)
-        self._type_desc = type_desc
-        self.value = None
-
-    def name(self):
-        return self._type_desc['name']
-    
-    def type_desc(self):
-        return self._type_desc
-
-    def base_type(self):
-        return self._type_desc['type']['base_type']
-
-    def parse_value(self, parser: "Parser", ctx: "NodeContext"):
-        # Scalars are inplace, do those first.
-        if self.base_type() in parser.schema.TYPE_SIZES:
-            # Scalar value stored inline
-            ctx.seek(field_pos)
-            self.value = parser.read_scalar(ctx, base_type)
-            return
-        # Strings are nice and simple.
-        if self.base_type() == 'String':
-            # Seek to string offset
-            ctx.seek(field_pos)
-            ctx.seek(field_pos + parser.peek_u32(ctx))
-            # TODO: Do we create a NodeString? Pythonic str for now.
-            self.value = parser.read_string(ctx)
-            return
-        # Vectors are common and require a new node.
-        if self.base_type() == 'Vector':
-            breakpoint() # ! ... we want to scan all vector values ... then decend!
-            # Seek to vector offset
-            ctx.seek(field_pos)
-            vector_pos = field_pos + parser.peek_u32(ctx)
-
-            self.value = NodeVector(ctx.node(), ctx.reader(), vector_pos, field_type)
-            #parser.current = table.value[field_name]
-            #parser.current.ctx()._next_state(FlatbuffersParsingVector)
-            ctx.field_idx += 1
-            return
-        '''
-            # if self.base_type() == 'Union':
-            #     # Skip and let the UType base_type drive both Union and UType parsing.
-            #     ctx.field_idx += 1
-            #     return
-            # if self.base_type() == 'UType':
-            #     breakpoint() # ! deferred
-            #     # Get the UType index
-            #     utype_idx = field_type.get('index', 0)
-
-            #     # # Check if the union has content.
-            #     # if utype_idx == 0:
-            #     #     # Nothing
-            #     #     table.value[field_name] = None
-            #     #     ctx.field_idx += 1
-            #     #     return
-
-            #     # Locate the paired Union field
-            #     union_desc = None
-            #     for field_entry in ctx.fields_desc:
-            #         if 'type' in field_entry and 'index' in field_entry['type'] and \
-            #             field_entry['type']['index'] == utype_idx:
-            #             union_desc = field_entry
-            #             break
-            #     if union_desc is None:
-            #         raise ValueError(f"Union index {utype_idx} not found for {field_name}.")
-
-            #     union_name = union_desc['name']
-
-            #     # Get the enum type associated with utype_idx
-            #     enum_type = parser.schema.enums_by_index[utype_idx]
-                
-            #     # Get the enum value (utype). (enum_value == 0 means no content.)
-            #     # NOTE: Defined by underlying_type, but assuming 1 byte with 3 padded zeros.
-            #     ctx.seek(field_pos)
-            #     # TODO: Check for return.
-            #     enum_value = struct.unpack('B', ctx.peek(1))[0]
-            #     #enum_value = parser.peek_u32(ctx)
-                
-            #     forward_align = lambda value: value + (4 - value % 4) if value % 4 != 0 else value
-            #     union_offset_pos = forward_align(field_pos + 1)
-
-            #     # Get the union table offset (union)
-            #     ctx.seek(union_offset_pos)
-            #     union_pos = union_offset_pos + parser.peek_u32(ctx)
-
-            #     # Get the entry from enum_type who has the enum_value as value
-            #     enum_desc = None
-            #     for enum_entry in enum_type['values']:
-            #         if enum_entry['value'] == enum_value:
-            #             enum_desc = enum_entry
-            #             break
-            #     if enum_desc is None:
-            #         raise ValueError(f"Enum {utype_idx} desc for value {enum_value} not found.")
-                
-            #     union_base_type = enum_desc['union_type']['base_type']
-
-            #     if union_base_type == 'Obj':
-            #         table_pos = union_pos
-            #         type_index = enum_desc['union_type']['index']
-            #         type_desc = parser.schema.objects_by_index[type_index]
-            #         table.value[union_name] = NodeTable(ctx.node(), ctx.reader(), union_pos, type_desc)
-
-            #         parser.current = table.value[union_name]
-            #         parser.current.ctx()._next_state(FlatbuffersParsingTable)
-            #         ctx.field_idx += 1
-            #         return
-
-            #     # Catch all for unsupported union_base_type
-            #     msg = f"Unsupported base type while parsing union {union_name} at {table.abs_offset()}"
-            #     print(msg)
-            #     breakpoint()
-            #     raise ValueError(msg)
-        '''
-
-        if self.base_type() == 'Obj':
-            # Seek to vector offset
-            ctx.seek(field_pos)
-            table_pos = field_pos + parser.peek_u32(ctx)
-
-            # Get the table schema stuff
-            breakpoint() # ! ... we want to scan all vector values ... then decend!
-            type_index = self.type_desc()['index']
-            if type_index is None:
-                raise ValueError("Vector of objects missing 'index' field")
-            if type_index not in parser.schema.objects_by_index:
-                raise ValueError(f"Unknown object index: {type_index}")
-
-            type_desc = parser.schema.objects_by_index[type_index]
-            self.value = NodeTable(ctx.node(), ctx.reader(), table_pos, type_desc)
-
-            #parser.current = table.value[field_name]
-            #parser.current.ctx()._next_state(FlatbuffersParsingTable)
-            ctx.field_idx += 1
-            return
-
-
-        # Catch all for unsupported element_types
-        print(f"Unsupported byte type while parsing table: {base_type}")
-        breakpoint()
-        raise ValueError(f"Unsupported byte type while parsing table: {base_type}")
 
 
 class NodeVector(Node):

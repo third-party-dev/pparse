@@ -26,7 +26,9 @@ class Json:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
             self._extraction.discover_parsers(JSON_PARSER)
-            self._extraction.scan_data()
+            # TODO: Generalize the 'json' key below?
+            self._extraction._parser['json']._root.load()
+            #self._extraction.scan_data()
         
         except pparse.EndOfDataException as e:
             print(e)

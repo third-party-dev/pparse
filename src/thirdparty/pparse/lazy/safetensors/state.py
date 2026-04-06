@@ -7,62 +7,109 @@ log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 
+'''
+    The Safetensors parsing process generally follows:
+    - STATE: SafetensorsParsingLength
+      - Get the 64bit (8 byte) little endian length as 'header_length'.
+    - STATE: SafetensorsParsingHeaderSetup
+      - Create a LazyJsonParser node as 'header'
+      - Let Node.load() handle the JSON parse via ctx()._descendants
+    - STATE: SafetensorsParsingTensorsMeta
+      - Use the 'header' to build all the Tensor nodes
+      - Each node is populated with the metadata
+      - Each node given 'data' field with UNLOADED Node and 'SafetensorsParsingTensorNode' state.
+        - The UNLOADED node is given context to load with 'SafetensorsParsingTensorNode' state.
+      - _Tensor nodes are not implicitly parsed._
+    - STATE: SafetensorsParsingTensorNode
+      - When a Node.load() runs on a node with 'SafetensorsParsingTensorNode' state, it'll read the data into memory.
+'''
+
 
 class SafetensorsParsingState(object):
     def parse_data(self, parser: "Parser", ctx: "NodeContext"):
         raise NotImplementedError()
 
 
-# class SafetensorsParsingTensors(SafetensorsParsingState):
-
-#     def parse_data(self, parser: 'Parser', ctx: 'NodeContext'):
-#         '''
-#           The tensor data isn't parsed. Its referenced using the header. All
-#           tensor references in the header can become Safetensor nodes that permit
-#           defered parsing and data _extraction_.
-
-#           We should keep the start and end of the tensor data. Possibly keep
-#           bookkeeping on every byte that is actually referenced. An array of
-#           ranges and then find the holes?
-#         '''
-
-#         # data = ctx.peek(0x400)
-#         # if len(data) < 1:
-#         #     raise pparse.EndOfDataException("Not enough data to parse JSON whitespace")
+class SafetensorsParsingComplete(SafetensorsParsingState):
+    def parse_data(self, node: pparse.Node):
+        return pparse.ASCEND
 
 
-class SafetensorsParsingTensors(SafetensorsParsingState):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
-        # Keep it going forward.
-        data = ctx.read(4096 * 4096)
-        if not data or len(data) < 1:
-            ctx.node().tensor_data_end = ctx.tell()
-            raise pparse.EndOfDataException("No more Safetensors tensor data.")
+class SafetensorsParsingTensorNode(SafetensorsParsingState):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+
+        node._value = ctx.read(ctx.left())
+
+        ctx._next_state(SafetensorsParsingComplete)
+        return pparse.ASCEND
+
+
+class SafetensorsParsingTensorsMeta(SafetensorsParsingState):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+
+        # TODO: Detect if Node.load(recursive=True)?
+
+        # We only need the data reference, we seek(tensor_data_start) for each node.
+        tensor_reader = ctx.reader()
+        node._value['tensors'] = {}
+        for k,v in parser._root._value['header']._value._value.items():
+            if k == '__metadata__':
+                continue
+            # Create UNLOADED nodes for each Tensor.
+            node._value['tensors'][k] = parser.tensor_node_from(tensor_reader, node, k, v)
+
+        # We're done.
+        node.ctx()._next_state(SafetensorsParsingComplete)
+        #breakpoint()
+        return pparse.ASCEND
+
+        # # Keep it going forward.
+        # data = ctx.read(4096 * 4096)
+        # if not data or len(data) < 1:
+        #     ctx.node().tensor_data_end = ctx.tell()
+        #     raise pparse.EndOfDataException("No more Safetensors tensor data.")
+
+
+class SafetensorsParsingHeaderSetup(SafetensorsParsingState):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+
+        #breakpoint()
+        from thirdparty.pparse.lazy.json import Parser as LazyJsonParser
+        json_parser = LazyJsonParser.from_reader(node.ctx().reader(), parent=node)
+
+        node._value['header'] = json_parser._root
+        # Let Node.load() handle it.
+        node.ctx()._descendants.append(json_parser._root)
+
+        # ! Assuming success. TODO: Node should be able to verify json parse success before continuing.
+        ctx._next_state(SafetensorsParsingTensorsMeta)
+
+        return pparse.AGAIN
 
 
 class SafetensorsParsingLength(SafetensorsParsingState):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+
         data = ctx.peek(8)
         if len(data) < 8:
             raise EndOfDataException(
                 "Not enough data to parse Safetensors Header Length"
             )
 
-        # Store header length in NodeInit
         header_length = struct.unpack("<Q", data)[0]
-        ctx.node().header_length = header_length
-        log.debug(f"Safetensors Header Length: {ctx.node().header_length}")
+        node._value['header_length'] = header_length
+        log.debug(f"Safetensors Header Length: {node._value['header_length']}")
         ctx.skip(8)
 
-        # TODO: Add extraction for json parser
-        # Given name to attract parser only.
-        header_range = pparse.Range(ctx.reader(), header_length)
-        header_json = pparse.BytesExtraction(name=".json", reader=header_range)
-        parser.source()._extractions.append(header_json)
-        ctx.skip(header_length)
+        ctx._next_state(SafetensorsParsingHeaderSetup)
+        return pparse.AGAIN
 
-        # TODO: If we add extraction, do children, and then add more extractions ...
-        # what happens to the extractions that were already complete? What if we need to
-        # keep appending data to an extraction that has already been partially completed?
 
-        ctx._next_state(SafetensorsParsingTensors)

@@ -10,6 +10,12 @@ def register_pparse_safetensors(subparsers):
         dest="safetensors_command", required=True
     )
 
+    safetensors_view_parser = safetensors_subparser.add_parser(
+        "view", help="pytorch parse command"
+    )
+    safetensors_view_parser.add_argument("path")
+    safetensors_view_parser.set_defaults(func=safetensors_view)
+
     safetensors_header_parser = safetensors_subparser.add_parser(
         "header", help="safetensors header command"
     )
@@ -35,6 +41,23 @@ def register_pparse_safetensors(subparsers):
     safetensors_hash_parser.add_argument("path")
     safetensors_hash_parser.set_defaults(func=safetensors_hash)
 
+
+def safetensors_view(args):
+    from thirdparty.pparse.view import SafeTensors
+
+    # TODO: This needs some UX work.
+    print(f"Viewing: {args.path}")
+
+    obj = SafeTensors().open_fpath(args.path)
+    root = obj._extraction._parser['safetensors']._root
+    
+    
+    if hasattr(args, "breakpoint") and args.breakpoint:
+        print(f"Locals: {list(locals().keys())}")
+        breakpoint()
+
+    # tensor = obj.tensor('transformer.ln_f.bias')
+    # nparr = tensor.as_numpy()
 
 def raw_header(args):
     import json
