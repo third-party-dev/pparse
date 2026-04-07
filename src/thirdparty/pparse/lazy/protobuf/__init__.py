@@ -10,8 +10,9 @@ log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.protobuf.meta import Protobuf, PbImport
-from thirdparty.pparse.lazy.protobuf.node import Node, NodeArray, NodeMap
-from thirdparty.pparse.lazy.protobuf.state import ProtobufParsingKey
+# from thirdparty.pparse.lazy.protobuf.node import Node, NodeArray, NodeMap
+from thirdparty.pparse.lazy.protobuf.node import NodeContext
+from thirdparty.pparse.lazy.protobuf.state import ProtobufParsingTag
 
 # make_protobuf_parser(ext_list=['.onnx'], init_msgtype='.onnx.ModelProto')
 def make_protobuf_parser(ext_list=[], init_msgtype="", proto=PbImport()):
@@ -30,14 +31,18 @@ def make_protobuf_parser(ext_list=[], init_msgtype="", proto=PbImport()):
         def match_magic(cursor: pparse.Cursor):
             return False
 
-        def __init__(self, source: pparse.Extraction, id: str):
+        def __init__(self, source: pparse.Extraction, id: str = "protobuf", parent: pparse.Node = None):
             super().__init__(source, id)
+            self.schema = proto
 
             # Initial node is a map of type '.onnx.ModelProto'
             # protobuf_type = proto.by_type_name('.onnx.ModelProto')
             protobuf_type = proto.by_type_name(init_msgtype)
-            self.current = NodeMap(None, source.open(), protobuf_type)
-            source._result[id] = self.current
+            self._root = pparse.Node(source.open(), self, default_value={}, parent=parent, ctx_class=NodeContext)
+            self._root.ctx()._next_state(ProtobufParsingTag)
+            self._root.ctx()._type_desc = proto.by_type_name(init_msgtype)
+            #self.current = NodeMap(None, source.open(), protobuf_type)
+            source._result[id] = self._root
 
             # TODO: Consider adding hook for booking as the nodes are completed.
             # # def _node_complete_callable(parser, node_ctx, user_arg):

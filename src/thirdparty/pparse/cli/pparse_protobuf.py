@@ -5,20 +5,20 @@ def register_pparse_protobuf(subparsers):
     protobuf_parser = subparsers.add_parser("protobuf", help="protobuf command")
     protobuf_subparser = protobuf_parser.add_subparsers(dest="protobuf_command", required=True)
 
-    protobuf_parse_parser = protobuf_subparser.add_parser("parse", help="protobuf parse command")
-    protobuf_parse_parser.add_argument("--dump", default=None)
-    protobuf_parse_parser.add_argument("pbpath")
-    protobuf_parse_parser.add_argument("msgtype")
-    protobuf_parse_parser.add_argument("path")
-    protobuf_parse_parser.set_defaults(func=protobuf_parse)
+    protobuf_view_parser = protobuf_subparser.add_parser("view", help="protobuf parse command")
+    protobuf_view_parser.add_argument("--dump", default=None)
+    protobuf_view_parser.add_argument("pbpath")
+    protobuf_view_parser.add_argument("msgtype")
+    protobuf_view_parser.add_argument("path")
+    protobuf_view_parser.set_defaults(func=protobuf_view)
 
-def protobuf_parse(args):
-    from thirdparty.pparse.view.protobuf import ProtobufParser
+def protobuf_view(args):
+    from thirdparty.pparse.view.protobuf import Parser as LazyProtobufParser
 
     print(f"Parsing protobuf from: {args.path}")
 
     try:
-        obj = ProtobufParser().open_fpath(args.path, args.pbpath, args.msgtype)
+        obj = LazyProtobufParser().open_fpath(args.path, args.pbpath, args.msgtype)
 
         if args.dump:
             print(f"Dumping parsed structure to: {args.dump}")
