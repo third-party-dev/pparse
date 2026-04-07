@@ -26,7 +26,7 @@ import thirdparty.pparse.lib as pparse
 
 
 class SafetensorsParsingState(object):
-    def parse_data(self, parser: "Parser", ctx: "NodeContext"):
+    def parse_data(self, node: pparse.Node):
         raise NotImplementedError()
 
 

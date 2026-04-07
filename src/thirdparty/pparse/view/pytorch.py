@@ -11,8 +11,7 @@ log = logging.getLogger(__name__)
 from pprint import pprint
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.pickle import Parser as LazyPickleParser
-from thirdparty.pparse.lazy.zip import Parser as LazyZipParser
+from thirdparty.pparse.lazy.pytorch import Parser as LazyPyTorchParser
 
 # For debug
 
@@ -38,9 +37,9 @@ from thirdparty.pparse.lazy.zip import Parser as LazyZipParser
 
 
 '''
-topcall = obj._extraction._extractions[0]._result['pkl'].value[0].value[0]
-metrics = { 'param_cnt': 0 }
-traverse(topcall.state, ['top'], metrics)
+    topcall = obj._extraction._extractions[0]._result['pkl'].value[0].value[0]
+    metrics = { 'param_cnt': 0 }
+    traverse(topcall.state, ['top'], metrics)
 '''
 
 # Example of how to traverse into a pytorch that includes the compute graph only.
@@ -178,51 +177,68 @@ class PyTorch:
         self._forced_traversal = force_traverse
 
     def open_fpath(self, fpath):
-        # --- Scan the zip ---
-        ZIP_PARSER_REGISTRY = {
-            "zip": LazyZipParser,
-        }
-        data_source = pparse.FileData(path=fpath)
-        data_range = pparse.Range(data_source.open(), data_source.length)
-        self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
-        self._extraction.discover_parsers(ZIP_PARSER_REGISTRY)
-        self._extraction.scan_data()
+        try:
+            data_source = pparse.FileData(path=fpath)
+            data_range = pparse.Range(data_source.open(), data_source.length)
+            self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
+            self._extraction.discover_parsers({"pt": LazyPyTorchParser,})
+            self._extraction._parser['pt']._root.load()
+        except pparse.EndOfDataException as e:
+            print(e)
+            pass
+        except Exception as e:
+            print(e)
+            import traceback
 
-        # TODO: Zip Parser should skip data, so we want to query data.pkl data here.
-
-        # --- Scan the data.pkl member ---
-        print("Parsing pkl of fpath")
-        # Assumption: First file is always data.pkl. (We _could_ search.)
-        self.data_pkl_meta = self._extraction._result["zip"].value[0].value
-        if os.path.basename(self.data_pkl_meta["fname"]) != "data.pkl":
-            raise Exception("data.pkl was not first file in zip as expected.")
-
-        # Assumption: decomp_data will have the data.
-        # TODO: Consider checking for unloaded_data.
-        self.pkl_source = pparse.BytesIoData(self.data_pkl_meta["decomp_data"].value)
-        self.pkl_range = pparse.Range(self.pkl_source.open(), self.pkl_source.length)
-        PKL_PARSER_REGISTRY = {
-            "pkl": LazyPickleParser,
-        }
-
-        self._pkl_extraction = pparse.BytesExtraction(
-            name="data.pkl", reader=self.pkl_range
-        )
-        self._extraction._extractions.append(self._pkl_extraction)
-        self._pkl_extraction.discover_parsers(PKL_PARSER_REGISTRY).scan_data()
-
-        # Auto-detect if this is a weights only model or not.
-        if len(self._pkl_extraction._result["pkl"].value[0].value[0]) == 0 \
-            or self._forced_traversal:
-            arr = []
-            pkl = self._pkl_extraction._result['pkl'].value[0].value[0]
-            self._traverse_pt(pkl.state)
-        else:
-            pkl = self._pkl_extraction._result["pkl"].value[0].value[0]
-            for name in pkl:
-                self._tensor_meta[name] = Tensor(self, pkl[name], name)
+            traceback.print_exc()
 
         return self
+
+        # # --- Scan the zip ---
+        # ZIP_PARSER_REGISTRY = {
+        #     "zip": LazyZipParser,
+        # }
+        # data_source = pparse.FileData(path=fpath)
+        # data_range = pparse.Range(data_source.open(), data_source.length)
+        # self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
+        # self._extraction.discover_parsers(ZIP_PARSER_REGISTRY)
+        # self._extraction.scan_data()
+
+        # # TODO: Zip Parser should skip data, so we want to query data.pkl data here.
+
+        # # --- Scan the data.pkl member ---
+        # print("Parsing pkl of fpath")
+        # # Assumption: First file is always data.pkl. (We _could_ search.)
+        # self.data_pkl_meta = self._extraction._result["zip"].value[0].value
+        # if os.path.basename(self.data_pkl_meta["fname"]) != "data.pkl":
+        #     raise Exception("data.pkl was not first file in zip as expected.")
+
+        # # Assumption: decomp_data will have the data.
+        # # TODO: Consider checking for unloaded_data.
+        # self.pkl_source = pparse.BytesIoData(self.data_pkl_meta["decomp_data"].value)
+        # self.pkl_range = pparse.Range(self.pkl_source.open(), self.pkl_source.length)
+        # PKL_PARSER_REGISTRY = {
+        #     "pkl": LazyPickleParser,
+        # }
+
+        # self._pkl_extraction = pparse.BytesExtraction(
+        #     name="data.pkl", reader=self.pkl_range
+        # )
+        # self._extraction._extractions.append(self._pkl_extraction)
+        # self._pkl_extraction.discover_parsers(PKL_PARSER_REGISTRY).scan_data()
+
+        # # Auto-detect if this is a weights only model or not.
+        # if len(self._pkl_extraction._result["pkl"].value[0].value[0]) == 0 \
+        #     or self._forced_traversal:
+        #     arr = []
+        #     pkl = self._pkl_extraction._result['pkl'].value[0].value[0]
+        #     self._traverse_pt(pkl.state)
+        # else:
+        #     pkl = self._pkl_extraction._result["pkl"].value[0].value[0]
+        #     for name in pkl:
+        #         self._tensor_meta[name] = Tensor(self, pkl[name], name)
+
+        # return self
 
 
     def _traverse_pt(self, state, path_arr=[], metrics={ 'param_cnt': 0 }):

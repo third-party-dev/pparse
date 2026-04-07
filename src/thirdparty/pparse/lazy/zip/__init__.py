@@ -20,6 +20,7 @@ class Parser(pparse.Parser):
                 return True
         return False
 
+
     @staticmethod
     def match_magic(cursor: pparse.Cursor):
         if cursor.peek(len(Zip.SIGNATURE)) == Zip.SIGNATURE:
@@ -27,8 +28,7 @@ class Parser(pparse.Parser):
         return False
 
 
-
-    def __init__(self, source: pparse.Extraction, id: str, parent: pparse.Node = None):
+    def __init__(self, source: pparse.Extraction, id: str = "zip", parent: pparse.Node = None):
         super().__init__(source, id)
 
         self._root = pparse.Node(source.open(), self, default_value = [], parent = parent)
@@ -36,8 +36,15 @@ class Parser(pparse.Parser):
         source._result[id] = self._root
 
 
+    @staticmethod
+    def from_reader(reader: pparse.Reader, parent: pparse.Node = None):
+        extraction = pparse.BytesExtraction(name="data.zip", reader=reader.dup())
+        return Parser(extraction, parent=parent)
+
+
     def new_map_node(self, parent):
         return pparse.Node(parent.ctx().reader(), self, default_value = {}, parent = parent)
+
 
     def new_data_node(self, parent):
         return pparse.Node(parent.ctx().reader(), self, parent = parent)
@@ -63,18 +70,18 @@ class Parser(pparse.Parser):
 
 
 
-    def scan_data(self):
-        # While not end of data, keep parsing via states.
-        try:
-            while True:
-                self.current.ctx().state().parse_data(self, self.current.ctx())
-        except pparse.EndOfNodeException as e:
-            pass
-        except pparse.EndOfDataException as e:
-            pass
-        except pparse.UnsupportedFormatException:
-            raise
+    # def scan_data(self):
+    #     # While not end of data, keep parsing via states.
+    #     try:
+    #         while True:
+    #             self.current.ctx().state().parse_data(self, self.current.ctx())
+    #     except pparse.EndOfNodeException as e:
+    #         pass
+    #     except pparse.EndOfDataException as e:
+    #         pass
+    #     except pparse.UnsupportedFormatException:
+    #         raise
 
-        # TODO: Do all the children.
+    #     # TODO: Do all the children.
 
-        return self
+    #     return self

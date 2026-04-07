@@ -90,7 +90,7 @@ class Parser(pparse.Parser):
         return False
 
 
-    def __init__(self, source: pparse.Extraction, id: str):
+    def __init__(self, source: pparse.Extraction, id: str = "safetensors"):
         super().__init__(source, id)
 
         # Current path of pending things.

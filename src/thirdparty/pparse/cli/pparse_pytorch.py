@@ -92,6 +92,8 @@ def pytorch_view(args):
     try:
         obj = PyTorch(force_traverse=args.force_traverse).open_fpath(args.path)
         # obj.tensor('lm_head.weight').get_data_bytes()
+        pt = obj._extraction._result['pt']._value
+        zip = obj._extraction._result['pt']._value['zip']._value
 
     except Exception as e:
         print(e)
@@ -104,9 +106,9 @@ def pytorch_view(args):
         breakpoint()
 
 '''
-topcall = obj._extraction._extractions[0]._result['pkl'].value[0].value[0]
-metrics = { 'param_cnt': 0 }
-traverse(topcall.state, ['top'], metrics)
+    topcall = obj._extraction._extractions[0]._result['pkl'].value[0].value[0]
+    metrics = { 'param_cnt': 0 }
+    traverse(topcall.state, ['top'], metrics)
 '''
 
 def traverse(state, path_arr, metrics={ 'param_cnt': 0 }):

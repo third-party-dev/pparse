@@ -5,6 +5,7 @@ import struct
 from pprint import pprint
 
 log = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG, format='%(levelname)s:%(message)s')
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.pickle.meta import PklOp
@@ -592,12 +593,21 @@ class PickleParsingOpCode(PickleParsingState):
             raise UnsupportedFormatException(f"Invalid pickle opcode: {hex(data[0])}")
 
 
+class PickleParsingComplete(PickleParsingState):
+    def parse_data(self, node: pparse.Node):
+        return pparse.ASCEND
+
 # State where we switch pickle streams, delimited by STOP.
 class PickleParsingPickleStream(PickleParsingState):
     def parse_data(self, node: pparse.Node):
         ctx = node.ctx()
         parser = ctx.parser()
         
+        if ctx.tell() == node.length():
+            # We're done.
+            ctx._next_state(PickleParsingComplete)
+            return pparse.ASCEND
+
         data = ctx.peek(1)
         if not data or len(data) < 1:
             raise pparse.EndOfDataException("Not enough data to parse pickle opcode")
@@ -607,7 +617,7 @@ class PickleParsingPickleStream(PickleParsingState):
         node._value.append(pkl_stream)
         pkl_stream.ctx()._next_state(PickleParsingOpCode)
         # Let Node.load() drive.
-        node.ctx()._descendants.append(pkl_stream)
+        ctx._descendants.append(pkl_stream)
 
         #parent = parser.current
         #newpkl = NodePickle(parent, ctx.reader())

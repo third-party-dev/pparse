@@ -27,7 +27,7 @@ class Parser(pparse.Parser):
     def match_magic(cursor: pparse.Cursor):
         return False
 
-    def __init__(self, source: pparse.Extraction, id: str, parent: pparse.Node = None):
+    def __init__(self, source: pparse.Extraction, id: str = "pkl", parent: pparse.Node = None):
         super().__init__(source, id)
 
         self._root = pparse.Node(source.open(), self, default_value=[], parent=parent)
@@ -37,6 +37,21 @@ class Parser(pparse.Parser):
         # self.current = NodePickleArray(None, source.open())
         # self.current.ctx()._next_state(PickleParsingPickleStream)
         # source._result[id] = self.current
+
+
+    @staticmethod
+    def from_reader(reader: pparse.Reader, parent: pparse.Node = None):
+        extraction = pparse.BytesExtraction(name="data.zip", reader=reader.dup())
+        return Parser(extraction, parent=parent)
+
+
+    @staticmethod
+    def from_bytesio(bytes_io, parent: pparse.Node = None):
+        data_source = pparse.BytesIoData(bytes_io=bytes_io)
+        data_range = pparse.Range(data_source.open(), data_source.length)
+        extraction = pparse.BytesExtraction(name="data.pkl", reader=data_range)
+        return Parser(extraction, parent=parent)
+
 
     def _end_container_node(self, node: pparse.Node):
         ctx = node.ctx()
