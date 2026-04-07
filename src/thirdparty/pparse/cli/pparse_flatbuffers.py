@@ -23,6 +23,10 @@ def flatbuffers_view(args):
         obj = Flatbuffers().open_fpath(args.path, json_schema_path=args.json_schema_path)
         root = obj._extraction._result['flatbuffers'].value
 
+        #tensors = root['root_table']._value['subgraphs']._value[0]._value['tensors']._value
+        #for i in range(len(tensors)):
+        #    print(f"i: {i} buffer: {tensors[i]._value['buffer']} name: {tensors[i]._value['name']} shape: {tensors[i]._value['shape']._value}")
+
         if args.print:
             print(root.dumps())
 

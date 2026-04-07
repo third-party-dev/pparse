@@ -362,6 +362,9 @@ class Node:
                     #breakpoint()self
                     # ! Here, we're making Node responsible for _descendants cleanup.
                     child = self.ctx()._descendants.pop()
+
+                    # TODO: use try/except to push forward, even on failure.
+                    # TODO: we should be able to track failures for retry later.
                     child.load(recursive=recursive)
 
                 # if len(self.ctx()._descendants) > 0:

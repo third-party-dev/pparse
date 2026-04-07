@@ -7,7 +7,8 @@ class FlatbuffersSchema():
 
         self.root_table_name = self._schema['root_table']['name']
 
-        self.enums = {e['name']: e for e in self._schema.get('enums', [])}
+        #self.enums = {e['name']: e for e in self._schema.get('enums', [])}
+        self.enums = self._schema.get('enums', [])
         self.objects = {o['name']: o for o in self._schema.get('objects', [])}
                 
         self.objects_by_index = {}
