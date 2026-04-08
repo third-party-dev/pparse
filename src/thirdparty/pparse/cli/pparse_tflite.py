@@ -1,4 +1,6 @@
 
+import logging
+log = logging.getLogger(__name__)
 
 def register_pparse_tflite(subparsers):
     tflite_parser = subparsers.add_parser("tflite", help="tflite command")

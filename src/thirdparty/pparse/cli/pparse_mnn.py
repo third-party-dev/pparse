@@ -1,5 +1,6 @@
 
-
+import logging
+log = logging.getLogger(__name__)
 
 def register_pparse_mnn(subparsers):
     mnn_parser = subparsers.add_parser("mnn", help="mnn command")

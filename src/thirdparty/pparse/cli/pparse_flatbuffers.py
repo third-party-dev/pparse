@@ -1,5 +1,6 @@
 
-
+import logging
+log = logging.getLogger(__name__)
 
 def register_pparse_flatbuffers(subparsers):
     flatbuffers_parser = subparsers.add_parser("flatbuffers", help="flatbuffers command")
@@ -15,7 +16,7 @@ def register_pparse_flatbuffers(subparsers):
 
 
 def flatbuffers_view(args):
-    from thirdprty.pparse.utils import activate_logging
+    from thirdparty.pparse.utils import activate_logging
     activate_logging(args)
     
     from thirdparty.pparse.view.flatbuffers import Flatbuffers

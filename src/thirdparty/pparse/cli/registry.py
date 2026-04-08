@@ -1,3 +1,7 @@
+
+import logging
+log = logging.getLogger(__name__)
+
 from importlib.metadata import entry_points
 from typing import Callable, Dict
 

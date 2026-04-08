@@ -1,5 +1,6 @@
 
-
+import logging
+log = logging.getLogger(__name__)
 
 def register_pparse_json(subparsers):
     json_parser = subparsers.add_parser("json", help="json command")

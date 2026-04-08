@@ -1,5 +1,6 @@
 
-
+import logging
+log = logging.getLogger(__name__)
 
 def register_pparse_zip(subparsers):
     zip_parser = subparsers.add_parser("zip", help="zip command")

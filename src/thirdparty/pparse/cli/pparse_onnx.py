@@ -1,4 +1,6 @@
 
+import logging
+log = logging.getLogger(__name__)
 
 def register_pparse_onnx(subparsers):
     onnx_parser = subparsers.add_parser("onnx", help="onnx command")

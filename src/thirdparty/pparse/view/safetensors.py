@@ -9,11 +9,8 @@ import numpy
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.json import Parser as LazyJsonParser
 from thirdparty.pparse.lazy.safetensors import Parser as LazySafetensorsParser
-from thirdparty.pparse.lazy.safetensors.index import (
-    Parser as LazySafetensorsIndexParser,
-)
+from thirdparty.pparse.lazy.safetensors.index import Parser as LazySafetensorsIndexParser
 
 
 class Tensor:
@@ -180,57 +177,101 @@ class SafeTensors:
         return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)
 
 
+class SafeTensorsIndexTensor(pparse.Tensor):
 
+    STTYPE_STRUCT = {
+        "I8": "b",
+        "U8": "B",
+        "I16": "h",
+        "U16": "H",
+        "I32": "i",
+        "U32": "I",
+        "I64": "q",
+        "U64": "Q",
+        "F32": "f",
+        "F64": "d",
+    }
+
+    STTYPE_SIZE = {
+        "I8": 1,
+        "U8": 1,
+        "I16": 2,
+        "U16": 2,
+        "I32": 4,
+        "U32": 4,
+        "I64": 8,
+        "U64": 8,
+        "F32": 4,
+        "F64": 8,
+    }
+
+    def __init__(self, name, tensor_node):
+        self._name = name
+        self._tensor_node = tensor_node
+
+
+    # Return (safetensors equivalent) type
+    def get_type(self) -> str:
+        return self._tensor_node['header'].value['dtype']
+
+
+    # Return (safetensors equivalent) shape
+    def get_shape(self):
+        return self._tensor_node['header']._value['shape'].value
+
+
+    # Return raw data as extracted from source
+    def get_data_bytes(self):
+        return self._tensor_node['data'].value
+
+
+    # Return raw data as python array of dtype
+    def as_array(self):
+        raise NotImplementedError()
+
+
+    def as_numpy(self):
+        dtype = numpy.dtype(f"<{SafeTensorsIndexTensor.STTYPE_STRUCT[self.get_type()]}")
+        shape = self.get_shape()
+        data = self.get_data_bytes()
+        return numpy.frombuffer(data, dtype=dtype).reshape(shape)
 
 
 class SafeTensorsIndex:
-    SAFETENSORS_INDEX_PARSER = {"safetensors_index": LazySafetensorsIndexParser}
 
     def __init__(self):
         self._extraction = None
         self._safetensors_files = {}
 
-    def safetensors_names(self):
-        return self._safetensors_files.keys()
+    # def safetensors_names(self):
+    #     return self._safetensors_files.keys()
 
-    def safetensors(self, name):
-        return self._safetensors_files[name]
+    # def safetensors(self, name):
+    #     return self._safetensors_files[name]
 
-    def metadata(self):
-        if not self._extraction:
-            raise Exception("No parsed extraction found.")
+    # def metadata(self):
+    #     if not self._extraction:
+    #         raise Exception("No parsed extraction found.")
 
-        return self._extraction._result["safetensors_index"].value.value["metadata"]
+    #     return self._extraction._result["safetensors_index"].value.value["metadata"]
 
     def tensor(self, name):
-        fname = (
-            self._extraction._result["safetensors_index"]
-            .value.value["weight_map"]
-            .value[name]
-        )
-        return self._safetensors_files[fname].tensor(name)
+        tensor_node = self._root.value['tensors'][name]
+        return SafeTensorsIndexTensor(name, tensor_node)
 
     def tensor_names(self):
-        return (
-            self._extraction._result["safetensors_index"]
-            .value.value["weight_map"]
-            .value.keys()
-        )
+        return list(self._root.value['tensors'].keys())
 
     # fpath - Index file.
-    def open_fpath(self, fpath):
+    def _parse(self, idx_data, fname="unnamed.index.json"):
         try:
             # Process the index file.
-            idx_data = pparse.Data(path=fpath)
             idx_range = pparse.Range(idx_data.open(), idx_data.length)
-            self._extraction = pparse.BytesExtraction(name=fpath, reader=idx_range)
-            self._extraction.discover_parsers(SAFETENSORS_INDEX_PARSER)
-            self._extraction._parser['json']._root.load()
-            self._extraction.scan_data()
-
-            # Create SafeTensor objects
-            for st_extr in self._extraction._extractions:
-                self._safetensors_files[st_extr.name()] = SafeTensors(st_extr)
+            self._extraction = pparse.BytesExtraction(name=fname, reader=idx_range)
+            self._extraction.discover_parsers({"safetensors_index": LazySafetensorsIndexParser})
+            self._root = self._extraction._parser['safetensors_index']._root
+            self._root.load()
+            
 
         except pparse.EndOfDataException:
             pass
@@ -241,3 +282,11 @@ class SafeTensorsIndex:
             traceback.print_exc()
 
         return self
+
+
+    def open_fpath(self, fpath):
+        return self._parse(pparse.FileData(path=fpath), fname=fpath)
+
+
+    def from_bytesio(self, bytes_io, fname="unnamed.index.json"):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)

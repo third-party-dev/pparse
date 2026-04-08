@@ -1,14 +1,9 @@
-'''
-def register(subparsers):
-    p = subparsers.add_parser("foo", help="Foo command")
-    p.add_argument("--x", type=int, required=True)
-    p.set_defaults(func=run)
 
-def run(args):
-    print(args.x * 2)
-'''
+import logging
+log = logging.getLogger(__name__)
 
 from thirdparty.pparse.cli.registry import get_commands, load_entrypoint_plugins
+
 
 def register_pparse(subparsers):
     pparse_parser = subparsers.add_parser("pparse", help="pparse command")
@@ -40,6 +35,7 @@ def register_pparse(subparsers):
     # Load plugins
     for registrar in get_commands():
         registrar(pparse_subparser)
+
 
 def run(args):
     print("Running safetensors_parser command")

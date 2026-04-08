@@ -1,3 +1,7 @@
+
+import logging
+log = logging.getLogger(__name__)
+
 def register_pparse_pytorch(subparsers):
     pytorch_parser = subparsers.add_parser("pytorch", help="pytorch command")
     pytorch_subparser = pytorch_parser.add_subparsers(

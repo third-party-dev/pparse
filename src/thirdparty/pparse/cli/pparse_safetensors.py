@@ -1,3 +1,7 @@
+
+import logging
+log = logging.getLogger(__name__)
+
 import traceback
 from pprint import pprint
 
@@ -11,10 +15,16 @@ def register_pparse_safetensors(subparsers):
     )
 
     safetensors_view_parser = safetensors_subparser.add_parser(
-        "view", help="pytorch parse command"
+        "view", help="safetensors view command"
     )
     safetensors_view_parser.add_argument("path")
     safetensors_view_parser.set_defaults(func=safetensors_view)
+
+    safetensors_index_parser = safetensors_subparser.add_parser(
+        "index", help="safetensors index view command"
+    )
+    safetensors_index_parser.add_argument("path")
+    safetensors_index_parser.set_defaults(func=safetensors_index_view)
 
     safetensors_header_parser = safetensors_subparser.add_parser(
         "header", help="safetensors header command"
@@ -42,14 +52,29 @@ def register_pparse_safetensors(subparsers):
     safetensors_hash_parser.set_defaults(func=safetensors_hash)
 
 
+def safetensors_index_view(args):
+    from thirdparty.pparse.utils import activate_logging
+    activate_logging(args)
+    
+    from thirdparty.pparse.view.safetensors import SafeTensorsIndex
+
+    log.info(f"Viewing: {args.path}")
+
+    obj = SafeTensorsIndex().open_fpath(args.path)
+    root = obj._extraction._parser['safetensors_index']._root
+
+    if hasattr(args, "breakpoint") and args.breakpoint:
+        print(f"Locals: {list(locals().keys())}")
+        breakpoint()
+
+
 def safetensors_view(args):
     from thirdparty.pparse.utils import activate_logging
     activate_logging(args)
     
-    from thirdparty.pparse.view import SafeTensors
+    from thirdparty.pparse.view.safetensors import SafeTensors
 
-    # TODO: This needs some UX work.
-    print(f"Viewing: {args.path}")
+    log.info(f"Viewing: {args.path}")
 
     obj = SafeTensors().open_fpath(args.path)
     root = obj._extraction._parser['safetensors']._root
@@ -59,8 +84,6 @@ def safetensors_view(args):
         print(f"Locals: {list(locals().keys())}")
         breakpoint()
 
-    # tensor = obj.tensor('transformer.ln_f.bias')
-    # nparr = tensor.as_numpy()
 
 def raw_header(args):
     from thirdparty.pparse.utils import activate_logging
@@ -96,9 +119,6 @@ def pparse_pheader(args):
     if hasattr(args, "breakpoint") and args.breakpoint:
         print(f"Locals: {list(locals().keys())}")
         breakpoint()
-
-    # tensor = obj.tensor('transformer.ln_f.bias')
-    # nparr = tensor.as_numpy()
 
 
 def safetensors_hash(args):

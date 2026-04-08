@@ -1,5 +1,6 @@
 
-
+import logging
+log = logging.getLogger(__name__)
 
 def register_pparse_ident(subparsers):
     ident_parser = subparsers.add_parser("ident", help="ident command")

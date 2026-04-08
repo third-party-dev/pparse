@@ -1,3 +1,7 @@
+
+import logging
+log = logging.getLogger(__name__)
+
 def register_pparse_om(subparsers):
     om_parser = subparsers.add_parser("om", help="om command")
     om_subparser = om_parser.add_subparsers(dest="om_command", required=True)
