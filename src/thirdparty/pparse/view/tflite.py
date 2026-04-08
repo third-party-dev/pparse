@@ -1,27 +1,18 @@
 #!/usr/bin/env python3
 
 import logging
-import os
-import struct
 
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.flatbuffers import make_flatbuffers_parser
 
-'''
-NOTE:
-Because of the nature of the TFLite memory layout, the entire file 
-must be accessible. For example, each table in TFlite has a vTable 
-that is required to understand the ordering of the table's values. 
-The vTable could be very far from the the table itself.
-'''
 
 class TFLite:
     def __init__(self):
         self._extraction = None
 
-    def open_fpath(self, fpath):
+    def _parse(self, data_source, fname="unnamed.tflite"):
 
         import json
         from importlib import resources
@@ -32,7 +23,6 @@ class TFLite:
             json_schema = json.loads(fobj.read())
 
         try:
-            data_source = pparse.FileData(path=fpath)
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
             parser = make_flatbuffers_parser(ext_list=[Path(fpath).suffix], json_schema=json_schema)
@@ -50,3 +40,10 @@ class TFLite:
 
         return self
 
+
+    def open_fpath(self, fpath):
+        return self._parse(pparse.FileData(path=fpath), fname=fpath)
+
+
+    def from_bytesio(self, bytes_io, fname="unnamed.tflite"):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)

@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
 
 import logging
-import os
-import struct
 
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.flatbuffers import make_flatbuffers_parser
-from thirdparty.pparse.lazy.flatbuffers.node import Node, NodeVector, NodeTable
 
 class MNN:
     def __init__(self):
         self._extraction = None
 
-    def open_fpath(self, fpath):
+    def _parse(self, data_source, fname="unnamed.mnn"):
 
         import json
         from importlib import resources
@@ -28,7 +25,6 @@ class MNN:
         }
 
         try:
-            data_source = pparse.FileData(path=fpath)
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
             self._extraction.discover_parsers(MNN_PARSER)
@@ -46,5 +42,10 @@ class MNN:
         return self
 
 
+    def open_fpath(self, fpath):
+        return self._parse(pparse.FileData(path=fpath), fname=fpath)
 
+
+    def from_bytesio(self, bytes_io, fname="unnamed.mnn"):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)
 

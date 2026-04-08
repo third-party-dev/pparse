@@ -13,53 +13,6 @@ from pprint import pprint
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.pytorch import Parser as LazyPyTorchParser
 
-# For debug
-
-# from pprintpp import pprint
-
-"""
-    # F32  | FloatStorage         | torch.float32    | np.float32
-    # F64  | DoubleStorage        | torch.float64    | np.float64
-    # F16  | HalfStorage          | torch.float16    | np.float16
-    # BF16 | BFloat16Storage      | torch.bfloat16   | np.dtype("bfloat16")
-    # I8   | CharStorage          | torch.int8       | np.int18
-    # I16  | ShortStorage         | torch.int16      | np.int16
-    # I32  | IntStorage           | torch.int32      | np.int32
-    # I64  | LongStorage          | torch.int64      | np.int64
-    # U8   | ByteStorage          | torch.uint8      | np.uint8
-    # BOOL | BoolStorage          | torch.bool       | np.bool_
-    # N/A  | ComplexFloatStorage  | torch.complex64  | np.complex64
-    # N/A  | ComplexDoubleStorage | torch.complex128 | np.complex128
-    # I8?  | QInt8Storage         | torch.qint8      | np.int8
-    # U8?  | QUInt8Storage        | torch.quint8     | np.uint8
-    # U32? | QInt32Storage        | torch.qint32     | np.int32
-"""
-
-
-'''
-    topcall = obj._extraction._extractions[0]._result['pkl'].value[0].value[0]
-    metrics = { 'param_cnt': 0 }
-    traverse(topcall.state, ['top'], metrics)
-'''
-
-# Example of how to traverse into a pytorch that includes the compute graph only.
-def traverse_pt(state, path_arr, metrics={ 'param_cnt': 0 }):
-    print(f"Traversing into {'.'.join(path_arr)} id: {id(state)}")
-
-    if not isinstance(state, dict) or \
-        not ('_modules' in state or '_parameters' in state):
-        print(f"  - Dead end.")
-        return
-
-    if '_parameters' in state and len(state['_parameters'].keys()) > 0:
-        print(f"  - Parameters found.")
-        metrics['param_cnt'] += len(state['_parameters'].keys())
-
-
-    if '_modules':
-        for mod in state['_modules']:
-            traverse_pt(state['_modules'][mod].state, [*path_arr, mod], metrics)
-
 
 class Tensor(pparse.Tensor):
     PKL_STTYPE_MAP = {
@@ -176,9 +129,9 @@ class PyTorch:
         self._tensor_meta = {}
         self._forced_traversal = force_traverse
 
-    def open_fpath(self, fpath):
+
+    def _parse(self, data_source, fname="unnamed.pt"):
         try:
-            data_source = pparse.FileData(path=fpath)
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
             self._extraction.discover_parsers({"pt": LazyPyTorchParser,})
@@ -194,51 +147,16 @@ class PyTorch:
 
         return self
 
-        # # --- Scan the zip ---
-        # ZIP_PARSER_REGISTRY = {
-        #     "zip": LazyZipParser,
-        # }
-        # data_source = pparse.FileData(path=fpath)
-        # data_range = pparse.Range(data_source.open(), data_source.length)
-        # self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
-        # self._extraction.discover_parsers(ZIP_PARSER_REGISTRY)
-        # self._extraction.scan_data()
 
-        # # TODO: Zip Parser should skip data, so we want to query data.pkl data here.
+    def open_fpath(self, fpath):
+        return self._parse(pparse.FileData(path=fpath), fname=fpath)
 
-        # # --- Scan the data.pkl member ---
-        # print("Parsing pkl of fpath")
-        # # Assumption: First file is always data.pkl. (We _could_ search.)
-        # self.data_pkl_meta = self._extraction._result["zip"].value[0].value
-        # if os.path.basename(self.data_pkl_meta["fname"]) != "data.pkl":
-        #     raise Exception("data.pkl was not first file in zip as expected.")
 
-        # # Assumption: decomp_data will have the data.
-        # # TODO: Consider checking for unloaded_data.
-        # self.pkl_source = pparse.BytesIoData(self.data_pkl_meta["decomp_data"].value)
-        # self.pkl_range = pparse.Range(self.pkl_source.open(), self.pkl_source.length)
-        # PKL_PARSER_REGISTRY = {
-        #     "pkl": LazyPickleParser,
-        # }
+    def from_bytesio(self, bytes_io, fname="unnamed.pt"):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)
 
-        # self._pkl_extraction = pparse.BytesExtraction(
-        #     name="data.pkl", reader=self.pkl_range
-        # )
-        # self._extraction._extractions.append(self._pkl_extraction)
-        # self._pkl_extraction.discover_parsers(PKL_PARSER_REGISTRY).scan_data()
 
-        # # Auto-detect if this is a weights only model or not.
-        # if len(self._pkl_extraction._result["pkl"].value[0].value[0]) == 0 \
-        #     or self._forced_traversal:
-        #     arr = []
-        #     pkl = self._pkl_extraction._result['pkl'].value[0].value[0]
-        #     self._traverse_pt(pkl.state)
-        # else:
-        #     pkl = self._pkl_extraction._result["pkl"].value[0].value[0]
-        #     for name in pkl:
-        #         self._tensor_meta[name] = Tensor(self, pkl[name], name)
 
-        # return self
 
 
     def _traverse_pt(self, state, path_arr=[], metrics={ 'param_cnt': 0 }):
@@ -385,138 +303,3 @@ class PyTorch:
     def tensor_names(self):
         return list(self._tensor_meta.keys())
 
-
-        """
-            pkl = obj._extraction._extractions[0]._result['pkl']
-            tensor_dict = pkl.value[0].value[0]
-            tensor_list = tensor_dict.keys()
-            history = pkl.value[0].history
-            print(pparse_repr(tensor_dict['transformer.ln_f.bias']))
-
-            reduce_call = tensor_dict['transformer.ln_f.bias']
-            persid_call = reduce_call.arg[0]
-            type_tag = persid_call.arg[0]
-            type_name = persid_call.arg[1]
-            # torch.FloatStorage => dtype=float32
-            data_key = persid_call.arg[2]
-            data_dest = persid_call.arg[3]
-            elem_cnt = persid_call.arg[4]
-
-            #import numpy as np
-            #raw = read_bytes_for_id("147")
-            #arr = np.frombuffer(raw, dtype=np.float32, count=768)
-
-            # FloatStorage         | torch.float32    | np.float32
-            # DoubleStorage        | torch.float64    | np.float64
-            # HalfStorage          | torch.float16    | np.float16
-            # BFloat16Storage      | torch.bfloat16   | np.dtype("bfloat16")
-            # CharStorage          | torch.int8       | np.int18
-            # ShortStorage         | torch.int16      | np.int16
-            # IntStorage           | torch.int32      | np.int32
-            # LongStorage          | torch.int64      | np.int64
-            # ByteStorage          | torch.uint8      | np.uint8
-            # BoolStorage          | torch.bool       | np.bool_
-            # ComplexFloatStorage  | torch.complex64  | np.complex64
-            # ComplexDoubleStorage | torch.complex128 | np.complex128
-            # QInt8Storage         | torch.qint8      | np.int8
-            # QUInt8Storage        | torch.quint8     | np.uint8
-            # QInt32Storage        | torch.qint32     | np.int32
-
-            # No UInt16Storage, UInt32Storage, UInt64Storage
-        """
-
-
-"""
-PERSID_CALL(
-    arg=(b'storage',     storage-type persistent ID
-         (b'torch\n', b'FloatStorage\n'),   module/typename
-         b'147',    storage key
-         b'cpu',    device
-         768)       data size in bytes
-)
-
-newer format uses `data/{key}`
-older format used `tensors/{key}`
-
-bytesize = 768
-dtype = float32
-float elements = 768/4 = 192
-
-floats = struct.unpack('192f', raw)
-
-OR
-
-arr = np.frombuffer(raw, dtype=np.float32)
-
-def load_storage(data_zip, storage_id, dtype, byte_size):
-    raw = data_zip.read(f"data/{storage_id.decode()}")
-    return np.frombuffer(raw[:byte_size], dtype=dtype)
-
-"""
-
-
-"""
-
-REDUCE_CALL(
-  mod=b'torch._utils\n',
-  func=b'_rebuild_tensor_v2\n',
-  arg=(
-      PERSID_CALL(
-        arg=(
-            b'storage',
-            (b'torch\n', b'FloatStorage\n'),
-            b'147',
-            b'cpu',
-            768
-        )
-      ),
-      0,
-      (768,),
-      (1,),
-      False,
-      REDUCE_CALL(
-        mod=b'collections\n',
-        func=b'OrderedDict\n',
-        arg=()
-      )
-  )
-)
-
-
-
-import numpy as np
-
-# from the storage record:
-raw = ...  # load raw bytes from archive
-storage_arr = np.frombuffer(raw, dtype=np.float32)
-
-# from the tensor record:
-offset = 0
-size = (768,)
-stride = (1,)
-
-tensor_arr = np.lib.stride_tricks.as_strided(
-    storage_arr[offset:],
-    shape=size,
-    strides=(stride[0] * 4,)  # float32 bytes
-)
-
-print(tensor_arr)
-
-
-
-"""
-
-
-"""
-
-Plan:
-
-For a number of pytorch versions:
-  - Iterate over an array of transformer types and output as pytorch.
-  - Grab the pytorch data pickle for the transformer defaults and save off.
-
-Does CUDA generate a different output?
-What hardware do I need to check CUDA output?
-
-"""

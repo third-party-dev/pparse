@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 
 import logging
-import os
-import struct
 
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.pickle import Parser as LazyPickleParser
-from thirdparty.pparse.utils import pparse_repr
 
 class Pickle:
 
@@ -19,7 +16,6 @@ class Pickle:
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
             self._extraction.discover_parsers({"pkl": LazyPickleParser})
             self._extraction._parser['pkl']._root.load()
-            #self._extraction.scan_data()
         
         except pparse.EndOfDataException as e:
             print(e)

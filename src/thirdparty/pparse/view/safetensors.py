@@ -151,15 +151,15 @@ class SafeTensors:
                 fobj.write(sane_json.encode("utf-8"))
         return hashlib.sha256(sane_json.encode("utf-8")).hexdigest()
 
-    def open_fpath(self, fpath):
+
+
+
+    def _parse(self, data_source, fname="unnamed.safetensors"):
         try:
-            data_source = pparse.FileData(path=fpath)
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
-            self._extraction.discover_parsers({"safetensors": LazySafetensorsParser,})
-            # TODO: Generalize the 'safetensors' key below?
+            self._extraction.discover_parsers({"safetensors": LazySafetensorsParser})
             self._extraction._parser['safetensors']._root.load()
-            #self._extraction.scan_data()
 
         except pparse.EndOfDataException:
             pass
@@ -170,6 +170,17 @@ class SafeTensors:
             traceback.print_exc()
 
         return self
+
+
+    def open_fpath(self, fpath):
+        return self._parse(pparse.FileData(path=fpath), fname=fpath)
+
+
+    def from_bytesio(self, bytes_io, fname="unnamed.safetensors"):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)
+
+
+
 
 
 class SafeTensorsIndex:

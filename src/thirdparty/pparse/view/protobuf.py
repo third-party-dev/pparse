@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 import logging
-import os
-import struct
 
 log = logging.getLogger(__name__)
 
@@ -15,13 +13,12 @@ class Parser:
     def __init__(self):
         self._extraction = None
 
-    def open_fpath(self, fpath, pbpath, msgtype):
+    def _parse(self, data_source, pbpath, msgtype, fname="unnamed.protobuf.bin"):
         
         from importlib import resources
         from pathlib import Path
 
         try:
-            data_source = pparse.FileData(path=fpath)
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
             parser = make_protobuf_parser(ext_list=[Path(fpath).suffix], init_msgtype=msgtype, proto=PbImport(pbpath))
@@ -39,3 +36,10 @@ class Parser:
 
         return self
 
+
+    def open_fpath(self, fpath, pbpath, msgtype):
+        return self._parse(pparse.FileData(path=fpath), pbpath, msgtype, fname=fpath)
+
+
+    def from_bytesio(self, bytes_io, pbpath, msgtype, fname="unnamed.protobuf.bin"):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), pbpath, msgtype, fname=fname)

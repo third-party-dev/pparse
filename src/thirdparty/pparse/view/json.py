@@ -1,14 +1,8 @@
 #!/usr/bin/env python3
 
 import logging
-import os
-import struct
-
-import numpy
 
 log = logging.getLogger(__name__)
-
-from pprint import pprint
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.json import Parser as LazyJsonParser
@@ -18,7 +12,7 @@ class Json:
     def __init__(self, extraction=None):
         self._extraction = extraction
 
-    def _parse(self, data_source, fname="unnamed.zip"):
+    def _parse(self, data_source, fname="unnamed.json"):
 
         JSON_PARSER = { "json": LazyJsonParser, }
 
@@ -46,5 +40,5 @@ class Json:
         return self._parse(pparse.FileData(path=fpath), fname=fpath)
 
 
-    def from_bytesio(self, bytes_io, fname="unnamed.zip"):
+    def from_bytesio(self, bytes_io, fname="unnamed.json"):
         return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)
