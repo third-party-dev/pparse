@@ -48,7 +48,7 @@ def register_pparse_onnx(subparsers):
 
 
 def onnx_view(args):
-    from thirdprty.pparse.utils import activate_logging
+    from thirdparty.pparse.utils import activate_logging
     activate_logging(args)
     
     from thirdparty.pparse.utils import pparse_repr
@@ -75,7 +75,7 @@ def onnx_view(args):
 
 
 def onnx_hash(args):
-    from thirdprty.pparse.utils import activate_logging
+    from thirdparty.pparse.utils import activate_logging
     activate_logging(args)
     
     from thirdparty.pparse.view.onnx import Onnx
@@ -102,7 +102,7 @@ def onnx_hash(args):
 
 
 def onnx_transform(args):
-    from thirdprty.pparse.utils import activate_logging
+    from thirdparty.pparse.utils import activate_logging
     activate_logging(args)
     
     from thirdparty.pparse.view.onnx import Onnx

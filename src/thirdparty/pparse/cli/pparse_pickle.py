@@ -15,7 +15,7 @@ def register_pparse_pickle(subparsers):
 
 
 def pickle_view(args):
-    from thirdprty.pparse.utils import activate_logging
+    from thirdparty.pparse.utils import activate_logging
     activate_logging(args)
     
     from thirdparty.pparse.view.pickle import Pickle

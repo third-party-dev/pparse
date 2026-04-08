@@ -59,7 +59,7 @@ def register_pparse_pytorch(subparsers):
 
 
 def pytorch_unpickle(args):
-    from thirdprty.pparse.utils import activate_logging
+    from thirdparty.pparse.utils import activate_logging
     activate_logging(args)
     
     from thirdparty.pparse.utils import pparse_repr
@@ -86,7 +86,7 @@ def pytorch_unpickle(args):
 
 
 def pytorch_view(args):
-    from thirdprty.pparse.utils import activate_logging
+    from thirdparty.pparse.utils import activate_logging
     activate_logging(args)
     
     from thirdparty.pparse.utils import pparse_repr
@@ -135,7 +135,7 @@ def traverse(state, path_arr, metrics={ 'param_cnt': 0 }):
 
 
 def pytorch_hash(args):
-    from thirdprty.pparse.utils import activate_logging
+    from thirdparty.pparse.utils import activate_logging
     activate_logging(args)
     
     from thirdparty.pparse.view.pytorch import PyTorch
@@ -163,7 +163,7 @@ def pytorch_hash(args):
 
 
 def pytorch_transform(args):
-    from thirdprty.pparse.utils import activate_logging
+    from thirdparty.pparse.utils import activate_logging
     activate_logging(args)
     
     from thirdparty.pparse.view.pytorch import PyTorch

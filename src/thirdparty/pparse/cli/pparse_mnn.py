@@ -13,7 +13,7 @@ def register_pparse_mnn(subparsers):
 
 
 def mnn_view(args):
-    from thirdprty.pparse.utils import activate_logging
+    from thirdparty.pparse.utils import activate_logging
     activate_logging(args)
     
     from thirdparty.pparse.view.mnn import MNN

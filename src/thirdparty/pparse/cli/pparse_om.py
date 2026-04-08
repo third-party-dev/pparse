@@ -53,7 +53,7 @@ def register_pparse_om(subparsers):
 
 
 def om_header(args):
-    from thirdprty.pparse.utils import activate_logging
+    from thirdparty.pparse.utils import activate_logging
     activate_logging(args)
     
     from thirdparty.pparse.view.om import Om

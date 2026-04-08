@@ -25,7 +25,7 @@ def register_pparse(subparsers):
         help="Increase verbosity"
     )
 
-    parser.add_argument("--log-level",
+    pparse_parser.add_argument("--log-level",
         metavar="MODULE:LEVEL",
         action="append",
         default=[],
