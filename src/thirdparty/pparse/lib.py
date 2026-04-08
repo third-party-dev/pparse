@@ -98,6 +98,9 @@ class Range(Reader):
         self._length = length
         self._end = self._start + length
 
+    def cursor(self):
+        return self._cursor.dup()
+
     def dup(self):
         return Range(self._start_cursor, self._length, self._cursor.tell())
 
@@ -165,6 +168,9 @@ class Cursor(Reader):
     def __init__(self, data, offset=0):
         self._data = data
         self._offset = offset
+
+    def cursor(self):
+        return self
 
     def dup(self):
         return self._data.open(self._offset)

@@ -62,83 +62,17 @@ class ProtobufParsingSimplePacked(ProtobufParsingState):
         return pparse.ASCEND
 
 
-class ProtobufParsingTag(ProtobufParsingState):
-    # TODO: Split based on wire_type
+class ProtobufParsingWireTypeLen(ProtobufParsingState):
     def parse_data(self, node: pparse.Node):
         ctx = node.ctx()
         parser = ctx.parser()
 
-        # TODO: While going through fields, we must not go past parent's length.
-        # TODO: Ideally we'd construct ranges for each LEN and check ctx.left()
-        # TODO: For the root table, we'd use the extraction data source length.
-
-        # Get the tag data.
-        wire_type, field_num = parser.parse_varint_key(ctx)
-        field = ctx.type_desc().by_id(field_num)
-        if field.name == 'attribute':
-            breakpoint()
-        log.debug(f"ProtobufParsingKey: parsing {ctx.type_desc().type_name()} {field}")
-
-        # If its a simple varint value, grab it and move on.
-        simple_types = [Field.TYPE_INT64, Field.TYPE_INT32, Field.TYPE_UINT64,
-            Field.TYPE_UINT32, Field.TYPE_BOOL, Field.TYPE_ENUM]
-        if wire_type == Protobuf.VARINT and field.type in simple_types:
-            value = parser.parse_varint(ctx)
-
-            if field.is_repeated():
-                if field.name not in node._value:
-                    node._value[field.name] = []
-                node._value[field.name].append(value)
-                return pparse.AGAIN
-
-            # not repeated
-            node._value[field.name] = value
-            return pparse.AGAIN
-        
-        if wire_type == Protobuf.LEN and field.type == Field.TYPE_STRING:
-            length = parser.parse_varint(ctx)
-            value = ctx.read(length).decode('utf-8')
-
-            if field.is_repeated():
-                if field.name not in node._value:
-                    node._value[field.name] = []
-                node._value[field.name].append(value)
-                return pparse.AGAIN
-
-            # if not repeated.
-            node._value[field.name] = value
+        if ctx._field.type == Field.TYPE_MESSAGE:
+            
+            ctx._next_state(ProtobufParsingTag)
             return pparse.AGAIN
 
-        if wire_type == Protobuf.I32 and field.type == Field.TYPE_FLOAT:
-            value = ctx.read(4)
-
-            if field.is_repeated():
-                breakpoint()
-
-            node._value[field.name] = struct.unpack("<f", value)[0]
-            return pparse.AGAIN
-        
-        if wire_type == Protobuf.LEN and field.type == Field.TYPE_MESSAGE:
-            length = parser.parse_varint(ctx)
-
-            msg_node = pparse.Node(ctx.reader(), parser, default_value={}, parent=node, ctx_class=NodeContext)
-            msg_node.ctx()._type_desc = parser.schema.by_type_name(field.type_name)
-            # TODO: With the length, we could parse fields out breadth first.
-            msg_node.ctx()._length = length
-            msg_node.ctx()._next_state(ProtobufParsingTag)
-            node.ctx()._descendants.append(msg_node)
-
-            if field.is_repeated():
-                if field.name not in node._value:
-                    node._value[field.name] = []
-                node._value[field.name].append(msg_node)
-                return pparse.AGAIN
-
-            # Not repeated.
-            node._value[field.name] = msg_node
-            return pparse.AGAIN
-
-        if wire_type == Protobuf.LEN and field.type in simple_types:
+        if field.type in Protobuf.inline_types:
             breakpoint()
             length = parser.parse_varint(ctx)
             pkd_node = pparse.Node(ctx.reader(), parser, default_value=[], parent=node, ctx_class=NodeContext)
@@ -154,9 +88,213 @@ class ProtobufParsingTag(ProtobufParsingState):
             node.ctx()._descendants.append(pkd_node)
             return pparse.AGAIN
 
+
+class ProtobufParsingBytes(ProtobufParsingState):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        node._value = ctx.read(ctx.left())
+        # We're done.
+        ctx._next_state(ProtobufParsingComplete)
+        return pparse.ASCEND
+
+
+class ProtobufParsingWireTypeI32(ProtobufParsingState):
+    # TODO: Split based on wire_type
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+        breakpoint()
+
+
+class ProtobufParsingTag(ProtobufParsingState):
+    # TODO: Split based on wire_type
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+
+        # TODO: While going through fields, we must not go past parent's length.
+        # TODO: Ideally we'd construct ranges for each LEN and check ctx.left()
+        # TODO: For the root table, we'd use the extraction data source length.
+
+        if ctx.left() == 0:
+            # We're done.
+            ctx._next_state(ProtobufParsingComplete)
+            return pparse.ASCEND
+
+        # Get the tag data.
+        wire_type, field_num = parser.parse_varint_key(ctx)
+        field = ctx.type_desc().by_id(field_num)
+
+        # if field.name == 'attribute':
+        #     breakpoint()
+        log.debug(f"ProtobufParsingKey: parsing {ctx.type_desc().type_name()} {field}")
+
+        if wire_type == Protobuf.I32:
+            data = ctx.read(4)
+            if field.type == Field.TYPE_FLOAT:
+                value = struct.unpack('<f', data)[0]
+                if field.is_repeated():
+                    log.debug(f"Appending value {value} to {field.name}")
+                    node._value.setdefault(field.name, []).append(value)
+                else:
+                    log.debug(f"Setting value {value} to {field.name}")
+                    node._value[field.name] = value
+                return pparse.AGAIN
+
+        if wire_type == Protobuf.VARINT:
+            if field.type in Protobuf.inline_types:
+                value = parser.parse_varint(ctx)
+                if field.is_repeated():
+                    log.debug(f"Appending value {value} to {field.name}")
+                    node._value.setdefault(field.name, []).append(value)
+                else:
+                    log.debug(f"Setting value {value} to {field.name}")
+                    node._value[field.name] = value
+                return pparse.AGAIN
+
+            # TODO: Add support for sint32/sint64 with zigzag here.
+            breakpoint()
+            return pparse.AGAIN
+
+        if wire_type == Protobuf.LEN:
+            length = parser.parse_varint(ctx)
+
+            # At this point, cursor should be at start of LEN payload. Build a new range
+            # that only encompasses the LEN data so we can use ctx.left().
+            reader = pparse.Range(ctx.reader().cursor(), length)
+            # node's reader must skip what sub-nodes will handle.
+            ctx.skip(length)
+            len_node = pparse.Node(reader, parser, parent=node, ctx_class=NodeContext)
+            lctx = len_node.ctx()
+            lctx._field = field
+
+            if field.type == Field.TYPE_STRING:
+                # Special case for strings
+                value = lctx.read(lctx.left()).decode('utf-8')
+                if field.is_repeated():
+                    log.debug(f"Appending string to {field.name}, bytes left {lctx.left()}")
+                    node._value.setdefault(field.name, []).append(value)
+                else:
+                    log.debug(f"Setting string to {field.name}, bytes left {lctx.left()}")
+                    node._value[field.name] = value
+                # Note: len_node is thrown away at this point.
+                return pparse.AGAIN
+
+            if field.type == Field.TYPE_MESSAGE:
+                lctx._type_desc = parser.schema.by_type_name(field.type_name)
+                # ! TODO: This doesn't feel right.
+                len_node._value = {}
+                lctx._next_state(ProtobufParsingTag)
+            elif field.type == Field.TYPE_BYTES:
+                # TODO: This could be deferred!
+                lctx._next_state(ProtobufParsingBytes)
+            else:
+                breakpoint()
+                lctx._next_state(ProtobufParsingWireTypeLen)
+
+            if field.is_repeated():
+                log.debug(f"Appending unloaded len node to {field.name}, bytes left {lctx.left()}")
+                node._value.setdefault(field.name, []).append(len_node)
+            else:
+                log.debug(f"Setting unloaded len node to {field.name}, bytes left {lctx.left()}")
+                node._value[field.name] = len_node
+
+            # TODO: Optional, detect recursive=True?
+            ctx._descendants.append(len_node)
+
+            return pparse.AGAIN
+
         breakpoint()
 
         
+
+        # If its a simple varint value, grab it and move on.
+        
+        # if wire_type == Protobuf.VARINT and field.type in simple_types:
+        #     value = parser.parse_varint(ctx)
+
+        #     if field.is_repeated():
+        #         if field.name not in node._value:
+        #             node._value[field.name] = []
+        #         node._value[field.name].append(value)
+        #         return pparse.AGAIN
+
+        #     # not repeated
+        #     node._value[field.name] = value
+        #     return pparse.AGAIN
+        
+
+
+
+
+
+        # if wire_type == Protobuf.LEN and field.type == Field.TYPE_STRING:
+        #     length = parser.parse_varint(ctx)
+        #     value = ctx.read(length).decode('utf-8')
+
+        #     if field.is_repeated():
+        #         if field.name not in node._value:
+        #             node._value[field.name] = []
+        #         node._value[field.name].append(value)
+        #         return pparse.AGAIN
+
+        #     # if not repeated.
+        #     node._value[field.name] = value
+        #     return pparse.AGAIN
+
+        # if wire_type == Protobuf.I32 and field.type == Field.TYPE_FLOAT:
+        #     value = ctx.read(4)
+
+        #     if field.is_repeated():
+        #         breakpoint()
+
+        #     node._value[field.name] = struct.unpack("<f", value)[0]
+        #     return pparse.AGAIN
+        
+        # if wire_type == Protobuf.LEN and field.type == Field.TYPE_MESSAGE:
+        #     length = parser.parse_varint(ctx)
+
+        #     msg_node = pparse.Node(ctx.reader(), parser, default_value={}, parent=node, ctx_class=NodeContext)
+        #     msg_node.ctx()._type_desc = parser.schema.by_type_name(field.type_name)
+        #     # TODO: With the length, we could parse fields out breadth first.
+        #     msg_node.ctx()._length = length
+        #     msg_node.ctx()._next_state(ProtobufParsingTag)
+        #     node.ctx()._descendants.append(msg_node)
+
+        #     if field.is_repeated():
+        #         if field.name not in node._value:
+        #             node._value[field.name] = []
+        #         node._value[field.name].append(msg_node)
+        #         return pparse.AGAIN
+
+        #     # Not repeated.
+        #     node._value[field.name] = msg_node
+        #     return pparse.AGAIN
+
+        # if wire_type == Protobuf.LEN and field.type in simple_types:
+        #     breakpoint()
+        #     length = parser.parse_varint(ctx)
+        #     pkd_node = pparse.Node(ctx.reader(), parser, default_value=[], parent=node, ctx_class=NodeContext)
+        #     pkd_node.ctx()._type_desc = field
+        #     # TODO: With the length, we could parse fields out breadth first.
+        #     pkd_node.ctx()._length = length
+        #     pkd_node.ctx()._next_state(ProtobufParsingSimplePacked)
+
+        #     if field.is_repeated():
+        #         breakpoint()
+
+        #     node._value[field.name] = pkd_node
+        #     node.ctx()._descendants.append(pkd_node)
+        #     return pparse.AGAIN
+
+        # breakpoint()
+
+        
+
+
+
+
+
 
 
 

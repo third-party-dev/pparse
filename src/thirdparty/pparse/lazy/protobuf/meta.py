@@ -7,25 +7,7 @@ log = logging.getLogger(__name__)
 from google.protobuf import descriptor_pb2
 
 
-class Protobuf:
-    VARINT = 0
-    I64 = 1
-    LEN = 2
-    SGROUP = 3
-    EGROUP = 4
-    I32 = 5
 
-    FALSE = 0
-    TRUE = 1
-
-    wire_type_str = {
-        0: "VARINT",
-        1: "I64",
-        2: "LEN",
-        3: "SGROUP",
-        4: "EGROUP",
-        5: "I32",
-    }
 
 
 class Field:
@@ -98,6 +80,36 @@ class Field:
         return (
             f"  Field: {self.name} #{self.number} : {self.type_str()}({self.type_name})"
         )
+
+
+class Protobuf:
+    VARINT = 0
+    I64 = 1
+    LEN = 2
+    SGROUP = 3
+    EGROUP = 4
+    I32 = 5
+
+    FALSE = 0
+    TRUE = 1
+
+    wire_type_str = {
+        0: "VARINT",
+        1: "I64",
+        2: "LEN",
+        3: "SGROUP",
+        4: "EGROUP",
+        5: "I32",
+    }
+
+    inline_types = [
+        Field.TYPE_INT64,
+        Field.TYPE_INT32,
+        Field.TYPE_UINT64,
+        Field.TYPE_UINT32,
+        Field.TYPE_BOOL,
+        Field.TYPE_ENUM,
+    ]
 
 
 class Msg:

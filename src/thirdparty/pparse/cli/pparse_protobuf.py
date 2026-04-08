@@ -19,6 +19,7 @@ def protobuf_view(args):
 
     try:
         obj = LazyProtobufParser().open_fpath(args.path, args.pbpath, args.msgtype)
+        root = obj._extraction._result['protobuf']
 
         if args.dump:
             print(f"Dumping parsed structure to: {args.dump}")
@@ -33,7 +34,7 @@ def protobuf_view(args):
     if hasattr(args, "breakpoint") and args.breakpoint:
         print(f"Locals: {list(locals().keys())}")
         print(f"Example:")
-        print(f"  root = obj._extraction._result['protobuf']")
+        print(f"  root.value['graph'].value['initializer'][4].value")
         print(f"Pattern:")
         print(f"  root.value[_field1_].value[_field2_].value[_field3_].value ...")
         breakpoint()
