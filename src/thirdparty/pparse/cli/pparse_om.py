@@ -53,6 +53,9 @@ def register_pparse_om(subparsers):
 
 
 def om_header(args):
+    from thirdprty.pparse.utils import activate_logging
+    activate_logging(args)
+    
     from thirdparty.pparse.view.om import Om
 
     print(f"Parsing om header from: {args.path}")
@@ -72,6 +75,9 @@ def om_header(args):
         breakpoint()
 
 def om_parse(args):
+    from thirdprty.pparse.utils import activate_logging
+    activate_logging(args)
+    
     from thirdparty.pparse.view.om import Om
 
     print(f"Parsing om header from: {args.path}")

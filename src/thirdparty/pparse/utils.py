@@ -4,6 +4,20 @@ import pathlib
 
 log = logging.getLogger(__name__)
 
+def activate_logging(args):
+    level = {
+        0: logging.ERROR,
+        1: logging.WARNING,
+        2: logging.INFO,
+        3: logging.DEBUG,
+    }.get(args.verbose, logging.DEBUG)
+
+    logging.basicConfig(level=level, format="%(levelname)-8s %(name)s: %(message)s")
+
+    for spec in args.log_level:
+        module, level_name = spec.split(":")
+        logging.getLogger(module).setLevel(getattr(logging, level_name.upper()))
+
 
 def has_mmap():
     try:

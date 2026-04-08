@@ -43,6 +43,9 @@ def register_pparse_safetensors(subparsers):
 
 
 def safetensors_view(args):
+    from thirdprty.pparse.utils import activate_logging
+    activate_logging(args)
+    
     from thirdparty.pparse.view import SafeTensors
 
     # TODO: This needs some UX work.
@@ -60,6 +63,9 @@ def safetensors_view(args):
     # nparr = tensor.as_numpy()
 
 def raw_header(args):
+    from thirdprty.pparse.utils import activate_logging
+    activate_logging(args)
+    
     import json
     import struct
 
@@ -76,6 +82,9 @@ def raw_header(args):
 
 
 def pparse_pheader(args):
+    from thirdprty.pparse.utils import activate_logging
+    activate_logging(args)
+    
     from thirdparty.pparse.view import SafeTensors
 
     # TODO: This needs some UX work.
@@ -93,6 +102,9 @@ def pparse_pheader(args):
 
 
 def safetensors_hash(args):
+    from thirdprty.pparse.utils import activate_logging
+    activate_logging(args)
+    
     from thirdparty.pparse.view import SafeTensors
 
     print(f"Hashing safetensors from: {args.path} with: arc")

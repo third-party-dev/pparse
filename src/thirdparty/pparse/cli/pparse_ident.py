@@ -18,6 +18,9 @@ def register_pparse_ident(subparsers):
 
 
 def ident_list(args):
+    from thirdprty.pparse.utils import activate_logging
+    activate_logging(args)
+    
     from thirdparty.pparse.ident.extensions import typedb
 
     for k,val in typedb.items():
@@ -29,6 +32,9 @@ def ident_list(args):
 
 
 def ident_show(args):
+    from thirdprty.pparse.utils import activate_logging
+    activate_logging(args)
+    
     from thirdparty.pparse.ident.extensions import typedb
 
     if args.type_name not in typedb:
@@ -55,6 +61,9 @@ def ident_show(args):
 
 
 def ident_byext(args):
+    from thirdprty.pparse.utils import activate_logging
+    activate_logging(args)
+    
     from thirdparty.pparse.ident.extensions import typedb, ident_by_extension
 
     print(f'Possible types: {ident_by_extension(args.path)}')

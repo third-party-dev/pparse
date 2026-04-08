@@ -15,6 +15,9 @@ def register_pparse_flatbuffers(subparsers):
 
 
 def flatbuffers_view(args):
+    from thirdprty.pparse.utils import activate_logging
+    activate_logging(args)
+    
     from thirdparty.pparse.view.flatbuffers import Flatbuffers
 
     print(f"Parsing flatbuffers from: {args.path}")

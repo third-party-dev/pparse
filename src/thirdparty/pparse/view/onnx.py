@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.protobuf import make_protobuf_parser
 from thirdparty.pparse.lazy.protobuf.meta import PbImport
-from thirdparty.pparse.lazy.protobuf.node import Node, NodeArray, NodeMap
+# from thirdparty.pparse.lazy.protobuf.node import Node, NodeArray, NodeMap
 from thirdparty.pparse.lazy.onnx.meta import OnnxDataType
 
 """
@@ -34,12 +34,12 @@ class Tensor(pparse.Tensor):
 
     # Return (safetensors equivalent) shape
     def get_shape(self):
-        shape = self._init_node.value['dims'].value
+        shape = self._init_node.value['dims']
         return shape
 
     # Return raw data as extracted from source
     def get_data_bytes(self):
-        return self._init_node.value['raw_data']
+        return self._init_node.value['raw_data'].value
 
     # Return raw data as python array of dtype
     def as_array(self):
@@ -64,26 +64,23 @@ class Onnx:
         from importlib import resources
         data_path = resources.files("thirdparty.pparse") / "data"
         proto = PbImport(data_path / "proto" / "onnx.pb")
-        ONNX_PARSER = {
-            "protobuf": make_protobuf_parser(
-                ext_list=[".onnx"], init_msgtype=".onnx.ModelProto", proto=proto,
-            ),
-        }
 
         try:
             data_source = pparse.FileData(path=fpath)
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
-            self._extraction.discover_parsers(ONNX_PARSER)
-            self._extraction.scan_data()
+            parser = make_protobuf_parser(ext_list=[".onnx"], init_msgtype=".onnx.ModelProto", proto=proto)
+            self._extraction.discover_parsers({"protobuf": parser})
+            self._extraction._parser['protobuf']._root.load()
 
             # Some light post processing.
-            self.model = self._extraction._result["protobuf"].value
+            self.root = self._extraction._result["protobuf"]
+            self.model = self.root.value
             self.graph = self.model["graph"].value
-            self.nodes = self.graph["node"].value
-            self.initializers = self.graph["initializer"].value
+            self.nodes = self.graph["node"]
+            self.initializers = self.graph["initializer"]
 
-            for tnode in self.graph['initializer'].value:
+            for tnode in self.graph['initializer']:
                 self._tensor_meta[tnode.value['name']] = Tensor(self, tnode, tnode.value['name'])
 
         except pparse.EndOfDataException as e:
@@ -109,86 +106,86 @@ class Onnx:
                 return node
         return None
 
-    def _recursive_callback(self, tgt, callback=None, callback_arg=None):
-        if callable(callback):
-            callback(tgt, callback_arg)
+    # def _recursive_callback(self, tgt, callback=None, callback_arg=None):
+    #     if callable(callback):
+    #         callback(tgt, callback_arg)
 
-        if isinstance(tgt, NodeArray):
-            for elem in tgt.value:
-                self._recursive_callback(elem, callback, callback_arg)
-        elif isinstance(tgt, NodeMap):
-            for k, v in tgt.value.items():
-                if isinstance(v, Node):
-                    self._recursive_callback(v, callback, callback_arg)
+    #     if isinstance(tgt, NodeArray):
+    #         for elem in tgt.value:
+    #             self._recursive_callback(elem, callback, callback_arg)
+    #     elif isinstance(tgt, NodeMap):
+    #         for k, v in tgt.value.items():
+    #             if isinstance(v, Node):
+    #                 self._recursive_callback(v, callback, callback_arg)
 
-        return self
+    #     return self
 
-    # results = onnx.find_tensor('transformer.ln_f.weight')
-    def find_tensor(self, name):
-        def name_check(tgt, results):
-            if (
-                isinstance(tgt, Node)
-                and tgt.msgtype()
-                and "TensorProto" in tgt.msgtype().name
-            ):
-                if "name" in tgt.value and tgt.value["name"] == name:
-                    results.append(tgt)
-                    return
+    # # results = onnx.find_tensor('transformer.ln_f.weight')
+    # def find_tensor(self, name):
+    #     def name_check(tgt, results):
+    #         if (
+    #             isinstance(tgt, Node)
+    #             and tgt.msgtype()
+    #             and "TensorProto" in tgt.msgtype().name
+    #         ):
+    #             if "name" in tgt.value and tgt.value["name"] == name:
+    #                 results.append(tgt)
+    #                 return
 
-        results = []
-        self._recursive_callback(
-            self._extraction._result["protobuf"], name_check, results
-        )
-        return results
+    #     results = []
+    #     self._recursive_callback(
+    #         self._extraction._result["protobuf"], name_check, results
+    #     )
+    #     return results
 
-    # results = onnx.list_tensor_names()
-    def list_tensor_names(self):
-        def has_name(tgt, results):
-            if (
-                isinstance(tgt, Node)
-                and tgt.msgtype()
-                and "TensorProto" in tgt.msgtype().name
-            ):
-                if "name" in tgt.value:
-                    results.append(tgt.value["name"])
+    # # results = onnx.list_tensor_names()
+    # def list_tensor_names(self):
+    #     def has_name(tgt, results):
+    #         if (
+    #             isinstance(tgt, Node)
+    #             and tgt.msgtype()
+    #             and "TensorProto" in tgt.msgtype().name
+    #         ):
+    #             if "name" in tgt.value:
+    #                 results.append(tgt.value["name"])
 
-        results = []
-        self._recursive_callback(
-            self._extraction._result["protobuf"], has_name, results
-        )
-        return results
+    #     results = []
+    #     self._recursive_callback(
+    #         self._extraction._result["protobuf"], has_name, results
+    #     )
+    #     return results
 
-    # results = onnx.find_node('transformer.ln_f.weight')
-    def find_node(self, name):
-        def name_check(tgt, results):
-            if (
-                isinstance(tgt, Node)
-                and tgt.msgtype()
-                and "NodeProto" in tgt.msgtype().name
-            ):
-                if "name" in tgt.value and tgt.value["name"] == name:
-                    results.append(tgt)
-                    return
+    # # results = onnx.find_node('transformer.ln_f.weight')
+    # def find_node(self, name):
+    #     def name_check(tgt, results):
+    #         if (
+    #             isinstance(tgt, Node)
+    #             and tgt.msgtype()
+    #             and "NodeProto" in tgt.msgtype().name
+    #         ):
+    #             if "name" in tgt.value and tgt.value["name"] == name:
+    #                 results.append(tgt)
+    #                 return
 
-        results = []
-        self._recursive_callback(
-            self._extraction._result["protobuf"], name_check, results
-        )
-        return results
+    #     results = []
+    #     self._recursive_callback(
+    #         self._extraction._result["protobuf"], name_check, results
+    #     )
+    #     return results
 
-    # results = onnx.list_node_names()
-    def list_node_names(self):
-        def has_name(tgt, results):
-            if (
-                isinstance(tgt, Node)
-                and tgt.msgtype()
-                and "NodeProto" in tgt.msgtype().name
-            ):
-                if "name" in tgt.value:
-                    results.append(tgt.value["name"])
+    # # results = onnx.list_node_names()
+    # def list_node_names(self):
+    #     def has_name(tgt, results):
+    #         if (
+    #             isinstance(tgt, Node)
+    #             and tgt.msgtype()
+    #             and "NodeProto" in tgt.msgtype().name
+    #         ):
+    #             if "name" in tgt.value:
+    #                 results.append(tgt.value["name"])
 
-        results = []
-        self._recursive_callback(
-            self._extraction._result["protobuf"], has_name, results
-        )
-        return results
+    #     results = []
+    #     self._recursive_callback(
+    #         self._extraction._result["protobuf"], has_name, results
+    #     )
+    #     return results

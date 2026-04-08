@@ -12,6 +12,9 @@ def register_pparse_tflite(subparsers):
 
 
 def tflite_view(args):
+    from thirdprty.pparse.utils import activate_logging
+    activate_logging(args)
+    
     from thirdparty.pparse.view.tflite import TFLite
 
     print(f"Parsing tflite from: {args.path}")

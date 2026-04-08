@@ -13,6 +13,9 @@ def register_pparse_zip(subparsers):
 
 
 def zip_view(args):
+    from thirdprty.pparse.utils import activate_logging
+    activate_logging(args)
+    
     from thirdparty.pparse.view.zip import Zip
 
     print(f"Parsing zip from: {args.path}")

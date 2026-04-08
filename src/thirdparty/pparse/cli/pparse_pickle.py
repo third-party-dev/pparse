@@ -15,8 +15,9 @@ def register_pparse_pickle(subparsers):
 
 
 def pickle_view(args):
-    # TODO: This code needs to be replaced with a view object.
-    # from pprintpp import pprint
+    from thirdprty.pparse.utils import activate_logging
+    activate_logging(args)
+    
     from thirdparty.pparse.view.pickle import Pickle
     from thirdparty.pparse.utils import pparse_repr
 

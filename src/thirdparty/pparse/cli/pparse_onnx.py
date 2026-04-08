@@ -48,6 +48,9 @@ def register_pparse_onnx(subparsers):
 
 
 def onnx_view(args):
+    from thirdprty.pparse.utils import activate_logging
+    activate_logging(args)
+    
     from thirdparty.pparse.utils import pparse_repr
     from thirdparty.pparse.view.onnx import Onnx
 
@@ -55,6 +58,7 @@ def onnx_view(args):
 
     try:
         obj = Onnx().open_fpath(args.path)
+        root = obj._extraction._result['protobuf']
         # obj.tensor('lm_head.weight').get_data_bytes()
 
         if args.print:
@@ -71,6 +75,9 @@ def onnx_view(args):
 
 
 def onnx_hash(args):
+    from thirdprty.pparse.utils import activate_logging
+    activate_logging(args)
+    
     from thirdparty.pparse.view.onnx import Onnx
 
     print(f"Hashing onnx from: {args.path} with: arc")
@@ -95,6 +102,9 @@ def onnx_hash(args):
 
 
 def onnx_transform(args):
+    from thirdprty.pparse.utils import activate_logging
+    activate_logging(args)
+    
     from thirdparty.pparse.view.onnx import Onnx
 
     print(f"Transform pytorch from: {args.path} to: {args.outpath}")

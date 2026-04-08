@@ -6,7 +6,6 @@ log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.zip.meta import Zip
-# from thirdparty.pparse.lazy.zip.node import NodeArray
 from thirdparty.pparse.lazy.zip.state import ZipParsingMagic
 
 
@@ -61,13 +60,6 @@ class Parser(pparse.Parser):
 
             # Fast forward past the bit we just parsed.
             parent.ctx().seek(ctx._end)
-
-            # # Kill ctx (hopefully reclaiming memory).
-            # node.clear_ctx()
-
-            # Set current node to parent.
-            #self.current = parent
-
 
 
     # def scan_data(self):

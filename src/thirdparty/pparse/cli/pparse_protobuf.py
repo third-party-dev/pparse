@@ -13,6 +13,9 @@ def register_pparse_protobuf(subparsers):
     protobuf_view_parser.set_defaults(func=protobuf_view)
 
 def protobuf_view(args):
+    from thirdprty.pparse.utils import activate_logging
+    activate_logging(args)
+    
     from thirdparty.pparse.view.protobuf import Parser as LazyProtobufParser
 
     print(f"Parsing protobuf from: {args.path}")
