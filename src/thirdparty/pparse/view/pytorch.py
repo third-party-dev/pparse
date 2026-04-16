@@ -15,111 +15,45 @@ from thirdparty.pparse.lazy.pytorch import Parser as LazyPyTorchParser
 
 
 class Tensor(pparse.Tensor):
-    PKL_STTYPE_MAP = {
-        "torch.FloatStorage": "F32",
-        "torch.DoubleStorage": "F64",
-        "torch.HalfStorage": "F16",
-        "torch.BFloat16Storage": "BF16",
-        "torch.CharStorage": "I8",
-        "torch.ShortStorage": "I16",
-        "torch.IntStorage": "I32",
-        "torch.LongStorage": "I64",
-        "torch.ByteStorage": "U8",
-        "torch.BoolStorage": "BOOL",
-        # # Unknown safetensor equivalency.
-        # 'ComplexFloatStorage': '',
-        # 'ComplexDoubleStorage': '',
-        # # Map guessed based on np equivalency
-        # 'QInt8Storage': 'I8',
-        # 'QUInt8Storage': 'U8',
-        # 'QInt32Storage': 'I32',
-    }
-
-    PERSID_CALL = 0
-
-    TYPE_TAG = 0
-    TYPE_NAME = 1
-    DATA_KEY = 2
-    DATA_DEST = 3
-    ELEM_CNT = 4
-
-    def __init__(self, pytorch_view, reduce_call_node, name):
+    def __init__(self, name, tensor_node):
         self._name = name
-        self._view = pytorch_view
-        self._reduce_call = reduce_call_node
+        self._tensor = tensor_node
 
     # Return (safetensors equivalent) type
     def get_type(self) -> str:
-        # Note: Assuming tuple
-        return Tensor.PKL_STTYPE_MAP[self.get_pytorch_type()]
-        # TEST: obj.tensor('lm_head.weight').get_type()
+        return self._tensor.value['type']
 
-    def get_pytorch_type(self) -> str:
-        persid = self._reduce_call.arg[Tensor.PERSID_CALL]
-        parts = [p.decode("utf-8").strip() for p in persid.arg[Tensor.TYPE_NAME]]
-        return ".".join(parts)
-        # TEST: obj.tensor('lm_head.weight').get_pytorch_type()
-
-        # type_tag = persid.arg[Tensor.TYPE_TAG]
-        # type_name = persid.arg[Tensor.TYPE_NAME]
-        # # torch.FloatStorage => dtype=float32
-        # data_key = persid.arg[Tensor.DATA_KEY]
-        # data_dest = persid.arg[Tensor.DATA_DEST]
-        # elem_cnt = persid.arg[Tensor.ELEM_CNT]
 
     # Return (safetensors equivalent) shape
     def get_shape(self):
-        shape = [i for i in self._reduce_call.arg[2]]
-        shape.reverse()
-        return shape
+        return self._tensor.value['shape']
+
 
     # Return raw data as extracted from source
     def get_data_bytes(self):
-        from pathlib import Path
+        return self._tensor.value['data'].value
 
-        persid = self._reduce_call.arg[Tensor.PERSID_CALL]
-        type_tag = persid.arg[Tensor.TYPE_TAG]
-        if type_tag != "storage":
-            raise Exception("Unexpected TYPE_TAG format when fetching tensor bytes.")
-        data_key = persid.arg[Tensor.DATA_KEY]
-        elem_cnt = persid.arg[Tensor.ELEM_CNT]
-
-        # BUG: This assumes everything is always in memory.
-        for member in self._view._extraction._result["zip"].value:
-            fname_parts = Path(member.value["fname"]).parts
-            if len(fname_parts) < 2 or fname_parts[-2] != "data":
-                continue
-            if fname_parts[-1] == data_key:
-                # TODO: Consider the value could be unloaded.
-                bytes_io = member.value["decomp_data"].value
-                return bytes_io.getbuffer()
-
-        raise Exception(f"Data not found for tensor: {self._name}")
-        # TEST: obj.tensor('lm_head.weight').get_data_bytes()
 
     # Return raw data as python array of dtype
     def as_array(self):
-        # TODO: Sanity check input.
-        persid = self._reduce_call.arg[Tensor.PERSID_CALL]
-        elem_cnt = persid.arg[Tensor.ELEM_CNT]
-        buffer = self.get_data_bytes()
+        elem_cnt = self._tensor.value['elem_count']
+        buffer = self.get_data_bytes().getbuffer()
         dtype = self.get_type()
+        
         struct_type = pparse.Tensor.STTYPE_STRUCT[dtype]
         sttype_size = pparse.Tensor.STTYPE_SIZE[dtype]
         count = int(len(buffer) / sttype_size)
         return struct.unpack(f"<{struct_type * count}", buffer)
-        # TEST: arr = obj.tensor('lm_head.weight').as_array();print(f'{arr[:4]} {arr[-4:]}')
+
 
     # Return raw data as numpy array of dtype
     def as_numpy(self):
-        persid = self._reduce_call.arg[Tensor.PERSID_CALL]
-        elem_cnt = persid.arg[Tensor.ELEM_CNT]
-        buffer = self.get_data_bytes()
+        elem_cnt = self._tensor.value['elem_count']
+        buffer = self.get_data_bytes().getbuffer()
         np_type = pparse.Tensor.STTYPE_NP_MAP[self.get_type()]
-        #print(f"len {len(buffer)} np_type {np_type} elem_cnt {elem_cnt}")
+
         arr = numpy.frombuffer(buffer, dtype=np_type, count=elem_cnt)
         return arr.reshape(self.get_shape())
-        # TEST: obj.tensor('lm_head.weight').as_numpy()
 
 
 class PyTorch:
@@ -133,8 +67,8 @@ class PyTorch:
     def _parse(self, data_source, fname="unnamed.pt"):
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
-            self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
-            self._extraction.discover_parsers({"pt": LazyPyTorchParser,})
+            self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
+            self._extraction.discover_parsers({"pt": LazyPyTorchParser})
             self._extraction._parser['pt']._root.load()
         except pparse.EndOfDataException as e:
             print(e)
@@ -156,30 +90,7 @@ class PyTorch:
         return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)
 
 
-
-
-
-    def _traverse_pt(self, state, path_arr=[], metrics={ 'param_cnt': 0 }):
-        if not isinstance(state, dict) or \
-            not ('_modules' in state or '_parameters' in state):
-            #print(f"  - Dead end.")
-            return
-
-        if '_parameters' in state and len(state['_parameters'].keys()) > 0:
-            metrics['param_cnt'] += len(state['_parameters'].keys())
-            for k in state['_parameters'].keys():
-                param_name = f"{'.'.join(path_arr)}.{k}"
-                # ! Being presumptuous on our part.
-                reduce_call = state['_parameters'][k].arg[2]
-                tensor = Tensor(self, reduce_call, param_name)
-                # ! TODO: Check if the parameter name has already been set!
-                self._tensor_meta[param_name] = tensor
-
-        if '_modules':
-            for mod in state['_modules']:
-                self._traverse_pt(state['_modules'][mod].state, [*path_arr, mod], metrics)
-
-
+    # ! UNTESTED
     def as_arc_hash(self, hashed_data_path=None, keep_lm_head=False):
         import hashlib
         import json
@@ -233,6 +144,7 @@ class PyTorch:
         return hashlib.sha256(sane_json.encode("utf-8")).hexdigest()
 
 
+    # ! UNTESTED
     def as_safetensors(
         self,
         out_fpath="converted_output.safetensors",
@@ -295,11 +207,12 @@ class PyTorch:
 
 
     def tensor(self, name):
-        if name not in self._tensor_meta:
+        if name not in self.tensor_names():
             raise KeyError("Tensor name not found.")
-        return self._tensor_meta[name]
+        return Tensor(name, self._extraction._parser['pt']._root._value['tensors'][name])
 
 
     def tensor_names(self):
-        return list(self._tensor_meta.keys())
+        return list(self._extraction._parser['pt']._root._value['tensors'].keys())
+
 

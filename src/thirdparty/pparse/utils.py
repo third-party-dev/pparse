@@ -98,3 +98,22 @@ def pparse_repr(obj, depth=0, step="  "):
         res.append(f"{obj}\n")
 
     return "".join(res)
+
+
+def run_test_independently(caller_log, test_calls):
+    import argparse
+    import sys
+
+    parser = argparse.ArgumentParser(prog=sys.argv[0])
+    parser.add_argument("-v", "--verbose", action="count", default=0)
+    parser.add_argument("--log-level", metavar="MODULE:LEVEL", action="append", default=[])
+    parser.add_argument("--breakpoint", dest="breakpoint", action="store_true")
+
+    cli_args = parser.parse_args()
+    activate_logging(cli_args)
+
+    for fn, args, kwargs in test_calls:
+        fn(*(args or []), **(kwargs or {}))
+
+    if cli_args.breakpoint:
+        breakpoint()

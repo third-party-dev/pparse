@@ -6,7 +6,6 @@ import struct
 import zlib
 
 log = logging.getLogger(__name__)
-#logging.basicConfig(level=logging.DEBUG, format='%(levelname)s:%(message)s')
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.zip.meta import Zip
@@ -34,36 +33,34 @@ class ZipParsingFinishDecompress(ZipParsingState):
         ctx = node.ctx()
         parser = ctx.parser()
         parser._end_container_node(node)
-        # TODO: Not sure this is required.
-        #parser.current.ctx()._next_state(ZipParsingMagic)
+
         return pparse.ASCEND
 
 
+# ! UNTESTED
 class ZipParsingDataDescFooter(ZipParsingState):
     def parse_data(self, node: pparse.Node):
         ctx = node.ctx()
         parser = ctx.parser()
+
         data = ctx.peek(Zip.FOOTER_LEN)
         if len(data) < Zip.FOOTER_LEN:
-            return pparse.EndOfDataException(
-                "Not enough data to parse data desc footer"
-            )
+            return pparse.EndOfDataException("Not enough data to parse data desc footer")
 
         desc = {}
         (desc["sig"], desc["crc32"], desc["comp_size"], desc["uncomp_size"]) = (
             struct.unpack("<IIII", data[:Zip.FOOTER_LEN])
         )
-        meta = node._value
+        meta = ctx.parent()._value
 
         if meta["crc32"] != 0 and meta["crc32"] != desc["crc32"]:
-            ctx._next_state(ZipParsingFinishDecompress)
-            return pparse.AGAIN
+            return pparse.ASCEND
 
         ctx.skip(Zip.FOOTER_LEN)
         meta["zip_desc"] = desc
-        ctx._next_state(ZipParsingFinishDecompress)
-
-        return pparse.AGAIN
+        # Since we moved the position, we update the parent before ASCEND.
+        ctx.parent().ctx().seek(ctx.tell())
+        return pparse.ASCEND
 
 
 class ZipParsingContinueDecompress(ZipParsingState):
@@ -105,23 +102,22 @@ class ZipParsingContinueDecompress(ZipParsingState):
             if meta["compression"] == 8:
                 dedata = self.decompressor.flush()
                 buffer.write(dedata)
+                # Update parent context with current context offset.
+                parser._end_container_node(node)
                 return pparse.ASCEND
 
             # flags & 0x08 == true means we explicitly have a data desc
             # it is possible for a data desc to show up without the flags too
             if self._has_desc or self._found_desc(ctx):
                 parser._end_container_node(node)
-                ctx.parent().ctx()._next_state(ZipParsingDataDescFooter)
-                log.debug(
-                    f"End Of File Compression via footer desc (length {node.length()})"
-                )
-                return pparse.ASCEND
+                ctx._next_state(ZipParsingDataDescFooter)
+                #ctx.parent().ctx()._next_state(ZipParsingDataDescFooter)
+                log.debug(f"End Of File Compression via footer desc (length {node.length()})")
+                return pparse.AGAIN
             else:
+                breakpoint()
                 parser._end_container_node(ctx)
-                ctx.parent().ctx()._next_state(ZipParsingFinishDecompress)
-                log.debug(
-                    f"End Of File Compression via EOF marker (length {node.length()})"
-                )
+                log.debug(f"End Of File Compression via EOF marker (length {node.length()})")
                 return pparse.ASCEND
 
         return pparse.AGAIN
@@ -202,17 +198,16 @@ class ZipParsingStartDecompress(ZipParsingState):
         ctx = node.ctx()
         parser = ctx.parser()
 
-        # TODO: If we can skip (because we have length), skip. Otherwise continue.
-
         node._value["decomp_data"] = parser.new_data_node(node)
         node._value["decomp_data"].ctx()._next_state(ZipParsingContinueDecompress)
         # Let Node.load() drive
         node.ctx()._descendants.append(node._value["decomp_data"])
 
-        log.debug(
-            f"Done initializing new Node for decompression for: {node._value['fname']}"
-        )
-
+        # Once decompression is done, allow ZipParsingFinishDecompress to sync offset.
+        ctx._next_state(ZipParsingFinishDecompress)
+        
+        msg = f"Done initializing new Node for decompression for: {node._value['fname']}"
+        log.debug(msg)
         return pparse.AGAIN
 
 
@@ -230,7 +225,10 @@ class ZipParsingEntryExtra(ZipParsingState):
         node._value["extra"] = data[:extra_len]
 
         log.debug(f"Done getting extra data for: {node._value['fname']}")
+
+        # TODO: Determine if we generate node and defer the decompression or continue to decompress.
         ctx._next_state(ZipParsingStartDecompress)
+
         return pparse.AGAIN
 
 
@@ -306,7 +304,7 @@ class ZipParsingMagic(ZipParsingState):
             node._value.append(new_map)
             # Let Node.load() drive.
             node.ctx()._descendants.append(new_map)
-
+            # Note: this ctx state remains ZipParsingMagic 
             return pparse.AGAIN
 
         breakpoint()

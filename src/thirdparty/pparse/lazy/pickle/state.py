@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
 import logging
+log = logging.getLogger(__name__)
+
 import struct
 from pprint import pprint
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG, format='%(levelname)s:%(message)s')
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.pickle.meta import PklOp

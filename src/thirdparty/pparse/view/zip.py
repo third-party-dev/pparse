@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import logging
+log = logging.getLogger(__name__)
+
 import os
 import struct
 
 import numpy
 
-log = logging.getLogger(__name__)
+
 
 from pprint import pprint
 

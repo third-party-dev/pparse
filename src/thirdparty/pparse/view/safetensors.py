@@ -90,28 +90,33 @@ class SafeTensors:
     def __init__(self, extraction=None):
         self._extraction = extraction
 
+
     def header_length(self):
         if not self._extraction:
             raise Exception("No parsed extraction found.")
 
-        return self._extraction._result["safetensors"].header_length
+        return self._extraction._result['safetensors'].value['header_length']
+
 
     def header(self):
         if not self._extraction:
             raise Exception("No parsed extraction found.")
 
-        st_init = self._extraction._result["safetensors"]
-        hdr_init = st_init.parser.source()._extractions[0]._result["json"]
+        st_init = self._extraction._result['safetensors']
+        hdr_init = st_init.value['header']
         hdr_map = hdr_init.value.value
 
         return hdr_map
 
+
+    # ! UNTESTED
     def metadata(self):
         if not self._extraction:
             raise Exception("No parsed extraction found.")
 
         hdr_map = self.header()
         return hdr_map["__metadata__"]
+
 
     def tensor(self, name):
         if not self._extraction:
@@ -122,11 +127,15 @@ class SafeTensors:
             raise ValueError(f"No tensor found with name: {name}")
         return Tensor(self, hdr_map[name])
 
+
     def tensor_names(self):
-        tensor_dict = self._extraction._extractions[0]._result["json"].value.value
+
+        tensor_dict = self._extraction._parser['safetensors']._root.value['tensors']
         return [k for k in tensor_dict if k != "__metadata__"]
         # return self.header().keys()
 
+
+    # ! UNTESTED
     def as_arc_hash(self, hashed_data_path=None):
         import hashlib
         import json
@@ -150,11 +159,10 @@ class SafeTensors:
 
 
 
-
     def _parse(self, data_source, fname="unnamed.safetensors"):
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
-            self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
+            self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
             self._extraction.discover_parsers({"safetensors": LazySafetensorsParser})
             self._extraction._parser['safetensors']._root.load()
 
@@ -177,6 +185,7 @@ class SafeTensors:
         return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)
 
 
+# ! UNTESTED
 class SafeTensorsIndexTensor(pparse.Tensor):
 
     STTYPE_STRUCT = {
@@ -237,6 +246,7 @@ class SafeTensorsIndexTensor(pparse.Tensor):
         return numpy.frombuffer(data, dtype=dtype).reshape(shape)
 
 
+# ! UNTESTED
 class SafeTensorsIndex:
 
     def __init__(self):
