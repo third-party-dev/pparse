@@ -39,6 +39,10 @@ class Flatbuffers:
         return self
 
 
+    def root_node(self):
+        return self._extraction._parser['flatbuffers']._root
+
+
     def open_fpath(self, fpath, json_schema_path):
         return self._parse(pparse.FileData(path=fpath), json_schema_path, fname=fpath)
 

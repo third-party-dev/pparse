@@ -177,6 +177,10 @@ class SafeTensors:
         return self
 
 
+    def root_node(self):
+        return self._extraction._parser['safetensors']._root
+
+
     def open_fpath(self, fpath):
         return self._parse(pparse.FileData(path=fpath), fname=fpath)
 
@@ -292,6 +296,10 @@ class SafeTensorsIndex:
             traceback.print_exc()
 
         return self
+
+
+    def root_node(self):
+        return self._extraction._parser['safetensors_index']._root
 
 
     def open_fpath(self, fpath):

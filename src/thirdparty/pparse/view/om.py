@@ -54,6 +54,10 @@ class Om:
         return self
 
 
+    # def root_node(self):
+    #     return self._extraction._parser['om']._root
+
+
     def open_fpath(self, fpath, header_only=False):
         return self._parse(pparse.FileData(path=fpath), header_only=header_only, fname=fpath)
 

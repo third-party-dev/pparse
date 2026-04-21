@@ -5,7 +5,7 @@ import struct
 from collections import OrderedDict
 
 log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG, format='%(levelname)s:%(message)s')
+#logging.basicConfig(level=logging.DEBUG, format='%(levelname)s:%(message)s')
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.flatbuffers.node import NodeContext

@@ -37,6 +37,10 @@ class Parser:
         return self
 
 
+    def root_node(self):
+        return self._extraction._parser['protobuf']._root
+
+
     def open_fpath(self, fpath, pbpath, msgtype):
         return self._parse(pparse.FileData(path=fpath), pbpath, msgtype, fname=fpath)
 
