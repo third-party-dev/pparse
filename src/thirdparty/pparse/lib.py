@@ -268,6 +268,138 @@ class NodeContext:
         return self._reader.left()
 
 
+def _append_result(dst, value):
+    dst.append(value)
+
+
+def _print(dst, value):
+    print(value)
+
+
+def dump_str(obj, depth=0, step=2, cb=_print, dst=[]):
+    spacer = " " * depth
+    cb(dst, f'{spacer}<string>{obj}</string>')
+
+
+def dump_bytes(obj, depth=0, step=2, cb=_print, dst=[]):
+    # Bytes can be expressed in many ways:
+    # hex dump, byte string dump, byte hex string dump, snippets.
+
+    # As a default, we'll dump as is for first 16 bytes. If larger than
+    # 16 bytes, we'll print the first 16 bytes and last 16 bytes.
+
+    spacer = " " * depth
+    if len(obj) <= 16:
+        cb(dst, f'{spacer}{obj}')
+    elif len(obj) >16:
+        cb(dst, f'{spacer}{obj[:16]}')
+        if len(obj) >= 32:
+            cb(dst, f'{spacer}... snip ...')
+            cb(dst, f'{spacer}{obj[-16:]}')
+        else:
+            cb(dst, f'{spacer}{obj[16:]}')
+
+
+# from thirdparty.pparse.lib import Node
+# print(ppobj.root_node().dumps())
+def dump_list(obj, depth=0, step=2, cb=_print, dst=[]):
+    import numbers
+    spacer = " " * depth
+    for idx in range(len(obj)):
+        entry = obj[idx]
+        if isinstance(entry, Node):
+            cb(dst, f'{spacer}<entry value_is="Node" idx="{idx}">')
+            #cb(dst, f'{spacer}{entry.dumps(depth + step, cb=cb, dst=dst)}')
+            entry.dumps(depth + step, cb=cb, dst=dst)
+            cb(dst, f'{spacer}</entry>')
+        elif isinstance(entry, dict):
+            if len(entry.keys()) == 0:
+                cb(dst, f'{spacer}<entry value_is="dict" idx="{idx}" empty="y"></entry>')
+            else:
+                cb(dst, f'{spacer}<entry value_is="dict" idx="{idx}">')
+                cb(dst, f'{spacer}{dump_dict(entry, depth + step, cb=cb, dst=dst)}')
+                cb(dst, f'{spacer}</entry>')
+
+        elif isinstance(entry, bytes):
+            if len(entry) == 0:
+                cb(dst, f'{spacer}<entry value_is="bytes" idx="{idx}" empty="y"></entry>')
+            else:
+                cb(dst, f'{spacer}<entry value_is="bytes" idx="{idx}" length="{len(entry)}">')
+                dump_bytes(entry, depth + step, cb=cb, dst=dst)
+                cb(dst, f'{spacer}</entry>')
+
+        elif isinstance(entry, str):
+            if len(entry) == 0:
+                cb(dst, f'{spacer}<entry value_is="str" idx="{idx}" empty="y"></entry>')
+            else:
+                cb(dst, f'{spacer}<entry value_is="str" idx="{idx}" length="{len(entry)}">')
+                dump_str(entry, depth + step, cb=cb, dst=dst)
+                cb(dst, f'{spacer}</entry>')
+
+        elif isinstance(entry, (str, int, float, numbers.Number, bool, type(None))):
+            cb(dst, f'{spacer}<entry value_is="scalar" idx="{idx}">{entry}</entry>')
+        elif hasattr(entry, "__iter__"):
+            if len(entry) == 0:
+                cb(dst, f'{spacer}<entry value_is="list" idx="{idx}" empty="y"></entry>')
+            else:
+                cb(dst, f'{spacer}<entry value_is="list" idx="{idx}">')
+                cb(dst, f'{spacer}{dump_list(entry, depth + step, cb=cb, dst=dst)}')
+                cb(dst, f'{spacer}</entry>')
+        else:
+            cb(dst, f'{spacer}<entry value_is="unknown" idx="{idx}">')
+            cb(dst, f'{spacer}{entry}')
+            cb(dst, f'{spacer}</entry>')
+
+
+def dump_dict(obj, depth=0, step=2, cb=_print, dst=[]):
+    import numbers
+    spacer = " " * depth
+    for key in obj:
+        entry = obj[key]
+        if isinstance(entry, Node):
+            cb(dst, f'{spacer}<entry value_is="Node" key="{key}">')
+            #cb(dst, f'{spacer}{entry.dumps(depth + step, cb=cb, dst=dst)}')
+            entry.dumps(depth + step, cb=cb, dst=dst)
+            cb(dst, f'{spacer}</entry>')
+        elif isinstance(entry, dict):
+            if len(entry.keys()) == 0:
+                cb(dst, f'{spacer}<entry value_is="dict" key="{key}" empty="y"></entry>')
+            else:
+                cb(dst, f'{spacer}<entry value_is="dict" key="{key}">')
+                cb(dst, f'{spacer}{dump_dict(entry, depth + step, cb=cb, dst=dst)}')
+                cb(dst, f'{spacer}</entry>')
+        elif isinstance(entry, bytes):
+            if len(entry) == 0:
+                cb(dst, f'{spacer}<entry value_is="bytes" key="{key}" empty="y"></entry>')
+            else:
+                cb(dst, f'{spacer}<entry value_is="bytes" key="{key}" length="{len(entry)}">')
+                dump_bytes(entry, depth + step, cb=cb, dst=dst)
+                cb(dst, f'{spacer}</entry>')
+        
+        elif isinstance(entry, str):
+            if len(entry) == 0:
+                cb(dst, f'{spacer}<entry value_is="str" key="{key}" empty="y"></entry>')
+            else:
+                cb(dst, f'{spacer}<entry value_is="str" key="{key}" length="{len(entry)}">')
+                dump_str(entry, depth + step, cb=cb, dst=dst)
+                cb(dst, f'{spacer}</entry>')
+
+        elif isinstance(entry, (str, int, float, numbers.Number, bool, type(None))):
+            cb(dst, f'{spacer}<entry value_is="scalar" key="{key}">{entry}</entry>')
+        elif hasattr(entry, "__iter__"):
+            if len(entry) == 0:
+                cb(dst, f'{spacer}<entry value_is="list" key="{key}" empty="y"></entry>')
+            else:
+                cb(dst, f'{spacer}<entry value_is="list" key="{key}">')
+                cb(dst, f'{spacer}{dump_list(entry, depth + step, cb=cb, dst=dst)}')
+                cb(dst, f'{spacer}</entry>')
+        else:
+            cb(dst, f'{spacer}<entry value_is="unknown" key="{key}">')
+            cb(dst, f'{spacer}{entry}')
+            cb(dst, f'{spacer}</entry>')
+
+
+
 '''
     NEW PLAN:
     - phase 1: ctx is always loaded and node always UNLOADED until parent says otherwise
@@ -395,6 +527,58 @@ class Node:
     def unload(self):
         # TODO: Do we have context?
         self.value = pparse.UNLOADED_VALUE
+
+
+    def dumps(self, depth=0, step=2, cb=_print, dst=[]):
+        import numbers
+        spacer = " " * depth
+
+        node_attrs =  f'off="{self.tell()}"'
+
+        if isinstance(self._value, Node):
+            # TODO: Consider adding length.
+            cb(dst, f'{spacer}<Node value_id="Node" {node_attrs}">')
+            #cb(dst, f'{spacer}{self._value.dumps(depth + step, cb=cb, dst=dst)}')
+            self._value.dumps(depth + step, cb=cb, dst=dst)
+            cb(dst, f"{spacer}</Node>")
+        elif isinstance(self._value, dict):
+            if len(self._value.keys()) == 0:
+                cb(dst, f'{spacer}<Node value_is="dict" empty="y" {node_attrs}></Node>')
+            else:
+                cb(dst, f'{spacer}<Node value_is="dict" {node_attrs}>')
+                dump_dict(self._value, depth + step, cb=cb, dst=dst)
+                cb(dst, f'{spacer}</Node>')
+        elif isinstance(self._value, bytes):
+            if len(self._value) == 0:
+                cb(dst, f'{spacer}<Node value_is="bytes" empty="y" {node_attrs}></Node>')
+            else:
+                cb(dst, f'{spacer}<Node value_is="bytes" value_length="{len(self._value)}" {node_attrs}>')
+                dump_bytes(self._value, depth + step, cb=cb, dst=dst)
+                cb(dst, f'{spacer}</Node>')
+        
+        elif isinstance(self._value, str):
+            if len(entry) == 0:
+                cb(dst, f'{spacer}<Node value_is="str" empty="y" {node_attrs}></Node>')
+            else:
+                cb(dst, f'{spacer}<Node value_is="str" value_length="{len(self._value)}" {node_attrs}>')
+                dump_str(self._value, depth + step, cb=cb, dst=dst)
+                cb(dst, f'{spacer}</Node>')
+
+        elif isinstance(self._value, (str, int, float, numbers.Number, bool, type(None))):
+            cb(dst, f'{spacer}<Node value_is="scalar" {node_attrs}>{self._value}</Node>')
+        elif hasattr(self._value, "__iter__"):
+            if len(self._value) == 0:
+                cb(dst, f'{spacer}<Node value_is="list" empty="y" {node_attrs}></Node>')
+            else:
+                cb(dst, f'{spacer}<Node value_is="list" {node_attrs}>')
+                dump_list(self._value, depth + step, cb=cb, dst=dst)
+                cb(dst, f'{spacer}</Node>')
+        else:
+            cb(dst, f'{spacer}<Node value_is="unknown" {node_attrs}>')
+            cb(dst, f'{spacer}{self._value}')
+            cb(dst, f'{spacer}</Node>')
+
+        return '\n'.join(dst)
 
 
 
