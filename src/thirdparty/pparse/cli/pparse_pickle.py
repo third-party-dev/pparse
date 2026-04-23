@@ -21,14 +21,13 @@ def pickle_view(args):
     activate_logging(args)
     
     from thirdparty.pparse.view.pickle import Pickle
-    from thirdparty.pparse.utils import pparse_repr
 
     print(f"Parsing pickle from: {args.path}")
 
     try:
         obj = Pickle().open_fpath(args.path)
-        pkl = obj._extraction._result["pkl"].value[0].value[0]
-        history = obj._extraction._result["pkl"].value[0].ctx().history
+        pkl = obj.root_node()
+        history = pkl.value[0].ctx().history
 
     except Exception as e:
         print(e)
@@ -36,8 +35,7 @@ def pickle_view(args):
         traceback.print_exc()
 
     if args.print:
-        print(pparse_repr(pkl))
-        #obj.root_node().dump()
+        obj.root_node().dump()
 
     if hasattr(args, "breakpoint") and args.breakpoint:
         print(f"Locals: {list(locals().keys())}")

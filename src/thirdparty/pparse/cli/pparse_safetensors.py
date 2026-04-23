@@ -101,7 +101,7 @@ def raw_header(args):
     import json
     import struct
 
-    print(f"Parsing header from: {args.path}")
+    log.info(f"Parsing header from: {args.path}")
 
     with open(args.path, "rb") as fobj:
         header_length = struct.unpack("<Q", fobj.read(8))[0]
@@ -117,10 +117,10 @@ def pparse_pheader(args):
     from thirdparty.pparse.utils import activate_logging
     activate_logging(args)
     
-    from thirdparty.pparse.view import SafeTensors
+    from thirdparty.pparse.view.safetensors import SafeTensors
 
     # TODO: This needs some UX work.
-    print(f"Parsing header from: {args.path}")
+    log.info(f"Parsing header from: {args.path}")
 
     obj = SafeTensors().open_fpath(args.path)
     pprint(obj.header())
@@ -134,9 +134,9 @@ def safetensors_hash(args):
     from thirdparty.pparse.utils import activate_logging
     activate_logging(args)
     
-    from thirdparty.pparse.view import SafeTensors
+    from thirdparty.pparse.view.safetensors import SafeTensors
 
-    print(f"Hashing safetensors from: {args.path} with: arc")
+    log.info(f"Hashing safetensors from: {args.path} with: arc")
 
     try:
         obj = SafeTensors().open_fpath(args.path)

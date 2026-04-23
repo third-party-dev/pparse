@@ -52,7 +52,6 @@ class PyTorchParsingTensorsMeta(PyTorchParsingState):
         # node._value['pkl']._value[0]._value - Pickle stream's stack (list).
         # node._value['pkl']._value[0]._value[0] - REDUCE_CALL on stack.
 
-        breakpoint()
         # TODO: Consider adding option to "force_traversal".
         if len(pkl) == 0:
             arr = []

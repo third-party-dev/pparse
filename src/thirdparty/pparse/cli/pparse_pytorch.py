@@ -67,18 +67,17 @@ def pytorch_unpickle(args):
     from thirdparty.pparse.utils import activate_logging
     activate_logging(args)
     
-    from thirdparty.pparse.utils import pparse_repr
     from thirdparty.pparse.view.pytorch import PyTorch
 
     print(f"Parsing pytorch from: {args.path}")
 
     try:
         obj = PyTorch().open_fpath(args.path)
-        pkl = obj._pkl_extraction._result['pkl'].value[0].value[0]
-        history = obj._pkl_extraction._result['pkl'].value[0].history
+        pkl = obj.root_node().value['pkl']
+        # history = obj.root_node().value['pkl'].value[0].ctx().history
 
         if args.print:
-            print(pparse_repr(pkl))
+            obj.root_node().value['pkl'].dump()
 
     except Exception as e:
         print(e)

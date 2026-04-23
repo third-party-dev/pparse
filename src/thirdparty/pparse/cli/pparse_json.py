@@ -19,7 +19,7 @@ def json_view(args):
     
     from thirdparty.pparse.view.json import Json
 
-    print(f"Parsing json from: {args.path}")
+    log.info(f"Parsing json from: {args.path}")
 
     try:
         obj = Json().open_fpath(args.path)
