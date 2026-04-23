@@ -10,6 +10,7 @@ log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.pickle.state import PickleParsingPickleStream
+from thirdparty.pparse.lazy.pickle.node import Node
 
 
 class Parser(pparse.Parser):
@@ -30,7 +31,7 @@ class Parser(pparse.Parser):
     def __init__(self, source: pparse.Extraction, id: str = "pkl", parent: pparse.Node = None):
         super().__init__(source, id)
 
-        self._root = pparse.Node(source.open(), self, default_value=[], parent=parent)
+        self._root = Node(source.open(), self, default_value=[], parent=parent)
         self._root.ctx()._next_state(PickleParsingPickleStream)
         source._result[id] = self._root
 

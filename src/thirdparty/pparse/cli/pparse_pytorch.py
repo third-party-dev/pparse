@@ -106,8 +106,7 @@ def pytorch_view(args):
         zip = obj._extraction._result['pt']._value['zip']._value
 
         if args.print:
-            #print(root.dumps())
-            obj.root_node().dumps()
+            obj.root_node().dump()
 
 
     except Exception as e:

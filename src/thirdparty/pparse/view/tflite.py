@@ -83,7 +83,7 @@ class TFLite:
         from importlib import resources
         from pathlib import Path
 
-        data_path = resources.files("thirdparty.pparse")/"data"
+        data_path = resources.files("thirdparty.pparse.data")
         with open(data_path/"fbs"/"tflite"/"schema.json", "r") as fobj:
             json_schema = json.loads(fobj.read())
 

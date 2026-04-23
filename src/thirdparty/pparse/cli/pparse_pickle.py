@@ -37,7 +37,7 @@ def pickle_view(args):
 
     if args.print:
         print(pparse_repr(pkl))
-        #obj.root_node().dumps()
+        #obj.root_node().dump()
 
     if hasattr(args, "breakpoint") and args.breakpoint:
         print(f"Locals: {list(locals().keys())}")

@@ -26,8 +26,7 @@ def json_view(args):
         root = obj._extraction._result['json']
 
         if args.print:
-            #print(root.dumps())
-            obj.root_node().dumps()
+            obj.root_node().dump()
 
     except Exception as e:
         print(e)

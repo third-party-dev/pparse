@@ -26,14 +26,8 @@ def protobuf_view(args):
         obj = LazyProtobufParser().open_fpath(args.path, args.pbpath, args.msgtype)
         root = obj._extraction._result['protobuf']
 
-        # if args.dump:
-        #     print(f"Dumping parsed structure to: {args.dump}")
-        #     with open(args.dump, "w") as fobj:
-        #         fobj.write(obj._extraction._result['protobuf'].dumps())
-        
         if args.print:
-            #print(root.dumps())
-            obj.root_node().dumps()
+            obj.root_node().dump()
 
     except Exception as e:
         print(e)

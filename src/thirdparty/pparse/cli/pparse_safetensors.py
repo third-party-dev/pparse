@@ -66,7 +66,7 @@ def safetensors_index_view(args):
     root = obj._extraction._parser['safetensors_index']._root
 
     if args.print:
-        obj.root_node().dumps()
+        obj.root_node().dump()
 
 
     if hasattr(args, "breakpoint") and args.breakpoint:
@@ -86,7 +86,7 @@ def safetensors_view(args):
     root = obj._extraction._parser['safetensors']._root
 
     if args.print:
-        obj.root_node().dumps()
+        obj.root_node().dump()
     
     
     if hasattr(args, "breakpoint") and args.breakpoint:

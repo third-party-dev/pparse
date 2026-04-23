@@ -16,7 +16,7 @@ class MNN:
         import json
         from importlib import resources
         from pathlib import Path
-        data_path = resources.files("thirdparty.pparse")/"data"
+        data_path = resources.files("thirdparty.pparse.data")
         with open(data_path/"fbs"/"mnn"/"MNN.json", "r") as fobj:
             json_schema = json.loads(fobj.read())
         MNN_PARSER = {

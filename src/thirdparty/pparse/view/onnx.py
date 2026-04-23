@@ -69,7 +69,7 @@ class Onnx:
 
     def _parse(self, data_source, fname="unnamed.onnx"):
         from importlib import resources
-        data_path = resources.files("thirdparty.pparse") / "data"
+        data_path = resources.files("thirdparty.pparse.data")
         proto = PbImport(data_path / "proto" / "onnx.pb")
 
         try:

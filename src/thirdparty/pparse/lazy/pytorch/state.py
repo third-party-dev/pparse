@@ -44,6 +44,15 @@ class PyTorchParsingTensorsMeta(PyTorchParsingState):
 
         # Auto-detect if this is a weights only model or not.
         pkl = node._value['pkl']._value[0]._value[0]
+
+        # node._value - root pytorch node
+        # node._value['pkl']._value - root pickle node (list).
+        # node._value['pkl']._value[0] - First pickle stream.
+        # node._value['pkl']._value[0].ctx() - NodeVmContext.
+        # node._value['pkl']._value[0]._value - Pickle stream's stack (list).
+        # node._value['pkl']._value[0]._value[0] - REDUCE_CALL on stack.
+
+        breakpoint()
         # TODO: Consider adding option to "force_traversal".
         if len(pkl) == 0:
             arr = []

@@ -26,8 +26,7 @@ def zip_view(args):
         root = obj._extraction._result['zip']
 
         if args.print:
-            obj.root_node().dumps()
-            #print(root.dumps())
+            obj.root_node().dump()
 
     except Exception as e:
         print(e)
