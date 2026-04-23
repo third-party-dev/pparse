@@ -40,6 +40,10 @@ class Zip:
         return self
 
 
+    def root_node(self):
+        return self._extraction._parser['zip']._root
+
+
     def open_fpath(self, fpath):
         return self._parse(pparse.FileData(path=fpath), fname=fpath)
 

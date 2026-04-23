@@ -64,7 +64,8 @@ def onnx_view(args):
         # obj.tensor('lm_head.weight').get_data_bytes()
 
         if args.print:
-            print(obj._extraction._result['protobuf'].dumps())
+            #print(obj._extraction._result['protobuf'].dumps())
+            obj.root_node().dumps()
 
     except Exception as e:
         print(e)

@@ -7,7 +7,8 @@ def register_pparse_protobuf(subparsers):
     protobuf_subparser = protobuf_parser.add_subparsers(dest="protobuf_command", required=True)
 
     protobuf_view_parser = protobuf_subparser.add_parser("view", help="protobuf parse command")
-    protobuf_view_parser.add_argument("--dump", default=None)
+    #protobuf_view_parser.add_argument("--dump", default=None)
+    protobuf_view_parser.add_argument("--print", action="store_true", help="print to stdout")
     protobuf_view_parser.add_argument("pbpath")
     protobuf_view_parser.add_argument("msgtype")
     protobuf_view_parser.add_argument("path")
@@ -25,10 +26,14 @@ def protobuf_view(args):
         obj = LazyProtobufParser().open_fpath(args.path, args.pbpath, args.msgtype)
         root = obj._extraction._result['protobuf']
 
-        if args.dump:
-            print(f"Dumping parsed structure to: {args.dump}")
-            with open(args.dump, "w") as fobj:
-                fobj.write(obj._extraction._result['protobuf'].dumps())
+        # if args.dump:
+        #     print(f"Dumping parsed structure to: {args.dump}")
+        #     with open(args.dump, "w") as fobj:
+        #         fobj.write(obj._extraction._result['protobuf'].dumps())
+        
+        if args.print:
+            #print(root.dumps())
+            obj.root_node().dumps()
 
     except Exception as e:
         print(e)

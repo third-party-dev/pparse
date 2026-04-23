@@ -338,6 +338,8 @@ def dump_list(obj, depth=0, step=2, cb=_print, dst=[]):
 
         elif isinstance(entry, (str, int, float, numbers.Number, bool, type(None))):
             cb(dst, f'{spacer}<entry value_is="scalar" idx="{idx}">{entry}</entry>')
+        elif isinstance(entry, io.BytesIO):
+            cb(dst, f'{spacer}<entry value_is="BytesIO" idx="{idx}" {node_attrs}>{entry}</entry>')
         elif hasattr(entry, "__iter__"):
             if len(entry) == 0:
                 cb(dst, f'{spacer}<entry value_is="list" idx="{idx}" empty="y"></entry>')
@@ -386,6 +388,8 @@ def dump_dict(obj, depth=0, step=2, cb=_print, dst=[]):
 
         elif isinstance(entry, (str, int, float, numbers.Number, bool, type(None))):
             cb(dst, f'{spacer}<entry value_is="scalar" key="{key}">{entry}</entry>')
+        elif isinstance(entry, io.BytesIO):
+            cb(dst, f'{spacer}<entry value_is="BytesIO" key="{key}" {node_attrs}>{entry}</entry>')
         elif hasattr(entry, "__iter__"):
             if len(entry) == 0:
                 cb(dst, f'{spacer}<entry value_is="list" key="{key}" empty="y"></entry>')
@@ -566,6 +570,10 @@ class Node:
 
         elif isinstance(self._value, (str, int, float, numbers.Number, bool, type(None))):
             cb(dst, f'{spacer}<Node value_is="scalar" {node_attrs}>{self._value}</Node>')
+        
+        elif isinstance(self._value, io.BytesIO):
+            cb(dst, f'{spacer}<Node value_is="BytesIO" {node_attrs}>{self._value}</Node>')
+
         elif hasattr(self._value, "__iter__"):
             if len(self._value) == 0:
                 cb(dst, f'{spacer}<Node value_is="list" empty="y" {node_attrs}></Node>')

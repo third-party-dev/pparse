@@ -17,12 +17,14 @@ def register_pparse_safetensors(subparsers):
     safetensors_view_parser = safetensors_subparser.add_parser(
         "view", help="safetensors view command"
     )
+    safetensors_view_parser.add_argument("--print", action="store_true", help="print to stdout")
     safetensors_view_parser.add_argument("path")
     safetensors_view_parser.set_defaults(func=safetensors_view)
 
     safetensors_index_parser = safetensors_subparser.add_parser(
         "index", help="safetensors index view command"
     )
+    safetensors_index_parser.add_argument("--print", action="store_true", help="print to stdout")
     safetensors_index_parser.add_argument("path")
     safetensors_index_parser.set_defaults(func=safetensors_index_view)
 
@@ -63,6 +65,10 @@ def safetensors_index_view(args):
     obj = SafeTensorsIndex().open_fpath(args.path)
     root = obj._extraction._parser['safetensors_index']._root
 
+    if args.print:
+        obj.root_node().dumps()
+
+
     if hasattr(args, "breakpoint") and args.breakpoint:
         print(f"Locals: {list(locals().keys())}")
         breakpoint()
@@ -78,6 +84,9 @@ def safetensors_view(args):
 
     obj = SafeTensors().open_fpath(args.path)
     root = obj._extraction._parser['safetensors']._root
+
+    if args.print:
+        obj.root_node().dumps()
     
     
     if hasattr(args, "breakpoint") and args.breakpoint:

@@ -12,6 +12,7 @@ def register_pparse_pytorch(subparsers):
         "view", help="pytorch parse command"
     )
     pytorch_view_parser.add_argument("--force_traverse", action="store_true", default=False)
+    pytorch_view_parser.add_argument("--print", action="store_true", help="print to stdout")
     pytorch_view_parser.add_argument("path")
     pytorch_view_parser.set_defaults(func=pytorch_view)
 
@@ -103,6 +104,11 @@ def pytorch_view(args):
         # obj.tensor('lm_head.weight').get_data_bytes()
         pt = obj._extraction._result['pt']._value
         zip = obj._extraction._result['pt']._value['zip']._value
+
+        if args.print:
+            #print(root.dumps())
+            obj.root_node().dumps()
+
 
     except Exception as e:
         print(e)

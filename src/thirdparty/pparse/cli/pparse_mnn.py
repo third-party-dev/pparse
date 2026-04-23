@@ -27,6 +27,7 @@ def mnn_view(args):
 
         if args.print:
             print(mnn.dumps())
+            #obj.root_node().dumps()
 
     except Exception as e:
         print(e)

@@ -32,7 +32,8 @@ def flatbuffers_view(args):
         #    print(f"i: {i} buffer: {tensors[i]._value['buffer']} name: {tensors[i]._value['name']} shape: {tensors[i]._value['shape']._value}")
 
         if args.print:
-            print(root.dumps())
+            #print(root.dumps())
+            obj.root_node().dumps()
 
     except Exception as e:
         print(e)

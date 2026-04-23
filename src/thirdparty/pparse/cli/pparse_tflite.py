@@ -26,7 +26,8 @@ def tflite_view(args):
         tflite = obj._extraction._result['flatbuffers'].value
 
         if args.print:
-            print(tflite.dumps())
+            #print(tflite.dumps())
+            obj.root_node().dumps()
 
     except Exception as e:
         print(e)
