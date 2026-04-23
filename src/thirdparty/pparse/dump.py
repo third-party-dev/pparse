@@ -47,7 +47,10 @@ class Dumper:
         spacer = " " * depth
         self.cb(self.dst, f'{spacer}<{elem_name} value_is="Node" {attrs}>')
         obj.dump(depth + step)
-        self.cb(self.dst, f'{spacer}</{elem_name}>')
+        closing_attrs = ''
+        if attrs and len(attrs) > 0:
+            closing_attrs = f'<!-- tag_attrs: {attrs} -->'
+        self.cb(self.dst, f'{spacer}</{elem_name}>{closing_attrs}')
 
 
     def _dump_dict_wrapper(self, elem_name="entry", obj=None, attrs='', depth=0, step=2):
@@ -57,7 +60,10 @@ class Dumper:
         else:
             self.cb(self.dst, f'{spacer}<{elem_name} value_is="dict" {attrs}>')
             self._dump_dict(obj, depth + step)
-            self.cb(self.dst, f'{spacer}</{elem_name}>')
+            closing_attrs = ''
+            if attrs and len(attrs) > 0:
+                closing_attrs = f'<!-- tag_attrs: {attrs} -->'
+            self.cb(self.dst, f'{spacer}</{elem_name}>{closing_attrs}')
 
 
     def _dump_bytes_wrapper(self, elem_name="entry", obj=None, attrs='', depth=0, step=2):
@@ -67,7 +73,10 @@ class Dumper:
         else:
             self.cb(self.dst, f'{spacer}<{elem_name} value_is="bytes" {attrs} length="{len(obj)}">')
             self._dump_bytes(obj, depth + step)
-            self.cb(self.dst, f'{spacer}</{elem_name}>')
+            closing_attrs = ''
+            if attrs and len(attrs) > 0:
+                closing_attrs = f'<!-- tag_attrs: {attrs} -->'
+            self.cb(self.dst, f'{spacer}</{elem_name}>{closing_attrs}')
 
 
     def _dump_str_wrapper(self, elem_name="entry", obj=None, attrs='', depth=0, step=2):
@@ -77,7 +86,10 @@ class Dumper:
         else:
             self.cb(self.dst, f'{spacer}<{elem_name} value_is="str" {attrs} length="{len(obj)}">')
             self._dump_str(obj, depth + step)
-            self.cb(self.dst, f'{spacer}</{elem_name}>')
+            closing_attrs = ''
+            if attrs and len(attrs) > 0:
+                closing_attrs = f'<!-- tag_attrs: {attrs} -->'
+            self.cb(self.dst, f'{spacer}</{elem_name}>{closing_attrs}')
 
 
     def _dump_misc_wrapper(self, elem_name="entry", obj=None, attrs='', depth=0, step=2):
@@ -97,14 +109,20 @@ class Dumper:
         else:
             self.cb(self.dst, f'{spacer}<{elem_name} value_is="list" {attrs}>')
             self._dump_list(obj, depth + step)
-            self.cb(self.dst, f'{spacer}</{elem_name}>')
+            closing_attrs = ''
+            if attrs and len(attrs) > 0:
+                closing_attrs = f'<!-- tag_attrs: {attrs} -->'
+            self.cb(self.dst, f'{spacer}</{elem_name}>{closing_attrs}')
 
 
     def _dump_else_wrapper(self, elem_name="entry", obj=None, attrs='', depth=0, step=2):
         spacer = " " * depth
         self.cb(self.dst, f'{spacer}<{elem_name} value_is="unknown" {attrs}>')
         self.cb(self.dst, f'{spacer}{obj}')
-        self.cb(self.dst, f'{spacer}</{elem_name}>')
+        closing_attrs = ''
+        if attrs and len(attrs) > 0:
+            closing_attrs = f'<!-- tag_attrs: {attrs} -->'
+        self.cb(self.dst, f'{spacer}</{elem_name}>{closing_attrs}')
 
 
     def _dump_str(self, obj, depth=0, step=2):
