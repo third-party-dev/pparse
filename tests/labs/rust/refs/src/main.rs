@@ -47,32 +47,45 @@ mod sys;
 
 use crate::sys::cstdlib::{exit, write, STDOUT};
 
-//use crate::pparse::node::{Node, NodeRc, NodeUtl, NodeValue};
+use crate::pparse::node::{
+    NodeId,
+    Node,
+    //NodeContext,
+    //NodeArena,
+    Parser,
+    NodeValue,
+};
+
+use core::cell::{
+    //Ref,
+    RefCell,
+    //RefMut,
+};
+
+use alloc::rc::{
+    Rc,
+    Weak,
+};
 
 //use alloc::vec;
 //use alloc::collections::BTreeMap;
 
 
-// pub struct ParserBase {
-//     root: Option<NodeRc>,
-// }
+fn with_node<R>(current_node: &Node, nodeid: NodeId, f: impl FnOnce(&Node) -> R) -> R {
+    let rc = current_node.ctx.as_ref().unwrap().parser().upgrade().unwrap();
+    let borrow = rc.borrow();
+    let node = borrow.arena.as_ref().unwrap().get(nodeid).unwrap();
+    f(node)
+}
 
-// impl ParserBase {
-//     fn new() -> Self {
-//         ParserBase { root: Some(Node::new_root()) }
-//     }
+fn with_node_mut<R>(current_node: &Node, nodeid: NodeId, f: impl FnOnce(&mut Node) -> R) -> R {
+    let rc = current_node.ctx.as_ref().unwrap().parser().upgrade().unwrap();
+    let mut borrow = rc.borrow_mut();
+    let node = borrow.arena.as_mut().unwrap().get_mut(nodeid).unwrap();
+    f(node)
+}
 
-//     // TODO: match_magic(cursor)
-//     // TODO: match_extension(fname)
 
-//     pub fn get_root(&self) -> Option<&NodeRc> {
-//         self.root.as_ref()
-//     }
-
-//     fn get_id() -> &'static str {
-//         "unknown"
-//     }
-// }
 
 #[no_mangle]
 pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> ! {
@@ -82,7 +95,50 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> ! {
     println!("Hello using println!: {}", mystr);
     println!("---------------------------------------------");
 
-    // let _parser = ParserBase::new();
+    let parser_rc: &Rc<RefCell<Parser>> = &Parser::new();
+    let parser_weak: &Weak<RefCell<Parser>> = &Rc::downgrade(parser_rc);
+    
+    let rootid = {
+      let mut parser = parser_rc.borrow_mut();
+      let root_node: &mut Node = parser.root_node_mut();
+      root_node.value = NodeValue::Integer(43);
+      println!("Root node id: {}", root_node.id());
+      root_node.id()
+    }; // drop parser borrow
+
+    //let parser_weak = &Rc::downgrade(&parser_rc);
+
+    let child_nodeid: NodeId = Parser::new_node(parser_weak, rootid);
+    
+    {
+      let mut parser = parser_rc.borrow_mut();
+      let root_node: &mut Node = parser.root_node_mut();
+      root_node.value = NodeValue::NodeId(child_nodeid);
+    }; // drop parser borrow
+
+    
+    let nodeid = {
+      let parser = parser_rc.borrow();
+      let root_node: &Node = parser.root_node();
+      root_node.as_nodeid().unwrap()
+    };
+
+    {
+      let mut parser = parser_rc.borrow_mut();
+      let node = parser.arena.as_mut().unwrap().get_mut(nodeid).unwrap();
+      node.value = NodeValue::Integer(303);
+    };
+
+    {
+      let parser = parser_rc.borrow();
+      let root_node: &Node = parser.root_node();
+      with_node(root_node, nodeid, |node| {
+        println!("child value {}", node.value);
+      });
+    };
+
+    println!("Mine4");
+
 
     // let root_ref: &NodeRc = _parser.get_root().unwrap();
     // let mut root: NodeUtl = NodeUtl::wrap(root_ref);

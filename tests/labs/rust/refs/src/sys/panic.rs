@@ -1,11 +1,20 @@
 use core::panic::PanicInfo;
+use crate::println;
+
+// #[panic_handler]
+// fn panic(_: &PanicInfo) -> ! {
+//      unsafe {
+//         libc::write(2, b"panic\n".as_ptr() as *const libc::c_void, 6);
+//         libc::exit(1);
+//     }
+// }
 
 #[panic_handler]
-fn panic(_: &PanicInfo) -> ! {
-     unsafe {
-        libc::write(2, b"panic\n".as_ptr() as *const libc::c_void, 6);
-        libc::exit(1);
+fn panic(info: &PanicInfo) -> ! {
+    if let Some(location) = info.location() {
+        println!("panic at {}:{}", location.file(), location.line());
     }
+    unsafe { libc::exit(1); }
 }
 
 #[no_mangle]
