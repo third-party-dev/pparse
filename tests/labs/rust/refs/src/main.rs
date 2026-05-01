@@ -47,32 +47,32 @@ mod sys;
 
 use crate::sys::cstdlib::{exit, write, STDOUT};
 
-use crate::pparse::node::{Node, NodeRc, NodeUtl, NodeValue};
+//use crate::pparse::node::{Node, NodeRc, NodeUtl, NodeValue};
 
-use alloc::vec;
-use alloc::collections::BTreeMap;
+//use alloc::vec;
+//use alloc::collections::BTreeMap;
 
 
-pub struct ParserBase {
-    root: Option<NodeRc>,
-}
+// pub struct ParserBase {
+//     root: Option<NodeRc>,
+// }
 
-impl ParserBase {
-    fn new() -> Self {
-        ParserBase { root: Some(Node::new_root()) }
-    }
+// impl ParserBase {
+//     fn new() -> Self {
+//         ParserBase { root: Some(Node::new_root()) }
+//     }
 
-    // TODO: match_magic(cursor)
-    // TODO: match_extension(fname)
+//     // TODO: match_magic(cursor)
+//     // TODO: match_extension(fname)
 
-    pub fn get_root(&self) -> Option<&NodeRc> {
-        self.root.as_ref()
-    }
+//     pub fn get_root(&self) -> Option<&NodeRc> {
+//         self.root.as_ref()
+//     }
 
-    fn get_id() -> &'static str {
-        "unknown"
-    }
-}
+//     fn get_id() -> &'static str {
+//         "unknown"
+//     }
+// }
 
 #[no_mangle]
 pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> ! {
@@ -82,68 +82,68 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> ! {
     println!("Hello using println!: {}", mystr);
     println!("---------------------------------------------");
 
-    let _parser = ParserBase::new();
+    // let _parser = ParserBase::new();
 
-    let root_ref: &NodeRc = _parser.get_root().unwrap();
-    let mut root: NodeUtl = NodeUtl::wrap(root_ref);
+    // let root_ref: &NodeRc = _parser.get_root().unwrap();
+    // let mut root: NodeUtl = NodeUtl::wrap(root_ref);
 
-    // --- Create Vec of NodeValues ---
-    let list = vec![
-        NodeValue::Integer(42),
-        NodeValue::Str("hello".into()),
-    ];
-    root.set_list(list);
+    // // --- Create Vec of NodeValues ---
+    // let list = vec![
+    //     NodeValue::Integer(42),
+    //     NodeValue::Str("hello".into()),
+    // ];
+    // root.set_list(list);
     
-    // Add another item.
-    if root.is_list() {
-        let list_ref = root.as_mut_list();
-        if !list_ref.is_none() {
-            let mut list_ref = list_ref.unwrap();
+    // // Add another item.
+    // if root.is_list() {
+    //     let list_ref = root.as_mut_list();
+    //     if !list_ref.is_none() {
+    //         let mut list_ref = list_ref.unwrap();
 
-            list_ref.push(NodeValue::Integer(303));
-        }
-    }
-    println!("Root value (as list): {}", root.value());
+    //         list_ref.push(NodeValue::Integer(303));
+    //     }
+    // }
+    // println!("Root value (as list): {}", root.value());
 
-    // --- Create BTreeMap of NodeValues ---
-    let map = BTreeMap::from([
-        ("a".into(), NodeValue::Integer(42)),
-        ("b".into(), NodeValue::None),
-    ]);
-    root.set_map(map);
+    // // --- Create BTreeMap of NodeValues ---
+    // let map = BTreeMap::from([
+    //     ("a".into(), NodeValue::Integer(42)),
+    //     ("b".into(), NodeValue::None),
+    // ]);
+    // root.set_map(map);
 
-    if root.is_map() {
-        let map_ref = root.as_mut_map();
-        if !map_ref.is_none() {
-            let mut map_ref = map_ref.unwrap();
-            // Add entry
-            map_ref.insert("c".into(), NodeValue::Str("mine".into()));
-            // Do replace
-            map_ref.insert("a".into(), NodeValue::Integer(303));
-            // Remove entry
-            map_ref.remove("b");
-        }
-    }
+    // if root.is_map() {
+    //     let map_ref = root.as_mut_map();
+    //     if !map_ref.is_none() {
+    //         let mut map_ref = map_ref.unwrap();
+    //         // Add entry
+    //         map_ref.insert("c".into(), NodeValue::Str("mine".into()));
+    //         // Do replace
+    //         map_ref.insert("a".into(), NodeValue::Integer(303));
+    //         // Remove entry
+    //         map_ref.remove("b");
+    //     }
+    // }
 
-    println!("Root value (as map): {}", root.value());
+    // println!("Root value (as map): {}", root.value());
 
-    // --- Create object with root as parent. ---
-    let child_ref = root.new_child();
-    // Assign object to root as child.
-    root.set_node(child_ref);
+    // // --- Create object with root as parent. ---
+    // let child_ref = root.new_child();
+    // // Assign object to root as child.
+    // root.set_node(child_ref);
 
-    println!("Root value (as node): {}", root.value());
+    // println!("Root value (as node): {}", root.value());
 
-    if root.is_node() {
-        let child_ref = root.as_node();
-        if !child_ref.is_none() {
-            let child_ref = child_ref.unwrap();
+    // if root.is_node() {
+    //     let child_ref = root.as_node();
+    //     if !child_ref.is_none() {
+    //         let child_ref = child_ref.unwrap();
 
-            let mut child = NodeUtl::wrap(&child_ref);
-            child.set_bytes(b"tryit\n");
-            println!("Child value (as bytes): {}", child.value());
-        }
-    }
+    //         let mut child = NodeUtl::wrap(&child_ref);
+    //         child.set_bytes(b"tryit\n");
+    //         println!("Child value (as bytes): {}", child.value());
+    //     }
+    // }
 
     exit(0);
 }
