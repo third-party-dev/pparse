@@ -632,6 +632,9 @@ class Extraction:
 
         return self
 
+    def open(self):
+        raise NotImplementedError()
+
     # Process all data at once.
     # TODO: Parse data lazily.
     # TODO: What is the interface that only parses what we need to?
