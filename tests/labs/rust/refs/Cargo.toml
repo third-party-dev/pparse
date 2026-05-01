@@ -1,0 +1,19 @@
+[package]
+name    = "reftests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+libc = { version = "0.2", default-features = false }
+slotmap = { version = "1.0", default-features = false }
+
+[profile.release]
+opt-level     = "z"
+lto           = true
+codegen-units = 1
+panic         = "abort"
+strip         = true
+
+[profile.dev]
+panic = "abort"
+debug = true
