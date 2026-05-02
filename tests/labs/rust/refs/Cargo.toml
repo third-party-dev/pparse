@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 libc = { version = "0.2", default-features = false }
 slotmap = { version = "1.0", default-features = false }
+paste = "1"
 
 [profile.release]
 opt-level     = "z"

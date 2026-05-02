@@ -1,3 +1,102 @@
+use paste::paste;
+new_state_generator!(json_state, JsonNodeState, JsonParsing);
+
+
+struct JsonParsingComplete;
+impl NodeState for JsonParsingComplete {
+    fn parse_data(&mut self, node: &mut Node) -> ParseDataResult {
+        node.ctx.as_mut().unwrap().next_state(json_state!(Complete));
+        return ParseDataResult::Ascend;
+    }
+}
+
+
+struct JsonParsingNumber;
+impl NodeState for JsonParsingNumber {
+    fn parse_data(&mut self, node: &mut Node) -> ParseDataResult {
+        node.ctx.as_mut().unwrap().next_state(json_state!(Complete));
+        return ParseDataResult::Ascend;
+    }
+}
+
+
+struct JsonParsingString;
+impl NodeState for JsonParsingString {
+    fn parse_data(&mut self, node: &mut Node) -> ParseDataResult {
+        node.ctx.as_mut().unwrap().next_state(json_state!(Complete));
+        return ParseDataResult::Ascend;
+    }
+}
+
+
+struct JsonParsingWhitespace;
+impl NodeState for JsonParsingWhitespace {
+    fn parse_data(&mut self, node: &mut Node) -> ParseDataResult {
+        node.ctx.as_mut().unwrap().next_state(json_state!(Complete));
+        return ParseDataResult::Ascend;
+    }
+}
+
+
+struct JsonParsingConstant;
+impl NodeState for JsonParsingConstant {
+    fn parse_data(&mut self, node: &mut Node) -> ParseDataResult {
+        node.ctx.as_mut().unwrap().next_state(json_state!(Complete));
+        return ParseDataResult::Ascend;
+    }
+}
+
+
+struct JsonParsingMeta;
+impl NodeState for JsonParsingMeta {
+    fn parse_data(&mut self, node: &mut Node) -> ParseDataResult {
+        node.ctx.as_mut().unwrap().next_state(json_state!(Complete));
+        return ParseDataResult::Ascend;
+    }
+}
+
+
+struct JsonParsingStart;
+impl NodeState for JsonParsingStart {
+    fn parse_data(&mut self, node: &mut Node) -> ParseDataResult {
+        node.ctx.as_mut().unwrap().next_state(json_state!(Complete));
+        return ParseDataResult::Ascend;
+    }
+}
+
+
+enum JsonNodeState {
+    Complete(JsonParsingComplete),
+    Number(JsonParsingNumber),
+    String(JsonParsingString),
+    Whitespace(JsonParsingWhitespace),
+    Constant(JsonParsingConstant),
+    Meta(JsonParsingMeta),
+    Start(JsonParsingStart),
+}
+
+
+impl NodeState for JsonNodeState {
+    fn parse_data(&mut self, node: &mut Node) {
+        match self {
+            JsonNodeState::Complete(s) => s.parse_data(self, node)
+            JsonNodeState::Number(s) => s.parse_data(self, node)
+            JsonNodeState::String(s) => s.parse_data(self, node)
+            JsonNodeState::Whitespace(s) => s.parse_data(self, node)
+            JsonNodeState::Constant(s) => s.parse_data(self, node)
+            JsonNodeState::Meta(s) => s.parse_data(self, node)
+            JsonNodeState::Start(s) => s.parse_data(self, node)
+        }
+    }
+}
+
+
+
+
+
+
+
+
 /*
 
 #!/usr/bin/env python3

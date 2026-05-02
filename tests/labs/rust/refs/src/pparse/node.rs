@@ -48,6 +48,9 @@ impl Display for NodeId {
     }
 }
 
+pub trait NodeState {
+    fn parse_data(&mut self, node: &mut Node);
+}
 
 pub struct Parser {
     pub arena: Option<NodeArena>,
@@ -104,14 +107,26 @@ impl Parser {
 pub type ParserWeak = Weak<RefCell<Parser>>;
 
 
+// enum DefaultNodeState { None }
+// impl NodeState for DefaultNodeState {
+//     fn parse_data(&mut self, node: &mut Node) {
+//         match self {
+//             _ => ParseDataResult::Ascend
+//         }
+//     }
+// }
+
+
 pub struct NodeContext {
     this_id: NodeId,
     // If this_id == parent_id, we're root.
     parent_id: NodeId,
     _parser: ParserWeak,
-    attr: BTreeMap<TypeId, Box<dyn Any>>,
+    _attr: BTreeMap<TypeId, Box<dyn Any>>,
+    _state: Option<Box<dyn NodeState>>,
+    // TODO: TBD if we need this.
+    _next_state: Option<Box<dyn NodeState>>,
 
-    //state
     //reader
     start: usize,
     end: usize,
@@ -125,33 +140,75 @@ impl NodeContext {
             this_id: this_id,
             parent_id: parent_id,
             _parser: parser,
-            attr: BTreeMap::new(),
 
+            _attr: BTreeMap::new(),
+            _state: None,
+            _next_state: None,
             start: 0,
             end: 0,
             descendants: Vec::new(),
         }
     }
 
+    pub fn has_state(&self) -> bool {
+        self._state.is_none()
+    }
+    pub fn state(&self) -> &Box<dyn NodeState> {
+        self._state.as_ref().unwrap()
+    }
+    pub fn state_mut(&mut self) -> &mut Box<dyn NodeState> {
+        self._state.as_mut().unwrap()
+    }
+    // Example: node.next_state(JsonNodeState::Object);
+    fn next_state<S: NodeState + 'static>(&mut self, state: S) {
+        self._next_state = Some(Box::new(state));
+    }
+
     pub fn insert_attr<T: Any>(&mut self, val: T) {
-        self.attr.insert(TypeId::of::<T>(), Box::new(val));
+        self._attr.insert(TypeId::of::<T>(), Box::new(val));
     }
-
-    pub fn get_attr<T: Any>(&self) -> Option<&T> {
-        self.attr.get(&TypeId::of::<T>())
-            .and_then(|v| v.downcast_ref())
+    pub fn attr<T: Any>(&self) -> Option<&T> {
+        self._attr.get(&TypeId::of::<T>()).and_then(|v| v.downcast_ref())
     }
-
-    pub fn get_attr_mut<T: Any>(&mut self) -> Option<&mut T> {
-        self.attr.get_mut(&TypeId::of::<T>())
-            .and_then(|v| v.downcast_mut())
+    pub fn attr_mut<T: Any>(&mut self) -> Option<&mut T> {
+        self._attr.get_mut(&TypeId::of::<T>()).and_then(|v| v.downcast_mut())
     }
 
     pub fn parser(&self) -> ParserWeak {
         self._parser.clone()
     }
+
+    /*
+    fn step(&mut self) {
+        // run current state
+        self.state.parse_data(self);
+
+        // apply transition if requested
+        if let Some(next) = self.next_state.take() {
+            self.state = next;
+        }
+    }
+    */
+
 }
 
+#[macro_export]
+macro_rules! new_state_generator {
+    ($macro_name:ident, $enum_name:ident, $prefix:ident) => {
+        macro_rules! $macro_name {
+            ($enum_name::$variant:ident) => {
+                paste::paste! {
+                    $enum_name::$variant([<$prefix $variant>]::new())
+                }
+            };
+        }
+    };
+}
+
+enum ParseDataResult {
+    Again,
+    Ascend,
+}
 
 pub enum NodeValue {
     None,
