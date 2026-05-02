@@ -53,6 +53,7 @@ use crate::pparse::node::{
     //NodeContext,
     //NodeArena,
     Parser,
+    ParserWeak,
     NodeValue,
 };
 
@@ -67,24 +68,50 @@ use alloc::rc::{
     Weak,
 };
 
-//use alloc::vec;
-//use alloc::collections::BTreeMap;
+use alloc::vec;
+use alloc::collections::BTreeMap;
 
 
-fn with_node<R>(current_node: &Node, nodeid: NodeId, f: impl FnOnce(&Node) -> R) -> R {
-    let rc = current_node.ctx.as_ref().unwrap().parser().upgrade().unwrap();
-    let borrow = rc.borrow();
-    let node = borrow.arena.as_ref().unwrap().get(nodeid).unwrap();
+
+fn node_with_node<R>(current_node: &Node, nodeid: NodeId, f: impl FnOnce(&Node) -> R) -> R {
+    let ctx = current_node.ctx.as_ref().unwrap();
+    let parser = ctx.parser().upgrade().unwrap();
+    let parser = parser.borrow();
+    let arena = parser.arena.as_ref().unwrap();
+    let node = arena.get(nodeid).unwrap();
     f(node)
 }
 
-fn with_node_mut<R>(current_node: &Node, nodeid: NodeId, f: impl FnOnce(&mut Node) -> R) -> R {
-    let rc = current_node.ctx.as_ref().unwrap().parser().upgrade().unwrap();
-    let mut borrow = rc.borrow_mut();
-    let node = borrow.arena.as_mut().unwrap().get_mut(nodeid).unwrap();
+fn node_with_node_mut<R>(current_node: &Node, nodeid: NodeId, f: impl FnOnce(&mut Node) -> R) -> R {
+    let ctx = current_node.ctx.as_ref().unwrap();
+    let parser = ctx.parser().upgrade().unwrap();
+    let mut parser = parser.borrow_mut();
+    let arena = parser.arena.as_mut().unwrap();
+    let node = arena.get_mut(nodeid).unwrap();
     f(node)
 }
 
+fn node_with_parser<R>(parser_weak: &ParserWeak, nodeid: NodeId, f: impl FnOnce(&Node) -> R) -> R {
+    let parser = parser_weak.upgrade().unwrap();
+    let parser = parser.borrow();
+    let node = parser.arena.as_ref().unwrap().get(nodeid).unwrap();
+    f(node)
+}
+
+fn node_with_parser_mut<R>(parser_weak: &ParserWeak, nodeid: NodeId, f: impl FnOnce(&mut Node) -> R) -> R {
+    let parser = parser_weak.upgrade().unwrap();
+    let mut parser = parser.borrow_mut();
+    let arena = parser.arena.as_mut().unwrap();
+    let node = arena.get_mut(nodeid).unwrap();
+    f(node)
+}
+
+fn rootid_with_parser(parser_weak: &ParserWeak) -> NodeId {
+    let parser = parser_weak.upgrade().unwrap();
+    let parser = parser.borrow();
+    let root_node: &Node = parser.root_node();
+    root_node.id()
+}
 
 
 #[no_mangle]
@@ -98,109 +125,94 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> ! {
     let parser_rc: &Rc<RefCell<Parser>> = &Parser::new();
     let parser_weak: &Weak<RefCell<Parser>> = &Rc::downgrade(parser_rc);
     
-    let rootid = {
-      let mut parser = parser_rc.borrow_mut();
-      let root_node: &mut Node = parser.root_node_mut();
-      root_node.value = NodeValue::Integer(43);
-      println!("Root node id: {}", root_node.id());
-      root_node.id()
-    }; // drop parser borrow
+    let rootid = rootid_with_parser(parser_weak);
+    println!("Root node id: {}", rootid);
 
-    //let parser_weak = &Rc::downgrade(&parser_rc);
+    node_with_parser_mut(parser_weak, rootid, |root_node| {
+      root_node.value = NodeValue::Integer(67);
+    });
 
     let child_nodeid: NodeId = Parser::new_node(parser_weak, rootid);
-    
-    {
-      let mut parser = parser_rc.borrow_mut();
-      let root_node: &mut Node = parser.root_node_mut();
+
+    node_with_parser_mut(parser_weak, rootid, |root_node| {
       root_node.value = NodeValue::NodeId(child_nodeid);
-    }; // drop parser borrow
+    });
 
-    
-    let nodeid = {
-      let parser = parser_rc.borrow();
-      let root_node: &Node = parser.root_node();
+    let nodeid = node_with_parser(parser_weak, rootid, |root_node| {
       root_node.as_nodeid().unwrap()
+    });
+
+    node_with_parser_mut(parser_weak, nodeid, |node| {
+      node.value = NodeValue::Integer(123);
+    });
+
+    node_with_parser(parser_weak, nodeid, |node| {
+      println!("child value {}", node.value);
+    });
+
+    node_with_parser_mut(parser_weak, nodeid, |node| {
+      let list = vec![
+          NodeValue::Integer(42),
+          NodeValue::Str("hello".into()),
+      ];
+      node.set_list(list);
+      //node.value = NodeValue::Integer(123);
+      println!("child value {}", node.value);
+
+      if node.is_list() {
+          let list_ref = node.as_list_mut();
+          if !list_ref.is_none() {
+              let list_ref = list_ref.unwrap();
+
+              list_ref.push(NodeValue::Integer(313));
+          }
+      }
+      println!("Node value (as list): {}", node.value);
+    });
+
+
+    node_with_parser_mut(parser_weak, nodeid, |node| {
+      let map = BTreeMap::from([
+        ("a".into(), NodeValue::Integer(42)),
+        ("b".into(), NodeValue::None),
+      ]);
+      node.set_map(map);
+      //node.value = NodeValue::Integer(123);
+      println!("child value {}", node.value);
+
+      if node.is_map() {
+        let map_ref = node.as_map_mut();
+        if !map_ref.is_none() {
+          let map_ref = map_ref.unwrap();
+          // Add entry
+          map_ref.insert("c".into(), NodeValue::Str("mine".into()));
+          // Do replace
+          map_ref.insert("a".into(), NodeValue::Integer(303));
+          // Remove entry
+          map_ref.remove("b");
+        }
+      }
+
+      println!("Node value (as map): {}", node.value);
+    });
+
+    node_with_parser_mut(parser_weak, rootid, |node| {
+      // ! No ref counting leaks child node permanently.
+      node.value = NodeValue::None;
+      println!("Node value: {}", node.value);
+    });
+
+    { // Dump all entries in Arena.
+      let parser = parser_weak.upgrade().unwrap();
+      let parser = parser.borrow_mut();
+      let arena = parser.arena.as_ref().unwrap();
+      println!("Key: Value for Arena\n--------------------------");
+      for (key, node) in &arena.nodes {
+        println!("{}: {}", key, node.value);
+      }
     };
 
-    {
-      let mut parser = parser_rc.borrow_mut();
-      let node = parser.arena.as_mut().unwrap().get_mut(nodeid).unwrap();
-      node.value = NodeValue::Integer(303);
-    };
-
-    {
-      let parser = parser_rc.borrow();
-      let root_node: &Node = parser.root_node();
-      with_node(root_node, nodeid, |node| {
-        println!("child value {}", node.value);
-      });
-    };
-
-    println!("Mine4");
-
-
-    // let root_ref: &NodeRc = _parser.get_root().unwrap();
-    // let mut root: NodeUtl = NodeUtl::wrap(root_ref);
-
-    // // --- Create Vec of NodeValues ---
-    // let list = vec![
-    //     NodeValue::Integer(42),
-    //     NodeValue::Str("hello".into()),
-    // ];
-    // root.set_list(list);
-    
-    // // Add another item.
-    // if root.is_list() {
-    //     let list_ref = root.as_mut_list();
-    //     if !list_ref.is_none() {
-    //         let mut list_ref = list_ref.unwrap();
-
-    //         list_ref.push(NodeValue::Integer(303));
-    //     }
-    // }
-    // println!("Root value (as list): {}", root.value());
-
-    // // --- Create BTreeMap of NodeValues ---
-    // let map = BTreeMap::from([
-    //     ("a".into(), NodeValue::Integer(42)),
-    //     ("b".into(), NodeValue::None),
-    // ]);
-    // root.set_map(map);
-
-    // if root.is_map() {
-    //     let map_ref = root.as_mut_map();
-    //     if !map_ref.is_none() {
-    //         let mut map_ref = map_ref.unwrap();
-    //         // Add entry
-    //         map_ref.insert("c".into(), NodeValue::Str("mine".into()));
-    //         // Do replace
-    //         map_ref.insert("a".into(), NodeValue::Integer(303));
-    //         // Remove entry
-    //         map_ref.remove("b");
-    //     }
-    // }
-
-    // println!("Root value (as map): {}", root.value());
-
-    // // --- Create object with root as parent. ---
-    // let child_ref = root.new_child();
-    // // Assign object to root as child.
-    // root.set_node(child_ref);
-
-    // println!("Root value (as node): {}", root.value());
-
-    // if root.is_node() {
-    //     let child_ref = root.as_node();
-    //     if !child_ref.is_none() {
-    //         let child_ref = child_ref.unwrap();
-
-    //         let mut child = NodeUtl::wrap(&child_ref);
-    //         child.set_bytes(b"tryit\n");
-    //         println!("Child value (as bytes): {}", child.value());
-    //     }
-    // }
-
+    println!("Exit without error.");
     exit(0);
 }
 

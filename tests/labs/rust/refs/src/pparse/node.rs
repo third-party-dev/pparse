@@ -41,11 +41,13 @@ new_key_type! {
     pub struct NodeId;
 }
 
+
 impl Display for NodeId {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "NodeId({:?})", self.0)
     }
 }
+
 
 pub struct Parser {
     pub arena: Option<NodeArena>,
@@ -150,6 +152,7 @@ impl NodeContext {
     }
 }
 
+
 pub enum NodeValue {
     None,
     Integer(i64),
@@ -167,6 +170,7 @@ pub struct Node {
     pub ctx: Option<NodeContext>,
     pub value: NodeValue,
 }
+
 
 impl Node {
     pub fn id(&self) -> NodeId {
@@ -284,6 +288,29 @@ impl NodeArena {
 }
 
 
+// TODO: When we remove edges in the graph, it leaves orphaned nodes.
+// TODO: An example garbage collector to clean up arena:
+
+// use alloc::collections::{BTreeSet, VecDeque};
+
+// fn garbage_collect(arena: &mut SlotMap<NodeId, Node>, roots: &[NodeId]) {
+//     let mut reachable: BTreeSet<NodeId> = BTreeSet::new();
+//     let mut queue: VecDeque<NodeId> = VecDeque::from(roots.to_vec());
+
+//     while let Some(id) = queue.pop_front() {
+//         if reachable.insert(id) {  // returns false if already present
+//             if let Some(node) = arena.get(id) {
+//                 for &child in &node.children {
+//                     queue.push_back(child);
+//                 }
+//             }
+//         }
+//     }
+
+//     arena.retain(|key, _| reachable.contains(&key));
+// }
+
+
 impl Display for NodeValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
@@ -316,127 +343,3 @@ impl Display for NodeValue {
 
 
 
-
-
-
-
-
-
-
-
-/*
-// Short-Lived Helper Struct
-pub struct NodeUtl<'a> {
-    node: &'a NodeRc,
-}
-// Short-Lived Helper Impl
-impl<'a> NodeUtl<'a> {
-
-    pub fn wrap(node: &'a NodeRc) -> Self {
-        NodeUtl { node }
-    }
-
-    pub fn new_child(&self) -> NodeRc {
-        Node::new(&self.node)
-    }
-
-    pub fn ctx(&self) -> Option<RefMut<'_, NodeContext>> {
-        let node = self.node.borrow_mut();
-        if node.ctx.is_none() {
-            return None;
-        }
-        Some(RefMut::map(node, |n| n.ctx.as_mut().unwrap()))
-    }
-
-    //     pub fn clear_ctx(&mut self) {
-    //         self.ctx = None;
-    //     }
-
-    pub fn value(&self) -> Ref<'_, NodeValue> {
-        Ref::map(self.node.borrow(), |n| &n.value)
-    }
-    pub fn set_value(&mut self, val: NodeValue) {
-        self.node.borrow_mut().value = val;
-    }
-
-
-    pub fn set_none(&mut self) {
-        self.set_value(NodeValue::None);
-    }
-    // copy as bytes
-    pub fn set_bytes(&mut self, val: &[u8]) {
-        self.set_value(NodeValue::Bytes(Box::from(val)));
-    }
-    // implicit copy as bytes
-    pub fn set_boxstr(&mut self, val: Box<str>) {
-        self.set_value(NodeValue::Str(val));
-    }
-    // scalar
-    pub fn set_uint(&mut self, val: u64) {
-        self.set_value(NodeValue::Unsigned(val));
-    }
-    // scalar
-    pub fn set_int(&mut self, val: i64) {
-        self.set_value(NodeValue::Integer(val));
-    }
-    // scalar
-    pub fn set_float(&mut self, val: f64) {
-        self.set_value(NodeValue::Float(val));
-    }
-
-
-    pub fn is_node(&self) -> bool {
-        matches!(self.node.borrow().value, NodeValue::Node(_))
-    }
-    pub fn as_node(&self) -> Option<Ref<'_, NodeRc>> {
-        Ref::filter_map(self.node.borrow(), |n| {
-            if let NodeValue::Node(rc) = &n.value { Some(rc) } else { None }
-        }).ok()
-    }
-    pub fn as_mut_node(&self) -> Option<RefMut<'_, NodeRc>> {
-        RefMut::filter_map(self.node.borrow_mut(), |n| {
-            if let NodeValue::Node(v) = &mut n.value { Some(v) } else { None }
-        }).ok()
-    }
-    pub fn set_node(&mut self, val: NodeRc) {
-        self.set_value(NodeValue::Node(val))
-    }
-
-
-    pub fn is_list(&self) -> bool {
-        matches!(self.node.borrow().value, NodeValue::List(_))
-    }
-    pub fn as_list(&self) -> Option<Ref<'_, Vec<NodeValue>>> {
-        Ref::filter_map(self.node.borrow(), |n| {
-            if let NodeValue::List(v) = &n.value { Some(v) } else { None }
-        }).ok()
-    }
-    pub fn as_mut_list(&self) -> Option<RefMut<'_, Vec<NodeValue>>> {
-        RefMut::filter_map(self.node.borrow_mut(), |n| {
-            if let NodeValue::List(v) = &mut n.value { Some(v) } else { None }
-        }).ok()
-    }
-    pub fn set_list(&mut self, val: Vec<NodeValue>) {
-        self.set_value(NodeValue::List(val))
-    }
-
-
-    pub fn is_map(&self) -> bool {
-        matches!(self.node.borrow().value, NodeValue::Map(_))
-    }
-    pub fn as_map(&self) -> Option<Ref<'_, BTreeMap<Box<str>, NodeValue>>> {
-        Ref::filter_map(self.node.borrow(), |n| {
-            if let NodeValue::Map(v) = &n.value { Some(v) } else { None }
-        }).ok()
-    }
-    pub fn as_mut_map(&self) -> Option<RefMut<'_, BTreeMap<Box<str>, NodeValue>>> {
-        RefMut::filter_map(self.node.borrow_mut(), |n| {
-            if let NodeValue::Map(v) = &mut n.value { Some(v) } else { None }
-        }).ok()
-    }
-    pub fn set_map(&mut self, val: BTreeMap<Box<str>, NodeValue>) {
-        self.set_value(NodeValue::Map(val))
-    }
-
-}
-*/
