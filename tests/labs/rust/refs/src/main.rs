@@ -52,65 +52,64 @@ use crate::pparse::node::{
     Node,
     //NodeContext,
     //NodeArena,
-    Parser,
-    ParserWeak,
     NodeValue,
 };
 
-use core::cell::{
-    //Ref,
-    RefCell,
-    //RefMut,
-};
-
-use alloc::rc::{
-    Rc,
-    Weak,
+use crate::pparse::parser::{
+  Parser,
+  ParserWeak,
+  new_node,
 };
 
 use alloc::vec;
 use alloc::collections::BTreeMap;
 
-
+use crate::pparse::lazy::json::parser::JsonParser;
 
 fn node_with_node<R>(current_node: &Node, nodeid: NodeId, f: impl FnOnce(&Node) -> R) -> R {
-    let ctx = current_node.ctx.as_ref().unwrap();
-    let parser = ctx.parser().upgrade().unwrap();
-    let parser = parser.borrow();
-    let arena = parser.arena.as_ref().unwrap();
-    let node = arena.get(nodeid).unwrap();
-    f(node)
+    let parser = current_node.ctx.as_ref().unwrap().parser().upgrade().unwrap();
+    let mut result: Option<R> = None;
+
+    let mut f_opt = Some(f);
+    parser.with_node(nodeid, &mut |node| {
+        result = Some(f_opt.take().unwrap()(node));
+    });
+    result.unwrap()
+    
 }
 
 fn node_with_node_mut<R>(current_node: &Node, nodeid: NodeId, f: impl FnOnce(&mut Node) -> R) -> R {
-    let ctx = current_node.ctx.as_ref().unwrap();
-    let parser = ctx.parser().upgrade().unwrap();
-    let mut parser = parser.borrow_mut();
-    let arena = parser.arena.as_mut().unwrap();
-    let node = arena.get_mut(nodeid).unwrap();
-    f(node)
+    let parser = current_node.ctx.as_ref().unwrap().parser().upgrade().unwrap();
+    let mut result: Option<R> = None;
+    let mut f_opt = Some(f);
+    parser.with_node_mut(nodeid, &mut |node| {
+        result = Some(f_opt.take().unwrap()(node));
+    });
+    result.unwrap()
 }
 
 fn node_with_parser<R>(parser_weak: &ParserWeak, nodeid: NodeId, f: impl FnOnce(&Node) -> R) -> R {
     let parser = parser_weak.upgrade().unwrap();
-    let parser = parser.borrow();
-    let node = parser.arena.as_ref().unwrap().get(nodeid).unwrap();
-    f(node)
+    let mut result: Option<R> = None;
+    let mut f_opt = Some(f);
+    parser.with_node(nodeid, &mut |node| {
+        result = Some(f_opt.take().unwrap()(node));
+    });
+    result.unwrap()
 }
 
 fn node_with_parser_mut<R>(parser_weak: &ParserWeak, nodeid: NodeId, f: impl FnOnce(&mut Node) -> R) -> R {
     let parser = parser_weak.upgrade().unwrap();
-    let mut parser = parser.borrow_mut();
-    let arena = parser.arena.as_mut().unwrap();
-    let node = arena.get_mut(nodeid).unwrap();
-    f(node)
+    let mut result: Option<R> = None;
+    let mut f_opt = Some(f);
+    parser.with_node_mut(nodeid, &mut |node| {
+        result = Some(f_opt.take().unwrap()(node));
+    });
+    result.unwrap()
 }
 
 fn rootid_with_parser(parser_weak: &ParserWeak) -> NodeId {
-    let parser = parser_weak.upgrade().unwrap();
-    let parser = parser.borrow();
-    let root_node: &Node = parser.root_node();
-    root_node.id()
+    parser_weak.upgrade().unwrap().root_id()
 }
 
 
@@ -122,35 +121,35 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> ! {
     println!("Hello using println!: {}", mystr);
     println!("---------------------------------------------");
 
-    let parser_rc: &Rc<RefCell<Parser>> = &Parser::new();
-    let parser_weak: &Weak<RefCell<Parser>> = &Rc::downgrade(parser_rc);
+    let parser_rc = Parser::<()>::_new();
+    let parser_weak = parser_rc.borrow().parser_weak();
     
-    let rootid = rootid_with_parser(parser_weak);
+    let rootid = rootid_with_parser(&parser_weak);
     println!("Root node id: {}", rootid);
 
-    node_with_parser_mut(parser_weak, rootid, |root_node| {
+    node_with_parser_mut(&parser_weak, rootid, |root_node| {
       root_node.value = NodeValue::Integer(67);
     });
 
-    let child_nodeid: NodeId = Parser::new_node(parser_weak, rootid);
+    let child_nodeid: NodeId = new_node(&parser_weak, rootid);
 
-    node_with_parser_mut(parser_weak, rootid, |root_node| {
+    node_with_parser_mut(&parser_weak, rootid, |root_node| {
       root_node.value = NodeValue::NodeId(child_nodeid);
     });
 
-    let nodeid = node_with_parser(parser_weak, rootid, |root_node| {
+    let nodeid = node_with_parser(&parser_weak, rootid, |root_node| {
       root_node.as_nodeid().unwrap()
     });
 
-    node_with_parser_mut(parser_weak, nodeid, |node| {
+    node_with_parser_mut(&parser_weak, nodeid, |node| {
       node.value = NodeValue::Integer(123);
     });
 
-    node_with_parser(parser_weak, nodeid, |node| {
+    node_with_parser(&parser_weak, nodeid, |node| {
       println!("child value {}", node.value);
     });
 
-    node_with_parser_mut(parser_weak, nodeid, |node| {
+    node_with_parser_mut(&parser_weak, nodeid, |node| {
       let list = vec![
           NodeValue::Integer(42),
           NodeValue::Str("hello".into()),
@@ -171,7 +170,7 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> ! {
     });
 
 
-    node_with_parser_mut(parser_weak, nodeid, |node| {
+    node_with_parser_mut(&parser_weak, nodeid, |node| {
       let map = BTreeMap::from([
         ("a".into(), NodeValue::Integer(42)),
         ("b".into(), NodeValue::None),
@@ -196,21 +195,33 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> ! {
       println!("Node value (as map): {}", node.value);
     });
 
-    node_with_parser_mut(parser_weak, rootid, |node| {
+    node_with_parser_mut(&parser_weak, rootid, |node| {
       // ! No ref counting leaks child node permanently.
       node.value = NodeValue::None;
       println!("Node value: {}", node.value);
     });
 
     { // Dump all entries in Arena.
-      let parser = parser_weak.upgrade().unwrap();
-      let parser = parser.borrow_mut();
+      let parser = parser_rc.borrow();
       let arena = parser.arena.as_ref().unwrap();
       println!("Key: Value for Arena\n--------------------------");
       for (key, node) in &arena.nodes {
         println!("{}: {}", key, node.value);
       }
     };
+
+
+    //let parser_rc = node.ctx.as_ref().unwrap().parser().upgrade().unwrap();
+
+    let json_parser = JsonParser::new();
+
+    // // Downcast Rc<dyn ParserBase> → &RefCell<Parser<JsonExt>>
+    // let json_parser = parser_rc
+    //     .as_any()
+    //     .downcast_ref::<RefCell<JsonParser>>()
+    //     .expect("node does not belong to a JsonParser");
+
+    json_parser.borrow().test();
 
     println!("Exit without error.");
     exit(0);

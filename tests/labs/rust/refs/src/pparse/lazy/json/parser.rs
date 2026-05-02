@@ -1,5 +1,80 @@
 
 
+use alloc::rc::Rc;
+use core::cell::RefCell;
+
+use crate::pparse::parser::{
+    Parser,
+};
+
+use crate::println;
+
+// --- Parser extension ---------------------------------------------------------
+
+pub struct JsonExt {
+    // Parser-level JSON state goes here (e.g. input buffer, config).
+}
+
+impl Default for JsonExt {
+    fn default() -> Self {
+        JsonExt {}
+    }
+}
+
+pub type JsonParser = Parser<JsonExt>;
+
+impl JsonParser {
+    pub fn new() -> Rc<RefCell<JsonParser>> {
+        Parser::<JsonExt>::_new()
+    }
+
+    pub fn test(&self) {
+        println!("Running from JsonParser.");
+    }
+
+    // JSON-specific parser methods go here, e.g.:
+    // pub fn parse(&mut self, input: &[u8]) { ... }
+}
+
+
+/*
+
+use crate::pparse::lazy::json::jsonnode::JsonExt;
+
+let parser_rc = node.ctx.as_ref().unwrap().parser().upgrade().unwrap();
+
+// Downcast Rc<dyn ParserBase> → &RefCell<Parser<JsonExt>>
+let json_parser = parser_rc
+    .as_any()
+    .downcast_ref::<RefCell<JsonParser>>()
+    .expect("node does not belong to a JsonParser");
+
+json_parser.borrow_mut().my_json_method();
+
+*/
+
+
+
+
+
+
+
+
+
+// --- Usage example ------------------------------------------------------------
+//
+// let parser_rc = JsonParser::new_json();
+// let parser_weak: ParserWeak = parser_rc.borrow().parser_weak();
+
+
+
+
+
+
+
+
+
+
 
 
 /*

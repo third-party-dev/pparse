@@ -1,39 +1,25 @@
-use core::cell::{
-    //Ref,
-    RefCell,
-    //RefMut,
-};
-use alloc::rc::{
-    Rc,
-    Weak,
-};
 
 use alloc::vec::Vec;
-
 use alloc::collections::BTreeMap;
-
 //use alloc::string::String;
-
 use slotmap::{
     SlotMap,
     new_key_type
 };
-
 use core::fmt::{
     Display,
     Formatter,
     Result
 };
-
 use alloc::boxed::Box;
-
 use core::any::{
     Any,
     TypeId
 };
-
+use crate::pparse::parser::ParserWeak;
 //use crate::println;
 //use crate::breakpoint;
+
 
 
 new_key_type! {
@@ -41,80 +27,50 @@ new_key_type! {
     pub struct NodeId;
 }
 
-
 impl Display for NodeId {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "NodeId({:?})", self.0)
     }
 }
 
-pub trait NodeState {
-    fn parse_data(&mut self, node: &mut Node);
+pub struct NodeArena {
+    pub parser: ParserWeak,
+    pub nodes: SlotMap<NodeId, Node>,
+    pub root_id: NodeId,
 }
 
-pub struct Parser {
-    pub arena: Option<NodeArena>,
-}
+impl NodeArena {
+    // Creates new node arena with a root node.
+    pub fn new(parser: ParserWeak) -> Self {
+        let mut nodes: SlotMap<NodeId, Node> = SlotMap::with_key();
 
-
-impl Parser {
-    pub fn new() -> Rc<RefCell<Parser>> {
-        // Note: Acceptable to have Parser with arena = None, but
-        //       never accept Arena without parser. Therefore we create
-        //       the parser first and then use its ref to create arena.
-        let parser_ref = Rc::new(RefCell::new(Parser { arena: None }));
-        let parser_weak = Rc::downgrade(&parser_ref);
-        parser_ref.borrow_mut().arena = Some(NodeArena::new(parser_weak));
-        parser_ref
-    }
-
-    pub fn new_node(parser_weak: &ParserWeak, parent_id: NodeId) -> NodeId {
-        let parser_rc = parser_weak.upgrade();
-        let parser = parser_rc.unwrap();
-
-        //breakpoint!();
-
-        let mut parser = parser.borrow_mut();
-        
-        parser.arena.as_mut().unwrap().nodes.insert_with_key(|node_id| Node {
-            ctx: Some(NodeContext::new(node_id, parent_id, parser_weak.clone())),
+        let root_id = nodes.insert_with_key(|node_id| Node {
+            ctx: Some(NodeContext::new(node_id, node_id, parser.clone())),
             value: NodeValue::None,
-        })
+        });
+
+        NodeArena { parser: parser, nodes: nodes, root_id: root_id }
     }
 
-    pub fn root_node(&self) -> &Node {
-        let arena = self.arena.as_ref().unwrap();
-        arena.root()
+    // Fetch read-only root node.
+    pub fn root(&self) -> &Node {
+        &self.nodes[self.root_id]
     }
 
-    pub fn root_node_mut(&mut self) -> &mut Node {
-        let arena = self.arena.as_mut().unwrap();
-        arena.root_mut()
+    // Fetch mutable root node.
+    pub fn root_mut(&mut self) -> &mut Node {
+        &mut self.nodes[self.root_id]
     }
 
-    pub fn node(&self, id: NodeId) -> Option<&Node> {
-        let arena = self.arena.as_ref().unwrap();
-        arena.get(id)
+    pub fn get(&self, id: NodeId) -> Option<&Node> {
+        self.nodes.get(id)
     }
 
-    pub fn node_mut(&mut self, id: NodeId) -> Option<&mut Node> {
-        let arena = self.arena.as_mut().unwrap();
-        arena.get_mut(id)
+    pub fn get_mut(&mut self, id: NodeId) -> Option<&mut Node> {
+        self.nodes.get_mut(id)
     }
 }
 
-
-pub type ParserWeak = Weak<RefCell<Parser>>;
-
-
-// enum DefaultNodeState { None }
-// impl NodeState for DefaultNodeState {
-//     fn parse_data(&mut self, node: &mut Node) {
-//         match self {
-//             _ => ParseDataResult::Ascend
-//         }
-//     }
-// }
 
 
 pub struct NodeContext {
@@ -133,9 +89,8 @@ pub struct NodeContext {
     descendants: Vec<NodeId>,
 }
 
-
 impl NodeContext {
-    fn new(this_id: NodeId, parent_id: NodeId, parser: ParserWeak) -> Self {
+    pub fn new(this_id: NodeId, parent_id: NodeId, parser: ParserWeak) -> Self {
         NodeContext {
             this_id: this_id,
             parent_id: parent_id,
@@ -160,7 +115,7 @@ impl NodeContext {
         self._state.as_mut().unwrap()
     }
     // Example: node.next_state(JsonNodeState::Object);
-    fn next_state<S: NodeState + 'static>(&mut self, state: S) {
+    pub fn next_state<S: NodeState + 'static>(&mut self, state: S) {
         self._next_state = Some(Box::new(state));
     }
 
@@ -192,11 +147,14 @@ impl NodeContext {
 
 }
 
+
+
+// Used for registering state transition generator.
 #[macro_export]
 macro_rules! new_state_generator {
     ($macro_name:ident, $enum_name:ident, $prefix:ident) => {
         macro_rules! $macro_name {
-            ($enum_name::$variant:ident) => {
+            ($variant:ident) => {
                 paste::paste! {
                     $enum_name::$variant([<$prefix $variant>]::new())
                 }
@@ -205,10 +163,18 @@ macro_rules! new_state_generator {
     };
 }
 
-enum ParseDataResult {
+// Enum returns by parse_data in all states.
+pub enum ParseDataResult {
     Again,
     Ascend,
 }
+
+// Primary trait for all states.
+pub trait NodeState {
+    fn parse_data(&mut self, node: &mut Node) -> ParseDataResult;
+}
+
+
 
 pub enum NodeValue {
     None,
@@ -222,12 +188,42 @@ pub enum NodeValue {
     Map(BTreeMap<Box<str>, NodeValue>),
 }
 
+impl Display for NodeValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            NodeValue::None => write!(f, "None"),
+            NodeValue::Integer(v) => write!(f, "{}", v),
+            NodeValue::Unsigned(v) => write!(f, "{}", v),
+            NodeValue::Float(v) => write!(f, "{}", v),
+            NodeValue::Str(v) => write!(f, "{}", v),
+            NodeValue::Bytes(v) => {
+                for byte in v.iter() {
+                    write!(f, "\\x{:02x}", byte)?;
+                }
+                Ok(())
+            },
+            NodeValue::NodeId(_v) => {
+                // TODO: Implement for real.
+                write!(f, "NodeRc")
+            },
+            NodeValue::List(v) => {
+                // TODO: Implement for real.
+                write!(f, "List<NodeValue> Len: {}", v.len())
+            },
+            NodeValue::Map(v) => {
+                // TODO: Implement for real.
+                write!(f, "BTreeMap<Box<str>, NodeValue> Len: {}", v.len())
+            }
+        }
+    }
+}
+
+
 
 pub struct Node {
     pub ctx: Option<NodeContext>,
     pub value: NodeValue,
 }
-
 
 impl Node {
     pub fn id(&self) -> NodeId {
@@ -302,47 +298,23 @@ impl Node {
     pub fn set_map(&mut self, val: BTreeMap<Box<str>, NodeValue>) {
         self.set_value(NodeValue::Map(val))
     }
-}
 
 
-pub struct NodeArena {
-    parser: ParserWeak,
-    pub nodes: SlotMap<NodeId, Node>,
-    pub root_id: NodeId,
-}
-
-
-impl NodeArena {
-    // Creates new node arena with a root node.
-    pub fn new(parser: ParserWeak) -> Self {
-        let mut nodes: SlotMap<NodeId, Node> = SlotMap::with_key();
-
-        let root_id = nodes.insert_with_key(|node_id| Node {
-            ctx: Some(NodeContext::new(node_id, node_id, parser.clone())),
-            value: NodeValue::None,
-        });
-
-        NodeArena { parser: parser, nodes: nodes, root_id: root_id }
+    pub fn with_node(&self, id: NodeId, f: &mut dyn FnMut(&Node)) {
+        let ctx = self.ctx.as_ref().unwrap();
+        let parser = ctx.parser().upgrade().unwrap();
+        parser.with_node(id, f);
     }
 
-    // Fetch read-only root node.
-    pub fn root(&self) -> &Node {
-        &self.nodes[self.root_id]
-    }
-
-    // Fetch mutable root node.
-    pub fn root_mut(&mut self) -> &mut Node {
-        &mut self.nodes[self.root_id]
-    }
-
-    pub fn get(&self, id: NodeId) -> Option<&Node> {
-        self.nodes.get(id)
-    }
-
-    pub fn get_mut(&mut self, id: NodeId) -> Option<&mut Node> {
-        self.nodes.get_mut(id)
+    pub fn with_node_mut(&self, id: NodeId, f: &mut dyn FnMut(&mut Node)) {
+        let ctx = self.ctx.as_ref().unwrap();
+        let parser = ctx.parser().upgrade().unwrap();
+        parser.with_node_mut(id, f);
     }
 }
+
+
+
 
 
 // TODO: When we remove edges in the graph, it leaves orphaned nodes.
@@ -368,35 +340,7 @@ impl NodeArena {
 // }
 
 
-impl Display for NodeValue {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        match self {
-            NodeValue::None => write!(f, "None"),
-            NodeValue::Integer(v) => write!(f, "{}", v),
-            NodeValue::Unsigned(v) => write!(f, "{}", v),
-            NodeValue::Float(v) => write!(f, "{}", v),
-            NodeValue::Str(v) => write!(f, "{}", v),
-            NodeValue::Bytes(v) => {
-                for byte in v.iter() {
-                    write!(f, "\\x{:02x}", byte)?;
-                }
-                Ok(())
-            },
-            NodeValue::NodeId(_v) => {
-                // TODO: Implement for real.
-                write!(f, "NodeRc")
-            },
-            NodeValue::List(v) => {
-                // TODO: Implement for real.
-                write!(f, "List<NodeValue> Len: {}", v.len())
-            },
-            NodeValue::Map(v) => {
-                // TODO: Implement for real.
-                write!(f, "BTreeMap<Box<str>, NodeValue> Len: {}", v.len())
-            }
-        }
-    }
-}
+
 
 
 

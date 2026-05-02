@@ -1,11 +1,22 @@
-use paste::paste;
+use crate::new_state_generator;
+
+use crate::pparse::node::{
+    NodeState,
+    Node,
+    ParseDataResult,
+};
+
 new_state_generator!(json_state, JsonNodeState, JsonParsing);
 
 
 struct JsonParsingComplete;
+impl JsonParsingComplete {
+    fn new() -> Self { JsonParsingComplete {} }
+}
 impl NodeState for JsonParsingComplete {
     fn parse_data(&mut self, node: &mut Node) -> ParseDataResult {
-        node.ctx.as_mut().unwrap().next_state(json_state!(Complete));
+        let state = json_state!(Complete);
+        node.ctx.as_mut().unwrap().next_state(state);
         return ParseDataResult::Ascend;
     }
 }
@@ -13,6 +24,7 @@ impl NodeState for JsonParsingComplete {
 
 struct JsonParsingNumber;
 impl NodeState for JsonParsingNumber {
+    
     fn parse_data(&mut self, node: &mut Node) -> ParseDataResult {
         node.ctx.as_mut().unwrap().next_state(json_state!(Complete));
         return ParseDataResult::Ascend;
@@ -77,15 +89,15 @@ enum JsonNodeState {
 
 
 impl NodeState for JsonNodeState {
-    fn parse_data(&mut self, node: &mut Node) {
+    fn parse_data(&mut self, node: &mut Node) -> ParseDataResult {
         match self {
-            JsonNodeState::Complete(s) => s.parse_data(self, node)
-            JsonNodeState::Number(s) => s.parse_data(self, node)
-            JsonNodeState::String(s) => s.parse_data(self, node)
-            JsonNodeState::Whitespace(s) => s.parse_data(self, node)
-            JsonNodeState::Constant(s) => s.parse_data(self, node)
-            JsonNodeState::Meta(s) => s.parse_data(self, node)
-            JsonNodeState::Start(s) => s.parse_data(self, node)
+            JsonNodeState::Complete(s) => s.parse_data(node),
+            JsonNodeState::Number(s) => s.parse_data(node),
+            JsonNodeState::String(s) => s.parse_data(node),
+            JsonNodeState::Whitespace(s) => s.parse_data(node),
+            JsonNodeState::Constant(s) => s.parse_data(node),
+            JsonNodeState::Meta(s) => s.parse_data(node),
+            JsonNodeState::Start(s) => s.parse_data(node),
         }
     }
 }
