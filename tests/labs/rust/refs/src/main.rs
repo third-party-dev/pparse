@@ -45,188 +45,298 @@ extern crate alloc;
 mod pparse;
 mod sys;
 
-use crate::sys::cstdlib::{exit, write, STDOUT};
+use alloc::vec;
+use alloc::collections::BTreeMap;
+use alloc::rc::Rc;
+use alloc::boxed::Box;
+
+use crate::sys::cstdlib::{
+  exit,
+  write,
+  STDOUT,
+};
+
+use crate::pparse::{
+  //Cursor,
+  //Data,
+  FileData,
+  DataUtl,
+};
 
 use crate::pparse::node::{
     NodeId,
     Node,
-    //NodeContext,
-    //NodeArena,
     NodeValue,
 };
 
 use crate::pparse::parser::{
   Parser,
-  ParserWeak,
+  //ParserWeak,
   new_node,
+  ParserBase,
+  ParserBaseExt, // Required for with_node_r
 };
-
-use alloc::vec;
-use alloc::collections::BTreeMap;
 
 use crate::pparse::lazy::json::parser::JsonParser;
 
-fn node_with_node<R>(current_node: &Node, nodeid: NodeId, f: impl FnOnce(&Node) -> R) -> R {
-    let parser = current_node.ctx.as_ref().unwrap().parser().upgrade().unwrap();
-    let mut result: Option<R> = None;
 
-    let mut f_opt = Some(f);
-    parser.with_node(nodeid, &mut |node| {
-        result = Some(f_opt.take().unwrap()(node));
-    });
-    result.unwrap()
-    
+fn test_cstdlib() {
+  println!("---------------------------------------------\nTEST: cstdlib");
+  let mystr: &str = "formatting works.";
+  write(STDOUT, b"Hello using write(STDOUT)\n");
+  // breakpoint!();
+  println!("Hello using println!: {}", mystr);
 }
 
-fn node_with_node_mut<R>(current_node: &Node, nodeid: NodeId, f: impl FnOnce(&mut Node) -> R) -> R {
-    let parser = current_node.ctx.as_ref().unwrap().parser().upgrade().unwrap();
-    let mut result: Option<R> = None;
-    let mut f_opt = Some(f);
-    parser.with_node_mut(nodeid, &mut |node| {
-        result = Some(f_opt.take().unwrap()(node));
-    });
-    result.unwrap()
+fn test_node_arena() {
+  println!("---------------------------------------------\nTEST: node_arena");
+  let parser_rc = Parser::<()>::_new();
+  let parser_weak = parser_rc.borrow().parser_weak();
+  
+  let rootid = parser_rc.root_id(); //rootid_with_parser(&parser_weak);
+  println!("Root node id: {}", rootid);
+
+  parser_rc.with_node_mut(rootid, &mut |root_node: &mut Node| {
+    root_node.value = NodeValue::Integer(67);
+  });
+
+  // node_with_parser_mut(&parser_weak, rootid, |root_node| {
+  //   root_node.value = NodeValue::Integer(67);
+  // });
+
+  let child_nodeid: NodeId = new_node(&parser_weak, rootid);
+
+  //node_with_parser_mut(&parser_weak, rootid, |root_node| {
+  parser_rc.with_node_mut(rootid, &mut |root_node: &mut Node| {
+    root_node.value = NodeValue::NodeId(child_nodeid);
+  });
+
+  // let nodeid = node_with_parser(&parser_weak, rootid, |root_node| {
+  // // let nodeid = parser_rc.with_node::<NodeId>(rootid, |root_node: &Node| {
+  //   root_node.as_nodeid().unwrap()
+  // });
+
+  //let nodeid = node_with_parser(&parser_weak, rootid, |node| node.as_nodeid().unwrap();
+  let nodeid = parser_rc.with_node_r(rootid, |node| node.as_nodeid().unwrap()).unwrap();
+
+  parser_rc.with_node_mut(nodeid, &mut |node| {
+  //node_with_parser_mut(&parser_weak, nodeid, |node| {
+    node.value = NodeValue::Integer(123);
+  });
+
+  parser_rc.with_node(nodeid, &mut |node| {
+  //node_with_parser(&parser_weak, nodeid, |node| {
+    println!("child value {}", node.value);
+  });
+
+  parser_rc.with_node_mut(nodeid, &mut |node| {
+  //node_with_parser_mut(&parser_weak, nodeid, |node| {
+    let list = vec![
+        NodeValue::Integer(42),
+        NodeValue::Str("hello".into()),
+    ];
+    node.set_list(list);
+    //node.value = NodeValue::Integer(123);
+    println!("child value {}", node.value);
+
+    if node.is_list() {
+        let list_ref = node.as_list_mut();
+        if !list_ref.is_none() {
+            let list_ref = list_ref.unwrap();
+
+            list_ref.push(NodeValue::Integer(313));
+        }
+    }
+    println!("Node value (as list): {}", node.value);
+  });
+
+
+  parser_rc.with_node_mut(nodeid, &mut |node| {
+  //node_with_parser_mut(&parser_weak, nodeid, |node| {
+    let map = BTreeMap::from([
+      ("a".into(), NodeValue::Integer(42)),
+      ("b".into(), NodeValue::None),
+    ]);
+    node.set_map(map);
+    //node.value = NodeValue::Integer(123);
+    println!("child value {}", node.value);
+
+    if node.is_map() {
+      let map_ref = node.as_map_mut();
+      if !map_ref.is_none() {
+        let map_ref = map_ref.unwrap();
+        // Add entry
+        map_ref.insert("c".into(), NodeValue::Str("mine".into()));
+        // Do replace
+        map_ref.insert("a".into(), NodeValue::Integer(303));
+        // Remove entry
+        map_ref.remove("b");
+      }
+    }
+
+    println!("Node value (as map): {}", node.value);
+  });
+
+  parser_rc.with_node_mut(rootid, &mut |node| {
+  //node_with_parser_mut(&parser_weak, rootid, |node| {
+    // ! No ref counting leaks child node permanently.
+    node.value = NodeValue::None;
+    println!("Node value: {}", node.value);
+  });
+
+  { // Dump all entries in Arena.
+    let parser = parser_rc.borrow();
+    let arena = parser.arena.as_ref().unwrap();
+    println!("Key: Value for Arena\n--------------------------");
+    for (key, node) in &arena.nodes {
+      println!("{}: {}", key, node.value);
+    }
+  };
 }
 
-fn node_with_parser<R>(parser_weak: &ParserWeak, nodeid: NodeId, f: impl FnOnce(&Node) -> R) -> R {
-    let parser = parser_weak.upgrade().unwrap();
-    let mut result: Option<R> = None;
-    let mut f_opt = Some(f);
-    parser.with_node(nodeid, &mut |node| {
-        result = Some(f_opt.take().unwrap()(node));
-    });
-    result.unwrap()
-}
+fn test_json_parser() {
+  println!("---------------------------------------------\nTEST: json_parser");
 
-fn node_with_parser_mut<R>(parser_weak: &ParserWeak, nodeid: NodeId, f: impl FnOnce(&mut Node) -> R) -> R {
-    let parser = parser_weak.upgrade().unwrap();
-    let mut result: Option<R> = None;
-    let mut f_opt = Some(f);
-    parser.with_node_mut(nodeid, &mut |node| {
-        result = Some(f_opt.take().unwrap()(node));
-    });
-    result.unwrap()
-}
 
-fn rootid_with_parser(parser_weak: &ParserWeak) -> NodeId {
-    parser_weak.upgrade().unwrap().root_id()
+  let data_source = Rc::new(FileData::open(Box::from("path/to/file")));
+  //let cursor = Cursor::new(data_source, 0);
+  let cursor = DataUtl::open(data_source, 0);
+
+
+  let json_parser = JsonParser::new();
+  json_parser.borrow().test();
+
+  let mine: &[u8] = b"asdf\0";
+  //let _:()=mine;
+
+  // TODO: Create cursor
+  // TODO: Create range
+  // TODO: Create BytesExtraction (and add parser)
+  // TODO: Setup parser with source Extraction
+  // TODO: json_parser.root.load()
 }
 
 
 #[no_mangle]
 pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> ! {
-    let mystr: &str = "formatting works.";
-    write(STDOUT, b"Hello using write(STDOUT)\n");
-    // breakpoint!();
-    println!("Hello using println!: {}", mystr);
-    println!("---------------------------------------------");
-
-    let parser_rc = Parser::<()>::_new();
-    let parser_weak = parser_rc.borrow().parser_weak();
-    
-    let rootid = rootid_with_parser(&parser_weak);
-    println!("Root node id: {}", rootid);
-
-    node_with_parser_mut(&parser_weak, rootid, |root_node| {
-      root_node.value = NodeValue::Integer(67);
-    });
-
-    let child_nodeid: NodeId = new_node(&parser_weak, rootid);
-
-    node_with_parser_mut(&parser_weak, rootid, |root_node| {
-      root_node.value = NodeValue::NodeId(child_nodeid);
-    });
-
-    let nodeid = node_with_parser(&parser_weak, rootid, |root_node| {
-      root_node.as_nodeid().unwrap()
-    });
-
-    node_with_parser_mut(&parser_weak, nodeid, |node| {
-      node.value = NodeValue::Integer(123);
-    });
-
-    node_with_parser(&parser_weak, nodeid, |node| {
-      println!("child value {}", node.value);
-    });
-
-    node_with_parser_mut(&parser_weak, nodeid, |node| {
-      let list = vec![
-          NodeValue::Integer(42),
-          NodeValue::Str("hello".into()),
-      ];
-      node.set_list(list);
-      //node.value = NodeValue::Integer(123);
-      println!("child value {}", node.value);
-
-      if node.is_list() {
-          let list_ref = node.as_list_mut();
-          if !list_ref.is_none() {
-              let list_ref = list_ref.unwrap();
-
-              list_ref.push(NodeValue::Integer(313));
-          }
-      }
-      println!("Node value (as list): {}", node.value);
-    });
-
-
-    node_with_parser_mut(&parser_weak, nodeid, |node| {
-      let map = BTreeMap::from([
-        ("a".into(), NodeValue::Integer(42)),
-        ("b".into(), NodeValue::None),
-      ]);
-      node.set_map(map);
-      //node.value = NodeValue::Integer(123);
-      println!("child value {}", node.value);
-
-      if node.is_map() {
-        let map_ref = node.as_map_mut();
-        if !map_ref.is_none() {
-          let map_ref = map_ref.unwrap();
-          // Add entry
-          map_ref.insert("c".into(), NodeValue::Str("mine".into()));
-          // Do replace
-          map_ref.insert("a".into(), NodeValue::Integer(303));
-          // Remove entry
-          map_ref.remove("b");
-        }
-      }
-
-      println!("Node value (as map): {}", node.value);
-    });
-
-    node_with_parser_mut(&parser_weak, rootid, |node| {
-      // ! No ref counting leaks child node permanently.
-      node.value = NodeValue::None;
-      println!("Node value: {}", node.value);
-    });
-
-    { // Dump all entries in Arena.
-      let parser = parser_rc.borrow();
-      let arena = parser.arena.as_ref().unwrap();
-      println!("Key: Value for Arena\n--------------------------");
-      for (key, node) in &arena.nodes {
-        println!("{}: {}", key, node.value);
-      }
-    };
-
-
-    //let parser_rc = node.ctx.as_ref().unwrap().parser().upgrade().unwrap();
-
-    let json_parser = JsonParser::new();
-
-    // // Downcast Rc<dyn ParserBase> → &RefCell<Parser<JsonExt>>
-    // let json_parser = parser_rc
-    //     .as_any()
-    //     .downcast_ref::<RefCell<JsonParser>>()
-    //     .expect("node does not belong to a JsonParser");
-
-    json_parser.borrow().test();
-
-    println!("Exit without error.");
-    exit(0);
+  test_cstdlib();
+  test_node_arena();
+  test_json_parser();
+  println!("---------------------------------------------");
+  println!("Exit without error.");
+  println!("---------------------------------------------");
+  exit(0);
 }
 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Downcast Rc<dyn ParserBase> → &RefCell<Parser<JsonExt>>
+  // let json_parser = parser_rc
+  //     .as_any()
+  //     .downcast_ref::<RefCell<JsonParser>>()
+  //     .expect("node does not belong to a JsonParser");
+
+
+
+
+// fn node_with_node<R>(current_node: &Node, nodeid: NodeId, f: impl FnOnce(&Node) -> R) -> R {
+//     let parser = current_node.ctx.as_ref().unwrap().parser().upgrade().unwrap();
+//     let mut result: Option<R> = None;
+
+//     let mut f_opt = Some(f);
+//     parser.with_node(nodeid, &mut |node| {
+//         result = Some(f_opt.take().unwrap()(node));
+//     });
+//     result.unwrap()
+    
+// }
+
+// fn node_with_node_mut<R>(current_node: &Node, nodeid: NodeId, f: impl FnOnce(&mut Node) -> R) -> R {
+//     let parser = current_node.ctx.as_ref().unwrap().parser().upgrade().unwrap();
+//     let mut result: Option<R> = None;
+//     let mut f_opt = Some(f);
+//     parser.with_node_mut(nodeid, &mut |node| {
+//         result = Some(f_opt.take().unwrap()(node));
+//     });
+//     result.unwrap()
+// }
+
+// fn node_with_parser<R>(parser_weak: &ParserWeak, nodeid: NodeId, f: impl FnOnce(&Node) -> R) -> R {
+//     let parser = parser_weak.upgrade().unwrap();
+//     let mut result: Option<R> = None;
+//     let mut f_opt = Some(f);
+//     parser.with_node(nodeid, &mut |node| {
+//         result = Some(f_opt.take().unwrap()(node));
+//     });
+//     result.unwrap()
+// }
+
+// fn node_with_parser_mut<R>(parser_weak: &ParserWeak, nodeid: NodeId, f: impl FnOnce(&mut Node) -> R) -> R {
+//     let parser = parser_weak.upgrade().unwrap();
+//     let mut result: Option<R> = None;
+//     let mut f_opt = Some(f);
+//     parser.with_node_mut(nodeid, &mut |node| {
+//         result = Some(f_opt.take().unwrap()(node));
+//     });
+//     result.unwrap()
+// }
+
+// fn rootid_with_parser(parser_weak: &ParserWeak) -> NodeId {
+//     parser_weak.upgrade().unwrap().root_id()
+// }

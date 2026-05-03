@@ -92,16 +92,14 @@ impl<E: 'static> ParserBase for RefCell<Parser<E>> {
 
     fn with_node(&self, id: NodeId, f: &mut dyn FnMut(&Node)) {
         let parser = self.borrow();
-        let arena = parser.arena.as_ref().unwrap();
-        if let Some(node) = arena.nodes.get(id) {
+        if let Some(node) = parser.arena.as_ref().unwrap().nodes.get(id) {
             f(node);
         }
     }
 
     fn with_node_mut(&self, id: NodeId, f: &mut dyn FnMut(&mut Node)) {
         let mut parser = self.borrow_mut();
-        let arena = parser.arena.as_mut().unwrap();
-        if let Some(node) = arena.nodes.get_mut(id) {
+        if let Some(node) = parser.arena.as_mut().unwrap().nodes.get_mut(id) {
             f(node);
         }
     }
@@ -110,3 +108,28 @@ impl<E: 'static> ParserBase for RefCell<Parser<E>> {
         self.borrow().arena.as_ref().unwrap().root_id
     }
 }
+
+
+pub trait ParserBaseExt: ParserBase {
+    fn with_node_r<R>(&self, id: NodeId, f: impl FnOnce(&Node) -> R) -> Option<R> {
+        let mut result = None;
+        let mut f = Some(f);
+        self.with_node(id, &mut |node| {
+            result = Some(f.take().unwrap()(node));
+        });
+        result
+    }
+
+    fn with_node_mut_r<R>(&self, id: NodeId, f: impl FnOnce(&mut Node) -> R) -> Option<R> {
+        let mut result = None;
+        let mut f = Some(f);
+        self.with_node_mut(id, &mut |node| {
+            result = Some(f.take().unwrap()(node));
+        });
+        result
+    }
+}
+
+impl<T: ParserBase + ?Sized> ParserBaseExt for T {}
+
+
