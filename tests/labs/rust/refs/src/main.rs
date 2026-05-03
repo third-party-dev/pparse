@@ -48,7 +48,7 @@ mod sys;
 use alloc::vec;
 use alloc::collections::BTreeMap;
 use alloc::rc::Rc;
-use alloc::boxed::Box;
+//use alloc::boxed::Box;
 
 use crate::sys::cstdlib::{
   exit,
@@ -57,10 +57,13 @@ use crate::sys::cstdlib::{
 };
 
 use crate::pparse::{
-  //Cursor,
-  //Data,
+  Cursor,
+  Range,
+  Data,
   FileData,
   DataUtl,
+  //ErrnoException,
+  //Exception,
 };
 
 use crate::pparse::node::{
@@ -83,7 +86,7 @@ use crate::pparse::lazy::json::parser::JsonParser;
 fn test_cstdlib() {
   println!("---------------------------------------------\nTEST: cstdlib");
   let mystr: &str = "formatting works.";
-  write(STDOUT, b"Hello using write(STDOUT)\n");
+  write(STDOUT, b"Hello using write(STDOUT)\n").expect("write(STDOUT) failed.");
   // breakpoint!();
   println!("Hello using println!: {}", mystr);
 }
@@ -197,19 +200,33 @@ fn test_node_arena() {
 fn test_json_parser() {
   println!("---------------------------------------------\nTEST: json_parser");
 
+  let data_source = {
+    //let fpath = Box::<str>::from("path/to/file");
+    //let fpath_bytes = fpath.as_bytes();
+    match FileData::open(b"test.json") {
+      Ok(file_data) => Rc::new(file_data),
+      Err(e) => {
+        // // No need to panic.
+        // let msg = Box::from("Failed to open file.");
+        // let e = ErrnoException::new(msg, errno);
+        println!("ERROR: {}", e);
+        exit(1);
+      },
+    }
+  };
 
-  let data_source = Rc::new(FileData::open(Box::from("path/to/file")));
-  //let cursor = Cursor::new(data_source, 0);
-  let cursor = DataUtl::open(data_source, 0);
+  let cursor: Cursor = DataUtl::cursor(data_source.clone(), 0);
 
+  if let Ok(length) = data_source.length() {
+    let range: Range = DataUtl::range(&cursor, length);
+  }
 
   let json_parser = JsonParser::new();
   json_parser.borrow().test();
 
-  let mine: &[u8] = b"asdf\0";
+  let _mine: &[u8] = b"asdf\0";
   //let _:()=mine;
 
-  // TODO: Create cursor
   // TODO: Create range
   // TODO: Create BytesExtraction (and add parser)
   // TODO: Setup parser with source Extraction

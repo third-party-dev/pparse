@@ -2,8 +2,14 @@
 pub const STDOUT: i32 = 1;
 pub const SIGTRAP: i32 = libc::SIGTRAP;
 
+pub const O_RDONLY: i32 = libc::O_RDONLY;
+
+pub const SEEK_SET: i32 = libc::SEEK_SET;
+pub const SEEK_END: i32 = libc::SEEK_END;
+pub const SEEK_CUR: i32 = libc::SEEK_CUR;
+
 use alloc::vec::Vec;
-use alloc::boxed::Box;
+//use alloc::boxed::Box;
 use alloc::ffi::CString;
 
 pub fn exit(code: i32) -> ! {
@@ -24,8 +30,8 @@ pub fn _open(path: &[u8], flags: i32) -> i32 {
 }
 
 // open(Box::from("/etc/passwd"), libc::O_RDONLY)
-pub fn open(path: Box<str>, flags: i32) -> Result<i32, i32> {
-  let path = CString::new(path.as_bytes()).map_err(|_| libc::EINVAL)?;
+pub fn open(path: &[u8], flags: i32) -> Result<i32, i32> {
+  let path = CString::new(path).map_err(|_| libc::EINVAL)?;
   let fd = unsafe { libc::open(path.as_ptr(), flags) };
   if fd < 0 {
     Err(unsafe { *libc::__errno_location() })
@@ -40,8 +46,8 @@ pub fn open(path: Box<str>, flags: i32) -> Result<i32, i32> {
 //   unsafe { libc::stat(path.as_ptr(), stat.as_mut_ptr()) }
 // }
 
-pub fn stat(path: Box<str>) -> Result<libc::stat, i32> {
-    let path = CString::new(path.as_bytes()).map_err(|_| libc::EINVAL)?;
+pub fn stat(path: &[u8]) -> Result<libc::stat, i32> {
+    let path = CString::new(path).map_err(|_| libc::EINVAL)?;
     let mut stat = core::mem::MaybeUninit::<libc::stat>::uninit();
     let result = unsafe { libc::stat(path.as_ptr(), stat.as_mut_ptr()) };
     if result < 0 {
@@ -68,7 +74,7 @@ pub fn write(fd: i32, buf: &[u8]) -> Result<usize, i32> {
 
 // let buf = [0u8; 10]; OR let buf: Vec<u8> = alloc::vec![0u8; 10];
 // _read(fd, &mut buf[5..]);
-pub fn _read(fd: i32, buf: &mut [u8], count: usize) -> i32 {
+pub fn _read(fd: i32, buf: &mut [u8]) -> i32 {
     unsafe { libc::read(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) as i32 }
 }
 
@@ -83,5 +89,20 @@ pub fn read(fd: i32, len: usize) -> Result<Vec<u8>, i32> {
     } else {
         unsafe { buf.set_len(result as usize) };
         Ok(buf)
+    }
+}
+
+
+
+pub fn _lseek(fd: i32, offset: i64, whence: i32) -> i64 {
+    unsafe { libc::lseek(fd, offset, whence) as i64 }
+}
+
+pub fn lseek(fd: i32, offset: i64, whence: i32) -> Result<i64, i32> {
+    let result = unsafe { libc::lseek(fd, offset, whence) };
+    if result < 0 {
+        Err(unsafe { *libc::__errno_location() })
+    } else {
+        Ok(result)
     }
 }

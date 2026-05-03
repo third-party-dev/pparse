@@ -1,5 +1,6 @@
 use core::panic::PanicInfo;
 use crate::println;
+use crate::sys::cstdlib::abort;
 
 // #[panic_handler]
 // fn panic(_: &PanicInfo) -> ! {
@@ -20,4 +21,10 @@ fn panic(info: &PanicInfo) -> ! {
 #[no_mangle]
 pub extern "C" fn rust_eh_personality() {
     // Called by debug libcore during exception handling.
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn _Unwind_Resume() -> ! {
+    //core::intrinsics::abort()
+    abort()
 }
