@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Rust binary",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/reftests",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "build-dev"
+        }
+    ]
+}

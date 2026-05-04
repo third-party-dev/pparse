@@ -1,0 +1,32 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build-dev",
+            "type": "shell",
+            "command": "env && cargo build",
+			"options": {
+				"env": {
+					"PATH": "${env:HOME}/.cargo/bin:${env:PATH}"
+				}
+			},
+            "group": "build",
+            "problemMatcher": ["$rustc"]
+        }
+        // {
+        //     "label": "pre-debug",
+        //     "dependsOn": ["build", "setup-env"],
+        //     "dependsOrder": "sequence"
+        // },
+        // {
+        //     "label": "build",
+        //     "type": "shell",
+        //     "command": "cargo build"
+        // },
+        // {
+        //     "label": "setup-env",
+        //     "type": "shell",
+        //     "command": "./setup_test_env.sh"
+        // }
+    ]
+}
