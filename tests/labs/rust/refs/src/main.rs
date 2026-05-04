@@ -63,7 +63,7 @@ use crate::pparse::{
   FileData,
   DataUtl,
   //ErrnoException,
-  //Exception,
+  Exception,
 };
 
 use crate::pparse::node::{
@@ -197,29 +197,14 @@ fn test_node_arena() {
   };
 }
 
-fn test_json_parser() {
+fn test_json_parser() -> Result<(), Exception> {
   println!("---------------------------------------------\nTEST: json_parser");
 
-  let data_source = {
-    //let fpath = Box::<str>::from("path/to/file");
-    //let fpath_bytes = fpath.as_bytes();
-    match FileData::open(b"test.json") {
-      Ok(file_data) => Rc::new(file_data),
-      Err(e) => {
-        // // No need to panic.
-        // let msg = Box::from("Failed to open file.");
-        // let e = ErrnoException::new(msg, errno);
-        println!("ERROR: {}", e);
-        exit(1);
-      },
-    }
-  };
-
+  let data_source = Rc::new(FileData::open(b"test.json")?);
   let cursor: Cursor = DataUtl::cursor(data_source.clone(), 0);
+  let length = data_source.length()?;
+  let range: Range = DataUtl::range(&cursor, length);
 
-  if let Ok(length) = data_source.length() {
-    let range: Range = DataUtl::range(&cursor, length);
-  }
 
   let json_parser = JsonParser::new();
   json_parser.borrow().test();
@@ -227,10 +212,11 @@ fn test_json_parser() {
   let _mine: &[u8] = b"asdf\0";
   //let _:()=mine;
 
-  // TODO: Create range
   // TODO: Create BytesExtraction (and add parser)
   // TODO: Setup parser with source Extraction
   // TODO: json_parser.root.load()
+
+  Ok(())
 }
 
 
@@ -238,7 +224,12 @@ fn test_json_parser() {
 pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> ! {
   test_cstdlib();
   test_node_arena();
-  test_json_parser();
+
+  if let Err(e) = test_json_parser() {
+    println!("ERROR: {}", e);
+    exit(1);
+  }
+  
   println!("---------------------------------------------");
   println!("Exit without error.");
   println!("---------------------------------------------");
