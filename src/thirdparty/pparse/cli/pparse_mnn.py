@@ -26,8 +26,7 @@ def mnn_view(args):
         mnn = obj._extraction._result['flatbuffers'].value
 
         if args.print:
-            print(mnn.dumps())
-            #obj.root_node().dump()
+            obj.root_node().dump()
 
     except Exception as e:
         print(e)

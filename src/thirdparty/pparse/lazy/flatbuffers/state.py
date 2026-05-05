@@ -108,14 +108,67 @@ class FlatbuffersParsingVectorOfScalars(FlatbuffersParsingState):
             node._value = ctx.read(elem_size * elem_count)
             ctx._next_state(FlatBuffersParsingComplete)
             return pparse.ASCEND
+        
+        if type_desc['type']['element'].lower() == 'byte':
+            node._value = ctx.read(elem_size * elem_count)
+            ctx._next_state(FlatBuffersParsingComplete)
+            return pparse.ASCEND
 
         if type_desc['type']['element'].lower() == 'int':
             # TODO: Consider more efficient handler (esp with array is large)
             node._value = struct.unpack(f'<{elem_count}i', ctx.read(elem_size * elem_count))
             ctx._next_state(FlatBuffersParsingComplete)
             return pparse.ASCEND
+        
+        if type_desc['type']['element'].lower() == 'float':
+            # TODO: Consider more efficient handler (esp with array is large)
+            node._value = struct.unpack(f'<{elem_count}f', ctx.read(elem_size * elem_count))
+            ctx._next_state(FlatBuffersParsingComplete)
+            return pparse.ASCEND
 
         breakpoint()
+
+
+class FlatbuffersParsingString(FlatbuffersParsingState):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+
+        node._value = parser.read_string(ctx)
+        ctx._next_state(FlatBuffersParsingComplete)
+        return pparse.ASCEND
+
+
+class FlatbuffersParsingVectorOfStrings(FlatbuffersParsingState):
+    def parse_data(self, node: pparse.Node):
+        ctx = node.ctx()
+        parser = ctx.parser()
+
+        type_desc = ctx.type_desc()
+
+        # Generate nodes for each string and append to descendants in Post
+        elem_count = parser.read_u32(ctx)
+
+        node._value = []
+        for elem_idx in range(elem_count):
+            # Advance to vector elem (offset to table)
+            ctx.seek(node.tell() + ((elem_idx + 1) * 4))
+            ctx.skip(parser.peek_u32(ctx))
+            # We're now at the target string.
+            node._value.append(parser.new_node_string(node))
+
+        
+
+        # Not until the loop is done do we try to submit descendants.
+
+        # Note: With flatbuffers, we can easily not worry about descendants now.
+        # TODO: Detect if Node.load(recursive=True)?
+        for node_str in node._value:
+            ctx._descendants.append(node_str)
+
+        # We're done.
+        ctx._next_state(FlatBuffersParsingComplete)
+        return pparse.ASCEND
 
 
 class FlatbuffersParsingUnion(FlatbuffersParsingState):
@@ -162,12 +215,25 @@ class FlatbuffersParsingTableField(FlatbuffersParsingState):
             if type_desc['type']['element'].lower() == 'obj':
                 ctx._next_state(FlatbuffersParsingVectorOfTables)
                 return pparse.AGAIN
+            # TODO: Difference in ubyte and byte?
             if type_desc['type']['element'].lower() == 'ubyte':
+                ctx._next_state(FlatbuffersParsingVectorOfScalars)
+                return pparse.AGAIN
+            # TODO: Difference in ubyte and byte?
+            if type_desc['type']['element'].lower() == 'byte':
                 ctx._next_state(FlatbuffersParsingVectorOfScalars)
                 return pparse.AGAIN
             if type_desc['type']['element'].lower() == 'int':
                 ctx._next_state(FlatbuffersParsingVectorOfScalars)
                 return pparse.AGAIN
+            if type_desc['type']['element'].lower() == 'float':
+                ctx._next_state(FlatbuffersParsingVectorOfScalars)
+                return pparse.AGAIN
+            if type_desc['type']['element'].lower() == 'string':
+                ctx._next_state(FlatbuffersParsingVectorOfStrings)
+                return pparse.AGAIN
+            
+
         if type_desc['type']['base_type'].lower() == 'union':
             raise ValueError("A union should never reach FlatbuffersParsingTableField")
         if type_desc['type']['base_type'].lower() == 'utype':

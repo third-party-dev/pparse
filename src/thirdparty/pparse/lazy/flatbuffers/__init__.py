@@ -8,7 +8,11 @@ log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 #from thirdparty.pparse.lazy.flatbuffers.node import Node, NodeVector, NodeTable
-from thirdparty.pparse.lazy.flatbuffers.state import FlatbuffersParsingRootTableOffset, FlatbuffersParsingVTable
+from thirdparty.pparse.lazy.flatbuffers.state import (
+    FlatbuffersParsingRootTableOffset,
+    FlatbuffersParsingVTable,
+    FlatbuffersParsingString
+)
 from thirdparty.pparse.lazy.flatbuffers.meta import FlatbuffersSchema
 from thirdparty.pparse.lazy.flatbuffers.node import NodeContext
 
@@ -56,6 +60,12 @@ def make_flatbuffers_parser(ext_list=['.unknown'], json_schema={}):
             node_table.ctx()._type_desc = self.schema.objects[table_name]
             node_table.ctx()._next_state(FlatbuffersParsingVTable)
             return node_table
+        
+        # Note: Expecting ctx.reader() to be at start of new node table.
+        def new_node_string(self, node):
+            node_str = pparse.Node(node.ctx().reader(), self, parent=node, ctx_class=NodeContext)
+            node_str.ctx()._next_state(FlatbuffersParsingString)
+            return node_str
 
         def new_node_table_idx(self, node, table_idx):
             node_table = pparse.Node(node.ctx().reader(), self, parent=node, ctx_class=NodeContext)
