@@ -12,8 +12,18 @@ fi
 
 echo "$VERSION" > ${PROJ_PATH}/VERSION
 
-python -m build --outdir ${PROJ_PATH}/outputs/dist
-python -m build --sdist --outdir ${PROJ_PATH}/outputs/dist
+python -m build --no-isolation --outdir ${PROJ_PATH}/outputs/dist
+python -m build --no-isolation --sdist --outdir ${PROJ_PATH}/outputs/dist
+
+# Build a minimal set of packages for offline deployments.
+pushd outputs/dist
+PIP_PKG_PATH=pparse-pip-pkgs-py$(python --version | awk '{print $2}')-$VERSION
+mkdir -p $PIP_PKG_PATH
+#echo "pip download -f . -d $PIP_PKG_PATH \"thirdparty-pparse==$VERSION\""
+pip download -f . -d $PIP_PKG_PATH "thirdparty-pparse==$VERSION"
+echo "thirdparty-pparse==$VERSION" > $PIP_PKG_PATH/requirements.txt
+tar -czf $PIP_PKG_PATH.tar.gz $PIP_PKG_PATH
+popd
 
 echo "!! Ensure clean repo before tagging. !!"
 echo
