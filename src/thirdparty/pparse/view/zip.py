@@ -25,7 +25,9 @@ class Zip:
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            self._extraction.discover_parsers({ "zip": LazyZipParser, })
+            parser = LazyZipParser(self._extraction, 'zip')
+            self._extraction.add_parser('zip', parser)
+            #self._extraction.discover_parsers({ "zip": LazyZipParser, })
             self._extraction._parser['zip']._root.load()
         
         except pparse.EndOfDataException as e:

@@ -171,6 +171,6 @@ class Dumper:
             if isinstance(obj, dumper[0]):
                 dumper[1](elem_name=elem_name, obj=obj, attrs=attrs, depth=depth, step=step)
                 return
-        self._dump_else(elem_name=elem_name, obj=obj, attrs=attrs, depth=depth, step=step)
+        self._dump_else_wrapper(elem_name=elem_name, obj=obj, attrs=attrs, depth=depth, step=step)
 
 

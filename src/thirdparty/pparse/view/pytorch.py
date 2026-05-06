@@ -68,7 +68,9 @@ class PyTorch:
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            self._extraction.discover_parsers({"pt": LazyPyTorchParser})
+            parser = LazyPyTorchParser(self._extraction, 'pt')
+            self._extraction.add_parser('pt', parser)
+            #self._extraction.discover_parsers({"pt": LazyPyTorchParser})
             self._extraction._parser['pt']._root.load()
         except pparse.EndOfDataException as e:
             print(e)

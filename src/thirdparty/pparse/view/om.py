@@ -19,7 +19,9 @@ class Om:
             log.info("Parsing the OM container file.")
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
-            self._extraction.discover_parsers({ "om": LazyOmParser })
+            parser = LazyOmParser(self._extraction, 'om')
+            self._extraction.add_parser('om', parser)
+            #self._extraction.discover_parsers({ "om": LazyOmParser })
             self._extraction.scan_data()
 
             if not header_only:

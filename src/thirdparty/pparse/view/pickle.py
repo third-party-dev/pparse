@@ -14,7 +14,9 @@ class Pickle:
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            self._extraction.discover_parsers({"pkl": LazyPickleParser})
+            parser = LazyPickleParser(self._extraction, 'pkl')
+            self._extraction.add_parser('pkl', parser)
+            #self._extraction.discover_parsers({"pkl": LazyPickleParser})
             self._extraction._parser['pkl']._root.load()
         
         except pparse.EndOfDataException as e:

@@ -23,8 +23,10 @@ class Flatbuffers:
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            parser = make_flatbuffers_parser(ext_list=[Path(fname).suffix], json_schema=json_schema)
-            self._extraction.discover_parsers({"flatbuffers": parser})
+            parser_class = make_flatbuffers_parser(ext_list=[Path(fname).suffix], json_schema=json_schema)
+            parser = parser_class(self._extraction, 'flatbuffers')
+            self._extraction.add_parser('flatbuffers', parser)
+            #self._extraction.discover_parsers({"flatbuffers": parser})
             self._extraction._parser['flatbuffers']._root.load()
 
         except pparse.EndOfDataException as e:

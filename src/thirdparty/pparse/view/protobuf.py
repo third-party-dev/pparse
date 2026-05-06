@@ -21,8 +21,10 @@ class Parser:
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
-            parser = make_protobuf_parser(ext_list=[Path(fpath).suffix], init_msgtype=msgtype, proto=PbImport(pbpath))
-            self._extraction.discover_parsers({"protobuf": parser})
+            parser_class = make_protobuf_parser(ext_list=[Path(fpath).suffix], init_msgtype=msgtype, proto=PbImport(pbpath))
+            parser = parser_class(self._extraction, 'protobuf')
+            self._extraction.add_parser('protobuf', parser)
+            #self._extraction.discover_parsers({"protobuf": parser})
             self._extraction._parser['protobuf']._root.load()
 
         except pparse.EndOfDataException as e:

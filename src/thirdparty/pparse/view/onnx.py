@@ -75,8 +75,10 @@ class Onnx:
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            parser = make_protobuf_parser(ext_list=[".onnx"], init_msgtype=".onnx.ModelProto", proto=proto)
-            self._extraction.discover_parsers({"protobuf": parser})
+            parser_class = make_protobuf_parser(ext_list=[".onnx"], init_msgtype=".onnx.ModelProto", proto=proto)
+            parser = parser_class(self._extraction, 'protobuf')
+            self._extraction.add_parser('protobuf', parser)
+            #self._extraction.discover_parsers({"protobuf": parser})
             self._extraction._parser['protobuf']._root.load()
 
             # Some light post processing.

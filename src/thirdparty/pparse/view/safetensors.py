@@ -158,12 +158,13 @@ class SafeTensors:
         return hashlib.sha256(sane_json.encode("utf-8")).hexdigest()
 
 
-
     def _parse(self, data_source, fname="unnamed.safetensors"):
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            self._extraction.discover_parsers({"safetensors": LazySafetensorsParser})
+            parser = LazySafetensorsParser(self._extraction, 'safetensors')
+            self._extraction.add_parser('safetensors', parser)
+            #self._extraction.discover_parsers({"safetensors": LazySafetensorsParser})
             self._extraction._parser['safetensors']._root.load()
 
         except pparse.EndOfDataException:

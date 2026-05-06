@@ -17,7 +17,9 @@ class Json:
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            self._extraction.discover_parsers({ "json": LazyJsonParser, })
+            parser = LazyJsonParser(self._extraction, 'json')
+            self._extraction.add_parser('json', parser)
+            #self._extraction.discover_parsers({ "json": LazyJsonParser, })
             # TODO: Generalize the 'json' key below?
             self._extraction._parser['json']._root.load()
             #self._extraction.scan_data()
