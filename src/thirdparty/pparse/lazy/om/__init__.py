@@ -5,7 +5,6 @@ import sys
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.om.node import NodeArray, NodeMap
 from thirdparty.pparse.lazy.om.state import OmParsingHeader
 
 '''
@@ -47,15 +46,27 @@ class Parser(pparse.Parser):
         super().__init__(source, id)
 
         # Current path of pending things.
-        self.current = NodeMap(None, source.open())
-        self.current.ctx()._next_state(OmParsingHeader)
-        source._result[id] = self.current
+        # self.current = NodeMap(None, source.open())
+        # self.current.ctx()._next_state(OmParsingHeader)
+        # source._result[id] = self.current
 
-    def _new_nodemap(self, parent, reader):
-        return NodeMap(parent, reader)
+        # Current path of pending things.
+        self._root = pparse.Node(source.open(), self, default_value={})
+        self._root.ctx()._next_state(OmParsingHeader)
+        source._result[id] = self._root
+
+
+    def new_map_node(self, node):
+        return pparse.Node(node.ctx().reader(), self, parent=node, default_value={})
+
+    def new_array_node(self, node):
+        return pparse.Node(node.ctx().reader(), self, parent=node, default_value=[])
+
+    # def _new_nodemap(self, parent, reader):
+    #     return NodeMap(parent, reader)
     
-    def _new_nodearray(self, parent, reader):
-        return NodeArray(parent, reader)
+    # def _new_nodearray(self, parent, reader):
+    #     return NodeArray(parent, reader)
 
     # def _apply_value(self, ctx, field, value):
     #     if isinstance(self.current, NodeArray):

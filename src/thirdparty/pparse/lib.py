@@ -369,7 +369,7 @@ class Node:
                 while self.ctx()._descendants:
                     #breakpoint()self
                     # ! Here, we're making Node responsible for _descendants cleanup.
-                    child = self.ctx()._descendants.pop()
+                    child = self.ctx()._descendants.pop(0)
 
                     # TODO: use try/except to push forward, even on failure.
                     # TODO: we should be able to track failures for retry later.

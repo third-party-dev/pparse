@@ -67,25 +67,40 @@ class ProtobufParsingWireTypeLen(ProtobufParsingState):
         parser = ctx.parser()
 
         if ctx._field.type == Field.TYPE_MESSAGE:
-            
             ctx._next_state(ProtobufParsingTag)
             return pparse.AGAIN
 
-        if field.type in Protobuf.inline_types:
+        if ctx._field.type == Field.TYPE_BOOL:
+            node._value = struct.unpack_from(f'{ctx.left()}?', ctx.peek(ctx.left()), 0)
+            ctx.skip(ctx.left())
+
+        if ctx._field.type == Field.TYPE_INT64:
+            node._value = []
+            while ctx.left() > 0:
+                node._value.append(parser.parse_varint(ctx))
+
+        if ctx._field.type not in [Field.TYPE_BOOL, Field.TYPE_MESSAGE, Field.TYPE_INT64]:
             breakpoint()
-            length = parser.parse_varint(ctx)
-            pkd_node = pparse.Node(ctx.reader(), parser, default_value=[], parent=node, ctx_class=NodeContext)
-            pkd_node.ctx()._type_desc = field
-            # TODO: With the length, we could parse fields out breadth first.
-            pkd_node.ctx()._length = length
-            pkd_node.ctx()._next_state(ProtobufParsingSimplePacked)
 
-            if field.is_repeated():
-                breakpoint()
+        ctx._next_state(ProtobufParsingComplete)
+        return pparse.ASCEND
+        
 
-            node._value[field.name] = pkd_node
-            node.ctx()._descendants.append(pkd_node)
-            return pparse.AGAIN
+        # if ctx._field.type in Protobuf.inline_types:
+        #     breakpoint()
+        #     length = parser.parse_varint(ctx)
+        #     pkd_node = pparse.Node(ctx.reader(), parser, default_value=[], parent=node, ctx_class=NodeContext)
+        #     pkd_node.ctx()._type_desc = ctx._field
+        #     # TODO: With the length, we could parse fields out breadth first.
+        #     pkd_node.ctx()._length = length
+        #     pkd_node.ctx()._next_state(ProtobufParsingSimplePacked)
+
+        #     if field.is_repeated():
+        #         breakpoint()
+
+        #     node._value[field.name] = pkd_node
+        #     node.ctx()._descendants.append(pkd_node)
+        #     return pparse.AGAIN
 
 
 class ProtobufParsingBytes(ProtobufParsingState):
@@ -163,6 +178,8 @@ class ProtobufParsingTag(ProtobufParsingState):
             reader = pparse.Range(ctx.reader().cursor(), length)
             # node's reader must skip what sub-nodes will handle.
             ctx.skip(length)
+
+            # ! UNLOADED_VALUEs in output may be coming from here.
             len_node = pparse.Node(reader, parser, parent=node, ctx_class=NodeContext)
             lctx = len_node.ctx()
             lctx._field = field
@@ -188,7 +205,6 @@ class ProtobufParsingTag(ProtobufParsingState):
                 # TODO: This could be deferred!
                 lctx._next_state(ProtobufParsingBytes)
             else:
-                breakpoint()
                 lctx._next_state(ProtobufParsingWireTypeLen)
 
             if field.is_repeated():

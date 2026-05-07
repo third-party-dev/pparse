@@ -10,7 +10,8 @@ def register_pparse_om(subparsers):
     om_header_parser.add_argument("path")
     om_header_parser.set_defaults(func=om_header)
 
-    om_parse_parser = om_subparser.add_parser("parse", help="om parse command")
+    om_parse_parser = om_subparser.add_parser("view", help="om view command")
+    om_parse_parser.add_argument("--print", action="store_true", help="print to stdout")
     om_parse_parser.add_argument("path")
     om_parse_parser.set_defaults(func=om_parse)
 
@@ -79,7 +80,7 @@ def om_header(args):
         breakpoint()
 
 def om_parse(args):
-    from thirdprty.pparse.utils import activate_logging
+    from thirdparty.pparse.utils import activate_logging
     activate_logging(args)
     
     from thirdparty.pparse.view.om import Om
@@ -88,8 +89,14 @@ def om_parse(args):
 
     try:
         obj = Om().open_fpath(args.path)
+
+        protobuf = obj.root_node()._value['partition_table']._value[1]._value['protobuf']._value
+
+        if args.print:
+            obj.root_node().dump()
+
         header = obj._extraction._result['om']
-        modeldef = obj._extraction._extractions[0]._result['protobuf']
+        #modeldef = obj._extraction._extractions[0]._result['protobuf']
 
     except Exception as e:
         print(e)

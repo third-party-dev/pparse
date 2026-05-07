@@ -18,31 +18,35 @@ class Om:
         try:
             log.info("Parsing the OM container file.")
             data_range = pparse.Range(data_source.open(), data_source.length)
-            self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
+            self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
             parser = LazyOmParser(self._extraction, 'om')
             self._extraction.add_parser('om', parser)
             #self._extraction.discover_parsers({ "om": LazyOmParser })
-            self._extraction.scan_data()
+            self._extraction._parser['om']._root.load()
+            # self._extraction.scan_data()
 
-            if not header_only:
-                log.info("Parsing the OM (Protobuf) ModelDef")
-                from importlib import resources
-                data_path = resources.files("thirdparty.pparse.data")
-                proto = PbImport(data_path / "proto" / "ge_ir.pb")
 
-                # ! Assuming MODEL_DEF is 2nd partition for now.
-                part = self._extraction._result['om'].value['partitions'].value[1]
-                part_off = 0x100
-                modeldef_hdrsz = 0x80
-                true_offset = part.value['offset'] + part_off + modeldef_hdrsz
-                true_size = part.value['size'] - modeldef_hdrsz
 
-                pb_range = pparse.Range(data_source.open(true_offset), true_size)
-                pb_extraction = pparse.BytesExtraction(name="modeldef.pb", reader=pb_range)
-                # Manually shove the extraction where its intended to be.
-                self._extraction._extractions.append(pb_extraction)
-                parser = make_protobuf_parser(ext_list=[".pb"], init_msgtype=".ge.proto.ModelDef", proto=proto)
-                pb_extraction.discover_parsers({"protobuf": parser}).scan_data()
+
+            # if not header_only:
+            #     log.info("Parsing the OM (Protobuf) ModelDef")
+            #     from importlib import resources
+            #     data_path = resources.files("thirdparty.pparse.data")
+            #     proto = PbImport(data_path / "proto" / "ge_ir.pb")
+
+            #     # ! Assuming MODEL_DEF is 2nd partition for now.
+            #     part = self._extraction._result['om'].value['partitions'].value[1]
+            #     part_off = 0x100
+            #     modeldef_hdrsz = 0x80
+            #     true_offset = part.value['offset'] + part_off + modeldef_hdrsz
+            #     true_size = part.value['size'] - modeldef_hdrsz
+
+            #     pb_range = pparse.Range(data_source.open(true_offset), true_size)
+            #     pb_extraction = pparse.BytesExtraction(name="modeldef.pb", reader=pb_range)
+            #     # Manually shove the extraction where its intended to be.
+            #     self._extraction._extractions.append(pb_extraction)
+            #     parser = make_protobuf_parser(ext_list=[".pb"], init_msgtype=".ge.proto.ModelDef", proto=proto)
+            #     pb_extraction.discover_parsers({"protobuf": parser}).scan_data()
 
         except pparse.EndOfDataException as e:
             print(e)
@@ -56,8 +60,8 @@ class Om:
         return self
 
 
-    # def root_node(self):
-    #     return self._extraction._parser['om']._root
+    def root_node(self):
+        return self._extraction._parser['om']._root
 
 
     def open_fpath(self, fpath, header_only=False):

@@ -31,6 +31,13 @@ def make_protobuf_parser(ext_list=[], init_msgtype="", proto=PbImport()):
         def match_magic(cursor: pparse.Cursor):
             return False
 
+
+        @staticmethod
+        def from_reader(reader: pparse.Reader, parent: pparse.Node = None):
+            extraction = pparse.BytesExtraction(name="data.pb", reader=reader.dup())
+            return Parser(extraction, parent=parent)
+
+
         def __init__(self, source: pparse.Extraction, id: str = "protobuf", parent: pparse.Node = None):
             super().__init__(source, id)
             self.schema = proto
