@@ -12,13 +12,6 @@ from thirdparty.pparse.lazy.pickle.calls import ReduceCall, PersistentCall, NewC
 from thirdparty.pparse.dump import Dumper, _print_cb
 
 
-# class NodeContext(pparse.NodeContext):
-#     def __init__(self, node: "Node", parent: "Node", reader: pparse.Range):
-#         if type(reader).__name__ != "Range":
-#             raise Exception("protobuf NodeContext reader must be a pparse.Range")
-#         super().__init__(node, parent, reader)
-
-
 class NodeVmContext(pparse.NodeContext):
     def __init__(self, parent: "Node", reader: pparse.Range, parser: pparse.Parser):
         if type(reader).__name__ != "Range":
@@ -149,93 +142,3 @@ class PickleDumper(Dumper):
         self.cb(self.dst, f'{spacer}{" " * step}</args>')
 
         self.cb(self.dst, f'{spacer}</PersistentCall>')
-
-
-
-
-
-
-
-# def pparse_repr(obj, depth=0, step="  "):
-#     res = []
-
-#     if hasattr(obj, "pparse_repr"):
-#         res.append(obj.pparse_repr(depth, step))
-
-#     elif isinstance(obj, dict):
-#         dict_spacer = depth * step
-#         res.append("{\n")
-
-#         # Assuming key is always string or scalar
-#         key_spacer = (depth + 1) * step
-#         for k, v in obj.items():
-#             if hasattr(v, "pparse_repr"):
-#                 res.append(f"{key_spacer}{k}: {v.pparse_repr(depth + 1, step)}\n")
-#             else:
-#                 res.append(f"{key_spacer}{k}: {pparse_repr(v, depth + 1, step)}")
-
-#         res.append(dict_spacer + "}\n")
-
-#     elif isinstance(obj, (list, tuple, set)):
-#         itr_spacer = depth * step
-#         res.append("[\n")
-
-#         elem_spacer = (depth + 1) * step
-#         for elem in obj:
-#             if hasattr(elem, "pparse_repr"):
-#                 res.append(f"{elem_spacer}{elem.pparse_repr(depth + 1, step)}\n")
-#             else:
-#                 res.append(f"{elem_spacer}{pparse_repr(elem, depth + 1, step)}")
-
-#         res.append(itr_spacer + "]\n")
-
-#     else:
-#         res.append(f"{obj}\n")
-
-#     return "".join(res)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# # An array of NodePickle objects.
-# class NodePickleArray(pparse.Node):
-#     def __init__(self, parent: pparse.Node, reader: pparse.Reader):
-#         super().__init__(parent, reader, NodeContext(self, parent, reader.dup()))
-#         self.value = []
-
-
-# class NodePickle(pparse.Node):
-#     """
-#     A single pickle stream.
-#     There are 2 processes interlaced in the processing of a single pickle stream.
-#     - The parsing of the opcodes.
-#     - The interpretation of the opcodes into a node tree.
-
-#     Opcodes are parsed into a running stack.
-
-#     As opcodes (results) are consumed by other opcodes, they are relocated to
-#     the objects that have consumed them. In this way, we should be able to
-#     completely reconstruct the original listing by recursives traversing the
-#     final object node tree.
-#     """
-
-#     def __init__(self, parent: pparse.Node, reader: pparse.Reader):
-#         super().__init__(parent, reader, NodeVmContext(self, parent, reader.dup()))
-
-#         self.proto = None
-#         self.value = []

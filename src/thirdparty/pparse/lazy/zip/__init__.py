@@ -61,19 +61,3 @@ class Parser(pparse.Parser):
             # Fast forward past the bit we just parsed.
             parent.ctx().seek(ctx._end)
 
-
-    # def scan_data(self):
-    #     # While not end of data, keep parsing via states.
-    #     try:
-    #         while True:
-    #             self.current.ctx().state().parse_data(self, self.current.ctx())
-    #     except pparse.EndOfNodeException as e:
-    #         pass
-    #     except pparse.EndOfDataException as e:
-    #         pass
-    #     except pparse.UnsupportedFormatException:
-    #         raise
-
-    #     # TODO: Do all the children.
-
-    #     return self

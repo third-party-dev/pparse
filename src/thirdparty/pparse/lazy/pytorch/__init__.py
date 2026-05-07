@@ -132,32 +132,3 @@ class Parser(pparse.Parser):
         # decomp_data_reader = pparse.Range(data_source.open(), data_source.length)
         # #tensor['data'] = pparse.Node(decomp_data_reader, parser, parent=tensor)
         # #tensor['data'].ctx()._next_state(PyTorchParsingTensorNode)
-
-        
-    
-
-    # # Return raw data as python array of dtype
-    # def as_array(self):
-    #     # TODO: Sanity check input.
-    #     persid = self._reduce_call.arg[Tensor.PERSID_CALL]
-    #     elem_cnt = persid.arg[Tensor.ELEM_CNT]
-    #     buffer = self.get_data_bytes()
-    #     dtype = self.get_type()
-    #     struct_type = pparse.Tensor.STTYPE_STRUCT[dtype]
-    #     sttype_size = pparse.Tensor.STTYPE_SIZE[dtype]
-    #     count = int(len(buffer) / sttype_size)
-    #     return struct.unpack(f"<{struct_type * count}", buffer)
-    #     # TEST: arr = obj.tensor('lm_head.weight').as_array();print(f'{arr[:4]} {arr[-4:]}')
-
-
-    # # Return raw data as numpy array of dtype
-    # def as_numpy(self):
-    #     persid = self._reduce_call.arg[Tensor.PERSID_CALL]
-    #     elem_cnt = persid.arg[Tensor.ELEM_CNT]
-    #     buffer = self.get_data_bytes()
-    #     np_type = pparse.Tensor.STTYPE_NP_MAP[self.get_type()]
-    #     #print(f"len {len(buffer)} np_type {np_type} elem_cnt {elem_cnt}")
-    #     arr = numpy.frombuffer(buffer, dtype=np_type, count=elem_cnt)
-    #     return arr.reshape(self.get_shape())
-    #     # TEST: obj.tensor('lm_head.weight').as_numpy()
-

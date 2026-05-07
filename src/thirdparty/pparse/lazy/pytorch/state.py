@@ -18,17 +18,6 @@ class PyTorchParsingComplete(PyTorchParsingState):
         return pparse.ASCEND
 
 
-# class PyTorchParsingTensorNode(PyTorchParsingState):
-#     def parse_data(self, node: pparse.Node):
-#         ctx = node.ctx()
-#         parser = ctx.parser()
-
-#         node._value = ctx.read(ctx.left())
-
-#         ctx._next_state(SafetensorsParsingComplete)
-#         return pparse.ASCEND
-
-
 class PyTorchParsingTensorsMeta(PyTorchParsingState):
     def parse_data(self, node: pparse.Node):
         ctx = node.ctx()
