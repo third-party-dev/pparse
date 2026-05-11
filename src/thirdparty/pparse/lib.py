@@ -23,6 +23,7 @@ AGAIN = 1
 ASCEND = 2
 COMPLETE = 3
 
+
 # OBE ?
 # # Generally, run the parser on child node.
 # DESCEND = 2
@@ -270,6 +271,40 @@ class NodeContext:
         return self._reader.left()
 
 
+class RecursionControl:
+    MAX_DEPTH = 9223372036854775807
+    def __init__(self, min_depth=0, max_depth=MAX_DEPTH, callback=None):
+        self.cur_depth = 0
+
+        self.max_seen_depth = 0
+
+        self.min_depth = min_depth
+        self.max_depth = max_depth
+        self.cb = callback
+
+    def stopped(self, node) -> bool:
+        if self.cur_depth < self.min_depth:
+            return False
+        if self.cur_depth > self.max_depth:
+            return True
+        
+        if self.cb is not None:
+            return self.cb(node)
+    
+    def increase_depth(self, amount=1):
+        self.cur_depth += amount
+        if self.cur_depth > self.max_seen_depth:
+            self.max_seen_depth = self.cur_depth
+    
+    def decrease_depth(self, amount=1):
+        self.cur_depth -= amount
+    
+    def current_depth(self):
+        return self.cur_depth
+
+    def deepest_depth(self):
+        return self.max_seen_depth
+
 '''
     NEW PLAN:
     - phase 1: ctx is always loaded and node always UNLOADED until parent says otherwise
@@ -331,20 +366,38 @@ class Node:
         # TODO: Check for range?
         return self._reader.length()
 
-    def load(self, recursive=False):
+    def load(self, recursion: Optional[RecursionControl] = None):
         '''
+            load() manages RecursionControl lifetime, enabling load() to have different
+            behaviors per call and manage recursion relative to current node.
+
+            CAUTION: Recursion control is a mechanism that allows parsers to delegate recursion
+            decisions to the caller or user of the API. It does not enforce or provide 
+            tightly controlled governance over the parts of the Node tree that get processed.
+
             RULE: load() should handle the recursive behavior, not the parser state.
 
-            json is weird because you have to recurse every time. Since I implemented
+            RULE: Leaky abstraction when recursion policy stored in Node or NodeContext!
+
+            NOTE: json is weird because you have to recurse every time. Since I implemented
             JSON first, I believe its driving some of the anti-patterns in pparse. If
             we want to save on memory for JSON, we could theoretically parse and allocate
             nodes and as we complete branches of a depth first parse we deallocated.
             I naturally want to do this for recursive=False, but since recursive=False
             is default, it makes it feel like unnecessary thrashing of the CPU. 
-            
-            PLAN: After we get an initial parse of JSON, we can re-eval a callback param
-            for this function that is responsible for determining the deallocation policy.
         '''
+
+        # Increment the depth on entrance to load().
+        # NOTE: Checking for recursion here because we don't want to mess with reentrant
+        #       states and we don't want to wipe or confuse _descendants todo lists. 
+        # CAUTION:
+        # - states can add multiple branches at once.
+        # - states can iterate multiple times in a single "depth level"
+        if recursion is not None:
+            if recursion.stopped(self):
+                return
+            recursion.increase_depth()
+            #print(f"INCREASE {recursion.cur_depth}")
 
         # Maybe a naughty pattern, but for now we retry until 
         # Retry until state returns UnsupportedFormatException or EndOfNodeException
@@ -356,10 +409,6 @@ class Node:
                 
                 #breakpoint()
                 res = self.ctx().state().parse_data(self)
-
-                # if res == COMPLETE:
-                #     breakpoint()
-                #     #return self.ctx().parent()
 
                 '''
                     - The parser is responsible for populating _decendents.
@@ -373,7 +422,9 @@ class Node:
 
                     # TODO: use try/except to push forward, even on failure.
                     # TODO: we should be able to track failures for retry later.
-                    child.load(recursive=recursive)
+                    child.load(recursion=recursion)
+
+                    
 
                 # if len(self.ctx()._descendants) > 0:
                 #     breakpoint()
@@ -389,8 +440,11 @@ class Node:
         except UnsupportedFormatException:
             raise
 
-        #breakpoint()
-        # TODO: if recursive, for node in value: node.ctx().state().parse_data(node)
+        finally:
+            # Decrement the depth on exit from load() (exceptions included).
+            if recursion is not None:
+                recursion.decrease_depth()
+                #print(f"DECREASE {recursion.cur_depth}")
 
         return self
 
@@ -405,6 +459,9 @@ class Node:
         if not dumper:
             dumper = Dumper.default()
         dumper.dump("Node", self._value, ' '.join(node_attrs), depth=depth, step=step)
+
+
+
 
 
 # Data Considerations:

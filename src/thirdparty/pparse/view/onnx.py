@@ -67,7 +67,7 @@ class Onnx:
         self._tensor_meta = {}
 
 
-    def _parse(self, data_source, fname="unnamed.onnx"):
+    def _parse(self, data_source, fname="unnamed.onnx", recursion=None):
         from importlib import resources
         data_path = resources.files("thirdparty.pparse.data")
         proto = PbImport(data_path / "proto" / "onnx.pb")
@@ -79,7 +79,7 @@ class Onnx:
             parser = parser_class(self._extraction, 'protobuf')
             self._extraction.add_parser('protobuf', parser)
             #self._extraction.discover_parsers({"protobuf": parser})
-            self._extraction._parser['protobuf']._root.load()
+            self._extraction._parser['protobuf']._root.load(recursion=recursion)
 
             # Some light post processing.
             self.root = self._extraction._result["protobuf"]
@@ -107,12 +107,12 @@ class Onnx:
         return self._extraction._parser['protobuf']._root
 
 
-    def open_fpath(self, fpath):
-        return self._parse(pparse.FileData(path=fpath), fname=fpath)
+    def open_fpath(self, fpath, recursion=None):
+        return self._parse(pparse.FileData(path=fpath), fname=fpath, recursion=recursion)
 
 
-    def from_bytesio(self, bytes_io, fname="unnamed.onnx"):
-        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)
+    def from_bytesio(self, bytes_io, fname="unnamed.onnx", recursion=None):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname, recursion=recursion)
 
 
     def tensor_names(self):

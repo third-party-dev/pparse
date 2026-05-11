@@ -13,7 +13,7 @@ class Flatbuffers:
         self._extraction = None
 
 
-    def _parse(self, data_source, json_schema_path, fname="unnamed.flatbuffers.bin"):
+    def _parse(self, data_source, json_schema_path, fname="unnamed.flatbuffers.bin", recursion=None):
 
         import json
         from pathlib import Path
@@ -27,7 +27,7 @@ class Flatbuffers:
             parser = parser_class(self._extraction, 'flatbuffers')
             self._extraction.add_parser('flatbuffers', parser)
             #self._extraction.discover_parsers({"flatbuffers": parser})
-            self._extraction._parser['flatbuffers']._root.load()
+            self._extraction._parser['flatbuffers']._root.load(recursion=recursion)
 
         except pparse.EndOfDataException as e:
             print(e)
@@ -45,10 +45,10 @@ class Flatbuffers:
         return self._extraction._parser['flatbuffers']._root
 
 
-    def open_fpath(self, fpath, json_schema_path):
-        return self._parse(pparse.FileData(path=fpath), json_schema_path, fname=fpath)
+    def open_fpath(self, fpath, json_schema_path, recursion=None):
+        return self._parse(pparse.FileData(path=fpath), json_schema_path, fname=fpath, recursion=recursion)
 
 
-    def from_bytesio(self, bytes_io, json_schema_path, fname="unnamed.flatbuffers.bin"):
-        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), json_schema_path, fname=fname)
+    def from_bytesio(self, bytes_io, json_schema_path, fname="unnamed.flatbuffers.bin", recursion=None):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), json_schema_path, fname=fname, recursion=recursion)
 

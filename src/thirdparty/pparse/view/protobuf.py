@@ -13,7 +13,7 @@ class Parser:
     def __init__(self):
         self._extraction = None
 
-    def _parse(self, data_source, pbpath, msgtype, fname="unnamed.protobuf.bin"):
+    def _parse(self, data_source, pbpath, msgtype, fname="unnamed.protobuf.bin", recursion=None):
         
         from importlib import resources
         from pathlib import Path
@@ -25,7 +25,7 @@ class Parser:
             parser = parser_class(self._extraction, 'protobuf')
             self._extraction.add_parser('protobuf', parser)
             #self._extraction.discover_parsers({"protobuf": parser})
-            self._extraction._parser['protobuf']._root.load()
+            self._extraction._parser['protobuf']._root.load(recursion=recursion)
 
         except pparse.EndOfDataException as e:
             print(e)
@@ -43,9 +43,9 @@ class Parser:
         return self._extraction._parser['protobuf']._root
 
 
-    def open_fpath(self, fpath, pbpath, msgtype):
-        return self._parse(pparse.FileData(path=fpath), pbpath, msgtype, fname=fpath)
+    def open_fpath(self, fpath, pbpath, msgtype, recursion=None):
+        return self._parse(pparse.FileData(path=fpath), pbpath, msgtype, fname=fpath, recursion=recursion)
 
 
-    def from_bytesio(self, bytes_io, pbpath, msgtype, fname="unnamed.protobuf.bin"):
-        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), pbpath, msgtype, fname=fname)
+    def from_bytesio(self, bytes_io, pbpath, msgtype, fname="unnamed.protobuf.bin", recursion=None):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), pbpath, msgtype, fname=fname, recursion=recursion)

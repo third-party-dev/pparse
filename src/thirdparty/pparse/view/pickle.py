@@ -9,7 +9,7 @@ from thirdparty.pparse.lazy.pickle import Parser as LazyPickleParser
 
 class Pickle:
 
-    def _parse(self, data_source, fname="unnamed.pkl"):
+    def _parse(self, data_source, fname="unnamed.pkl", recursion=None):
 
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
@@ -17,7 +17,7 @@ class Pickle:
             parser = LazyPickleParser(self._extraction, 'pkl')
             self._extraction.add_parser('pkl', parser)
             #self._extraction.discover_parsers({"pkl": LazyPickleParser})
-            self._extraction._parser['pkl']._root.load()
+            self._extraction._parser['pkl']._root.load(recursion=recursion)
         
         except pparse.EndOfDataException as e:
             print(e)
@@ -35,10 +35,10 @@ class Pickle:
         return self._extraction._parser['pkl']._root
 
 
-    def open_fpath(self, fpath):
-        return self._parse(pparse.FileData(path=fpath), fname=fpath)
+    def open_fpath(self, fpath, recursion=None):
+        return self._parse(pparse.FileData(path=fpath), fname=fpath, recursion=recursion)
 
 
-    def from_bytesio(self, bytes_io, fname="unnamed.pkl"):
-        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)
+    def from_bytesio(self, bytes_io, fname="unnamed.pkl", recursion=None):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname, recursion=recursion)
 

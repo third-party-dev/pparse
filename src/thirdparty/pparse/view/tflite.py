@@ -77,7 +77,7 @@ class TFLite:
         self._extraction = None
         self._tensors = {}
 
-    def _parse(self, data_source, fname="unnamed.tflite"):
+    def _parse(self, data_source, fname="unnamed.tflite", recursion=None):
 
         import json
         from importlib import resources
@@ -94,7 +94,7 @@ class TFLite:
             parser = parser_class(self._extraction, 'flatbuffers')
             self._extraction.add_parser('flatbuffers', parser)
             #self._extraction.discover_parsers({"flatbuffers": parser})
-            self._extraction._parser['flatbuffers']._root.load()
+            self._extraction._parser['flatbuffers']._root.load(recursion=recursion)
 
             root_table = self.root_node().value['root_table'].value
             buffers = root_table['buffers'].value
@@ -120,12 +120,12 @@ class TFLite:
         return self._extraction._parser['flatbuffers']._root
 
 
-    def open_fpath(self, fpath):
-        return self._parse(pparse.FileData(path=fpath), fname=fpath)
+    def open_fpath(self, fpath, recursion=None):
+        return self._parse(pparse.FileData(path=fpath), fname=fpath, recursion=recursion)
 
 
-    def from_bytesio(self, bytes_io, fname="unnamed.tflite"):
-        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)
+    def from_bytesio(self, bytes_io, fname="unnamed.tflite", recursion=None):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname, recursion=recursion)
 
 
     def tensor_names(self):

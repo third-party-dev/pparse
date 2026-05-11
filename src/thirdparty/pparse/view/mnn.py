@@ -11,7 +11,7 @@ class MNN:
     def __init__(self):
         self._extraction = None
 
-    def _parse(self, data_source, fname="unnamed.mnn"):
+    def _parse(self, data_source, fname="unnamed.mnn", recursion=None):
 
         import json
         from importlib import resources
@@ -28,7 +28,7 @@ class MNN:
             parser = parser_class(self._extraction, 'flatbuffers')
             self._extraction.add_parser('flatbuffers', parser)
             #self._extraction.discover_parsers({'flatbuffers': parser})
-            self._extraction._parser['flatbuffers']._root.load()
+            self._extraction._parser['flatbuffers']._root.load(recursion=recursion)
 
             # TODO: Build out tensor objects.
             # TFlite's looks like this:
@@ -55,10 +55,10 @@ class MNN:
         return self._extraction._parser['flatbuffers']._root
 
 
-    def open_fpath(self, fpath):
-        return self._parse(pparse.FileData(path=fpath), fname=fpath)
+    def open_fpath(self, fpath, recursion=None):
+        return self._parse(pparse.FileData(path=fpath), fname=fpath, recursion=recursion)
 
 
-    def from_bytesio(self, bytes_io, fname="unnamed.mnn"):
-        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)
+    def from_bytesio(self, bytes_io, fname="unnamed.mnn", recursion=None):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname, recursion=recursion)
 

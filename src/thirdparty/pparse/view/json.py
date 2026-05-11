@@ -12,7 +12,7 @@ class Json:
     def __init__(self, extraction=None):
         self._extraction = extraction
 
-    def _parse(self, data_source, fname="unnamed.json"):
+    def _parse(self, data_source, fname="unnamed.json", recursion=None):
 
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
@@ -21,7 +21,7 @@ class Json:
             self._extraction.add_parser('json', parser)
             #self._extraction.discover_parsers({ "json": LazyJsonParser, })
             # TODO: Generalize the 'json' key below?
-            self._extraction._parser['json']._root.load()
+            self._extraction._parser['json']._root.load(recursion=recursion)
             #self._extraction.scan_data()
         
         except pparse.EndOfDataException as e:
@@ -40,9 +40,9 @@ class Json:
         return self._extraction._parser['json']._root
 
 
-    def open_fpath(self, fpath):
-        return self._parse(pparse.FileData(path=fpath), fname=fpath)
+    def open_fpath(self, fpath, recursion=None):
+        return self._parse(pparse.FileData(path=fpath), fname=fpath, recursion=recursion)
 
 
-    def from_bytesio(self, bytes_io, fname="unnamed.json"):
-        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)
+    def from_bytesio(self, bytes_io, fname="unnamed.json", recursion=None):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname, recursion=recursion)

@@ -158,14 +158,14 @@ class SafeTensors:
         return hashlib.sha256(sane_json.encode("utf-8")).hexdigest()
 
 
-    def _parse(self, data_source, fname="unnamed.safetensors"):
+    def _parse(self, data_source, fname="unnamed.safetensors", recursion=None):
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
             parser = LazySafetensorsParser(self._extraction, 'safetensors')
             self._extraction.add_parser('safetensors', parser)
             #self._extraction.discover_parsers({"safetensors": LazySafetensorsParser})
-            self._extraction._parser['safetensors']._root.load()
+            self._extraction._parser['safetensors']._root.load(recursion=recursion)
 
         except pparse.EndOfDataException:
             pass
@@ -182,12 +182,12 @@ class SafeTensors:
         return self._extraction._parser['safetensors']._root
 
 
-    def open_fpath(self, fpath):
-        return self._parse(pparse.FileData(path=fpath), fname=fpath)
+    def open_fpath(self, fpath, recursion=None):
+        return self._parse(pparse.FileData(path=fpath), fname=fpath, recursion=recursion)
 
 
-    def from_bytesio(self, bytes_io, fname="unnamed.safetensors"):
-        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)
+    def from_bytesio(self, bytes_io, fname="unnamed.safetensors", recursion=None):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname, recursion=recursion)
 
 
 # ! UNTESTED
@@ -278,14 +278,14 @@ class SafeTensorsIndex:
         return list(self._root.value['tensors'].keys())
 
     # fpath - Index file.
-    def _parse(self, idx_data, fname="unnamed.index.json"):
+    def _parse(self, idx_data, fname="unnamed.index.json", recursion=None):
         try:
             # Process the index file.
             idx_range = pparse.Range(idx_data.open(), idx_data.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=idx_range)
             self._extraction.discover_parsers({"safetensors_index": LazySafetensorsIndexParser})
             self._root = self._extraction._parser['safetensors_index']._root
-            self._root.load()
+            self._root.load(recursion=recursion)
             
 
         except pparse.EndOfDataException:
@@ -303,9 +303,9 @@ class SafeTensorsIndex:
         return self._extraction._parser['safetensors_index']._root
 
 
-    def open_fpath(self, fpath):
-        return self._parse(pparse.FileData(path=fpath), fname=fpath)
+    def open_fpath(self, fpath, recursion=None):
+        return self._parse(pparse.FileData(path=fpath), fname=fpath, recursion=recursion)
 
 
-    def from_bytesio(self, bytes_io, fname="unnamed.index.json"):
-        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)
+    def from_bytesio(self, bytes_io, fname="unnamed.index.json", recursion=None):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname, recursion=recursion)

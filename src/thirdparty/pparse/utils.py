@@ -3,6 +3,13 @@ import sys
 import logging
 import pathlib
 
+class ListType:
+  MIXED = 0
+  UBYTE = 1
+  BYTE = 2
+  INT = 3
+  FLOAT = 4
+
 log = logging.getLogger(__name__)
 
 def activate_logging(args):

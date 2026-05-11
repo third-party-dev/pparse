@@ -83,14 +83,17 @@ def om_parse(args):
     from thirdparty.pparse.utils import activate_logging
     activate_logging(args)
     
+    import thirdparty.pparse.lib as pparse
     from thirdparty.pparse.view.om import Om
 
     print(f"Parsing om header from: {args.path}")
 
     try:
-        obj = Om().open_fpath(args.path)
+        recursion = pparse.RecursionControl()
+        obj = Om().open_fpath(args.path, recursion=recursion)
+        #print(f"DEEPEST_DEPTH: {recursion.deepest_depth()}")
 
-        protobuf = obj.root_node()._value['partition_table']._value[1]._value['protobuf']._value
+        #protobuf = obj.root_node()._value['partition_table']._value[1]._value['protobuf']._value
 
         if args.print:
             obj.root_node().dump()

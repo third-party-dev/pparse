@@ -8,6 +8,7 @@ log = logging.getLogger(__name__)
 #logging.basicConfig(level=logging.DEBUG, format='%(levelname)s:%(message)s')
 
 import thirdparty.pparse.lib as pparse
+from thirdparty.pparse.utils import ListType
 from thirdparty.pparse.lazy.flatbuffers.node import NodeContext
 #from thirdparty.pparse.lazy.flatbuffers.node import Node, NodeTable, NodeVector, NodeVTable, NodeField
 
@@ -64,26 +65,42 @@ class FlatbuffersParsingVectorOfScalars(FlatbuffersParsingState):
         elem_count = parser.read_u32(ctx)
         elem_size = type_desc['type']['element_size']
 
+        class BytesWrapper(bytes):
+            def __new__(cls, data):
+                return super().__new__(cls, data)
+        
+        class TupleWrapper(tuple):
+            def __new__(cls, data):
+                return super().__new__(cls, data)
 
         if type_desc['type']['element'].lower() == 'ubyte':
-            node._value = ctx.read(elem_size * elem_count)
+            #node._value = BytesWrapper(ctx.read(elem_size * elem_count))
+            data_len = elem_size * elem_count
+            # ! TODO: This should be a special case for dumping.
+            node._value = BytesWrapper(ctx.read(data_len))
+            #node._value = TupleWrapper(struct.unpack(f'{data_len}B', ctx.read(data_len)))
+            node._value._pparse_type = ListType.UBYTE
             ctx._next_state(FlatBuffersParsingComplete)
             return pparse.ASCEND
         
         if type_desc['type']['element'].lower() == 'byte':
-            node._value = ctx.read(elem_size * elem_count)
+            data_len = elem_size * elem_count
+            node._value = TupleWrapper(struct.unpack(f'{data_len}b', ctx.read(data_len)))
+            node._value._pparse_type = ListType.BYTE
             ctx._next_state(FlatBuffersParsingComplete)
             return pparse.ASCEND
 
         if type_desc['type']['element'].lower() == 'int':
             # TODO: Consider more efficient handler (esp with array is large)
-            node._value = struct.unpack(f'<{elem_count}i', ctx.read(elem_size * elem_count))
+            node._value = TupleWrapper(struct.unpack(f'<{elem_count}i', ctx.read(elem_size * elem_count)))
+            node._value._pparse_type = ListType.INT
             ctx._next_state(FlatBuffersParsingComplete)
             return pparse.ASCEND
         
         if type_desc['type']['element'].lower() == 'float':
             # TODO: Consider more efficient handler (esp with array is large)
-            node._value = struct.unpack(f'<{elem_count}f', ctx.read(elem_size * elem_count))
+            node._value = TupleWrapper(struct.unpack(f'<{elem_count}f', ctx.read(elem_size * elem_count)))
+            node._value._pparse_type = ListType.FLOAT
             ctx._next_state(FlatBuffersParsingComplete)
             return pparse.ASCEND
 

@@ -64,14 +64,14 @@ class PyTorch:
         self._forced_traversal = force_traverse
 
 
-    def _parse(self, data_source, fname="unnamed.pt"):
+    def _parse(self, data_source, fname="unnamed.pt", recursion=None):
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
             parser = LazyPyTorchParser(self._extraction, 'pt')
             self._extraction.add_parser('pt', parser)
             #self._extraction.discover_parsers({"pt": LazyPyTorchParser})
-            self._extraction._parser['pt']._root.load()
+            self._extraction._parser['pt']._root.load(recursion=recursion)
         except pparse.EndOfDataException as e:
             print(e)
             pass
@@ -88,12 +88,12 @@ class PyTorch:
         return self._extraction._parser['pt']._root
 
 
-    def open_fpath(self, fpath):
-        return self._parse(pparse.FileData(path=fpath), fname=fpath)
+    def open_fpath(self, fpath, recursion=None):
+        return self._parse(pparse.FileData(path=fpath), fname=fpath, recursion=recursion)
 
 
-    def from_bytesio(self, bytes_io, fname="unnamed.pt"):
-        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname)
+    def from_bytesio(self, bytes_io, fname="unnamed.pt", recursion=None):
+        return self._parse(pparse.BytesIoData(bytes_io=bytes_io), fname=fname, recursion=recursion)
 
 
     # ! UNTESTED
