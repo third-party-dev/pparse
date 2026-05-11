@@ -22,7 +22,10 @@ def tflite_view(args):
     print(f"Parsing tflite from: {args.path}")
 
     try:
-        obj = TFLite().open_fpath(args.path)
+        if args.path.startswith('http://') or args.path.startswith('https://'):
+            obj = TFLite().open_url(args.path)
+        else:
+            obj = TFLite().open_fpath(args.path)
         tflite = obj._extraction._result['flatbuffers'].value
 
         if args.print:

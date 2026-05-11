@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import stat
+import requests
 from pprint import pprint
 from typing import Optional
 
@@ -160,9 +161,9 @@ class Range(Reader):
         return self._cursor.peek(length)
 
     # Read data and progress data.
-    def read(self, length, mode=None):
+    def read(self, length):
         length = self._adjust_length(length)
-        return self._cursor.read(length, mode=mode)
+        return self._cursor.read(length)
 
 
 # Cursor manages offset. (Data does not manage offset.)
@@ -197,7 +198,7 @@ class Cursor(Reader):
 
     # Copy and progress data.
     def read(self, length, mode=None):
-        data = self._data.read(self, length, mode=mode)
+        data = self._data.read(self, length)
         self._offset += len(data)
         return data
 
@@ -477,50 +478,151 @@ class Node:
 
 # Data interface.
 class Data:
-    MODE_READ = 1
-    MODE_MMAP = 2
+    def open(self, offset=0) -> Reader:
+        return Cursor(self, offset)
 
-    def _load_length(self):
+    def peek(self, cursor, length):
         raise NotImplementedError()
 
-    def open(self, offset=0):
+    def seek(self, cursor) -> int:
         raise NotImplementedError()
 
-    def peek(self, cursor, length, mode=None):
+    def read(self, cursor, length):
         raise NotImplementedError()
 
-    def seek(self, cursor):
-        raise NotImplementedError()
 
-    def read(self, cursor, length, mode=None):
-        raise NotImplementedError()
+'''
+  After initial tests, it appears that the HttpRangeData is 20 times slower in
+  the most simple implementation. 
+
+    With file io.
+      real    0m0.714s
+      user    0m1.006s
+      sys     0m2.591s
+
+    With test-server.py.
+      real    0m15.338s
+      user    0m9.357s
+      sys     0m3.129s
+  
+  Ideas for speed up and chunking compatibility:
+
+  - Implement our own chunk cache. Consider chunks of size 4KB with 50000 chunks (i.e. ~200MB+overhead).
+    - When chunks are read, they are popped and pushed onto a priority queue.
+    - When the queue is full, to read new chunks we pop the least recently
+      accessed chunk from the queue and throw it away in favor of the new data.
+    - Ranged data (206) can capture only the range or align itself to the chunk size
+      and return the appropriate offset. (The latter makes more sense.)
+    - Non-ranged data (200) should ensure we always keep some amount of data
+      behind the actual request. This is so we're not always making new requests to
+      read backwards. We still want to align to size requested to the chunk size.
+      - If the whole file fits in the chunk cache, grab the whole thing at once.
+    - Note: Dump servers (python3 -m http.server), likely support HEAD (for content-length).
+    - Note: AWS has a minimal billable request size of 4K (i.e. 1 byte request is worth 4K in cash.)
+'''
+class HttpRangeData(Data):
+    def __init__(self, url: str=None):
+        if not url:
+            raise ValueError("url must be a string that points to a valid url")
+        self._url = url
+        self._session = requests.Session()
+        #self._session.verify = "/path/to/ca-bundle.crt"
+        #self._session.verify = False
+        #self._session.cert = ("/path/to/client.crt", "/path/to/client.key")
+        #self._session.headers["Authorization"] = "Bearer <token>"
+
+        self.length = self._load_length()
+    
+    def _load_length(self) -> int:
+        response = self._session.head(self._url)
+        # TODO: Determine how to handle exceptions.
+        response.raise_for_status()
+
+        content_length = response.headers.get("Content-Length")
+        if content_length is None:
+            raise ValueError("Server did not return a Content-Length header.")
+
+        return int(content_length)
+
+    # Read data ahead without progressing cursor.
+    def peek(self, cursor, length):
+        if length <= 0:
+            return b""
+
+        start = cursor.tell()
+        end = start + length - 1
+        headers = {"Range": f"bytes={start}-{end}"}
+
+        response = self._session.get(self._url, headers=headers)
+        response.raise_for_status()
+            
+        if response.status_code == 206:
+            return response.content
+
+        if response.status_code == 200:
+            # TODO: Cache our content.
+            # ! Being dumb and throwing away content.
+            return response.content[start:start+length]
+        raise IOError(f"Range request failed with status {response.status_code}")
+
+    # Progress cursor without reading (no copy).
+    def seek(self, cursor) -> None:
+        return cursor.tell()
+
+    # Read the data.
+    def read(self, cursor, length):
+        return self.peek(cursor, length)
 
 
 # Data manages mmap and fobj. Cursor does not manage mmap or fobj.
 class FileData(Data):
-    MODE_READ = 1
-    MODE_MMAP = 2
 
-    def __init__(self, path=None, mode=None):
+    def __init__(self, path=None):
         if not path or not os.path.exists(path):
             raise ValueError("path must be a string that points to a valid file path")
         self._path = path
 
-        if mode is None:
-            self._mode = Data.MODE_READ
-        else:
-            self._mode = mode
+        self.length = None
+        self._fobj = open(path, "rb")
 
-        # TODO: Only allow setting MODE_MMAP if has_mmap()
+        fd = self._fobj.fileno()
+        st = os.fstat(fd)
+        if stat.S_ISREG(st.st_mode):
+            self.length = st.st_size
+
+    # Read data ahead without progressing cursor.
+    def peek(self, cursor, length):
+        self._fobj.seek(cursor.tell(), os.SEEK_SET)
+        return self._fobj.read(length)
+
+    # Progress cursor without reading (no copy).
+    def seek(self, cursor) -> None:
+        self._fobj.seek(cursor.tell(), os.SEEK_SET)
+        return cursor.tell()
+
+    # Read the data.
+    def read(self, cursor, length):
+        self.seek(cursor)
+        return self._fobj.read(length)
+
+
+# Data manages mmap and fobj. Cursor does not manage mmap or fobj.
+class FileMmapData(Data):
+    def __init__(self, path=None):
+        if not path or not os.path.exists(path):
+            raise ValueError("path must be a string that points to a valid file path")
+        self._path = path
 
         self.length = None
         self._fobj = open(path, "rb")
         self._load_length()
 
         # Mmap, if available.
-        if has_mmap():
-            self._mmap = mmap.mmap(self._fobj.fileno(), 0, access=mmap.ACCESS_READ)
-            self._mem = memoryview(self._mmap)
+        if not has_mmap():
+            raise Exception("No mmap available.")
+
+        self._mmap = mmap.mmap(self._fobj.fileno(), 0, access=mmap.ACCESS_READ)
+        self._mem = memoryview(self._mmap)
 
     def _load_length(self):
         # TODO: This size is only relevant if the size doesn't change.
@@ -530,51 +632,20 @@ class FileData(Data):
         if stat.S_ISREG(st.st_mode):
             self.length = st.st_size
 
-    def mode(self):
-        return self._mode
-
-    # Create a cursor, like a logical file descriptor.
-    def open(self, offset=0):
-        return Cursor(self, offset)
-
     # Read data ahead without progressing cursor.
-    def peek(self, cursor, length, mode=None):
-        # TODO: Only allow setting MODE_MMAP if has_mmap()
-        # Allow each read to optionally override mode.
-        active_mode = self.mode()
-        if mode:
-            active_mode = mode
-
-        if active_mode == Data.MODE_READ:
-            self._fobj.seek(cursor.tell(), os.SEEK_SET)
-            return self._fobj.read(length)
-
-        if active_mode == Data.MODE_MMAP and has_mmap():
-            off = cursor.tell()
-            return self._mem[off : off + length]
+    def peek(self, cursor, length):
+        off = cursor.tell()
+        return self._mem[off : off + length]
 
     # Progress cursor without reading (no copy).
     def seek(self, cursor) -> None:
-        if self.mode() == Data.MODE_READ:
-            self._fobj.seek(cursor.tell(), os.SEEK_SET)
         # Noop for mmap.
         return cursor.tell()
 
     # Read the data.
     def read(self, cursor, length, mode=None):
-        # TODO: Only allow setting MODE_MMAP if has_mmap()
-        # Allow each read to optionally override mode.
-        active_mode = self.mode()
-        if mode:
-            active_mode = mode
-
-        if active_mode == Data.MODE_READ:
-            self.seek(cursor)
-            return self._fobj.read(length)
-
-        if active_mode == Data.MODE_MMAP and has_mmap():
-            off = cursor.tell()
-            return self._mem[off : off + length]
+        off = cursor.tell()
+        return self._mem[off : off + length]
 
 
 # When working with data that is already (reasonably) in memory, we may want to use it as a
@@ -584,74 +655,34 @@ class FileData(Data):
 # Real World Use Case: File-format is a ZIP and the header is a file in the ZIP.
 #
 class BytesIoData(Data):
-    def __init__(self, bytes_io: io.BytesIO = None, mode=None):
+    def __init__(self, bytes_io: io.BytesIO = None):
         if not bytes_io or not isinstance(bytes_io, io.BytesIO):
             raise ValueError("bytes_io must be io.BytesIO and not be None")
 
-        # TODO: Validate mode value.
-        if mode is None or mode == Data.MODE_READ:
-            self._mode = Data.MODE_READ
-        elif mode == Data.MODE_MMAP:
-            self._mode = DAta.MODE_MMAP
-        else:
-            raise ValueError("mode must be MODE_READ or MODE_MMAP")
-
         self._bytes_io = bytes_io
-        self._mem = bytes_io.getbuffer()
-
-        self.length = None
-        self._load_length()
+        self.length = len(self._bytes_io.getbuffer())
 
     def _load_length(self):
-        if hasattr(self._bytes_io, "getbuffer"):
-            self.length = len(self._mem)
-            return
-        raise Exception("Expected getbuffer(). Did you forget to use FileData?")
-
-    def mode(self):
-        return self._mode
+        pass
 
     # Create a cursor, like a logical file descriptor.
     def open(self, offset=0):
         return Cursor(self, offset)
 
     # Read data ahead without progressing cursor.
-    def peek(self, cursor, length, mode=None):
-        # Allow each read to optionally override mode.
-        active_mode = self.mode()
-        if mode:
-            active_mode = mode
-
-        if active_mode == Data.MODE_READ:
-            self._bytes_io.seek(cursor.tell(), os.SEEK_SET)
-            return self._bytes_io.read(length)
-
-        if active_mode == Data.MODE_MMAP and has_mmap():
-            off = cursor.tell()
-            return self._mem[off : off + length]
+    def peek(self, cursor, length):
+        self._bytes_io.seek(cursor.tell(), os.SEEK_SET)
+        return self._bytes_io.read(length)
 
     # Progress cursor without reading (no copy).
     def seek(self, cursor) -> None:
-        if self.mode() == Data.MODE_READ:
-            self._bytes_io.seek(cursor.tell(), os.SEEK_SET)
-        # Noop for mmap.
+        self._bytes_io.seek(cursor.tell(), os.SEEK_SET)
         return cursor.tell()
 
     # Read the data.
-    def read(self, cursor, length, mode=None):
-        # TODO: Only allow setting MODE_MMAP if has_mmap()
-        # Allow each read to optionally override mode.
-        active_mode = self.mode()
-        if mode:
-            active_mode = mode
-
-        if active_mode == Data.MODE_READ:
-            self.seek(cursor)
-            return self._bytes_io.read(length)
-
-        if active_mode == Data.MODE_MMAP and has_mmap():
-            off = cursor.tell()
-            return self._mem[off : off + length]
+    def read(self, cursor, length):
+        self.seek(cursor)
+        return self._bytes_io.read(length)
 
 
 # Generic artifact that ties parsers to cursor-ed data.
