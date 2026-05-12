@@ -122,7 +122,7 @@ class TFLite:
 
     # TEST: curl http://host.containers.internal:44444/yolov5su_float32.tflite
     def open_url(self, url, recursion=None):
-        return self._parse(pparse.HttpRangeData(url=url), fname=url, recursion=recursion)
+        return self._parse(pparse.HttpCachedData(url=url), fname=url, recursion=recursion)
 
 
     def open_fpath(self, fpath, recursion=None):

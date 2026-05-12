@@ -462,9 +462,6 @@ class Node:
         dumper.dump("Node", self._value, ' '.join(node_attrs), depth=depth, step=step)
 
 
-
-
-
 # Data Considerations:
 # - DiskData exists in its entirety on disk (even if truncated).
 # - TapeData is constantly incoming and recorded (yes to Random Access).
@@ -485,41 +482,161 @@ class Data:
         raise NotImplementedError()
 
     def seek(self, cursor) -> int:
-        raise NotImplementedError()
+        return cursor.tell()
 
     def read(self, cursor, length):
-        raise NotImplementedError()
+        # Dumb implementation.
+        data = self.peek(cursor, length)
+        self.seek(cursor)
+        return data
+
+
+
+
+
 
 
 '''
-  After initial tests, it appears that the HttpRangeData is 20 times slower in
-  the most simple implementation. 
+  HttpRangedData is very dumb and slow. If we add caching, we can potentially bump the performance 
+  by more than double. The below metrics are misleading when comparing against each other. You need
+  to understand the relationship between Range supported/not-supported, between deque based cache and
+  linked list based cache, and the relationship between the application and the target kernels' page
+  cache, and finally the fact that I tested all of these on the same system across the local network.
 
-    With file io.
+  Takeaways:
+    - None of these tests include normal network latency.
+    - All of the data from these tests lived in kernels page cache.
+    - There were no other users on the system this was tested on.
+    - FileData is a bit slower because it keeps file on disk, where HttpCacheData pulls
+      most of the relevant data into memory. We could probably cache FileData in a similar
+      way for a bit of speedup, especially in non-Linux environments (e.g. Windows).
+    - The only meaningful numbers to compare are the Range supported cases where the
+      whole file could not fit into memory at once. This shows that we've halved HttpRangedData
+      behavior when using a cache.
+    - Different formats jump around more so they'll produce different results. To mitigate this,
+      there is a deliberate grab of chunks around the request for efficiency. This is similar to
+      a CPU "read ahead" behavior (except with include "read behind" too.)
+
+  Test results against `yolov5su_float32.tflite` (36832425 bytes / ~36MB)
+
+    --- Control ---
+
+    FileData with local file IO:
       real    0m0.714s
       user    0m1.006s
       sys     0m2.591s
 
-    With test-server.py.
+    --- Naive Implementation ---
+
+    HttpRangedData with Range header (i.e. test-server.py):
       real    0m15.338s
       user    0m9.357s
       sys     0m3.129s
-  
-  Ideas for speed up and chunking compatibility:
+    
+    HttpRangedData without Range header (i.e. python -m http.server):
+      * Not tested. (VERY LONG)
 
-  - Implement our own chunk cache. Consider chunks of size 4KB with 50000 chunks (i.e. ~200MB+overhead).
-    - When chunks are read, they are popped and pushed onto a priority queue.
-    - When the queue is full, to read new chunks we pop the least recently
-      accessed chunk from the queue and throw it away in favor of the new data.
-    - Ranged data (206) can capture only the range or align itself to the chunk size
-      and return the appropriate offset. (The latter makes more sense.)
-    - Non-ranged data (200) should ensure we always keep some amount of data
-      behind the actual request. This is so we're not always making new requests to
-      read backwards. We still want to align to size requested to the chunk size.
-      - If the whole file fits in the chunk cache, grab the whole thing at once.
-    - Note: Dump servers (python3 -m http.server), likely support HEAD (for content-length).
-    - Note: AWS has a minimal billable request size of 4K (i.e. 1 byte request is worth 4K in cash.)
+   --- Cached _without_ Range ---
+
+    HttpCachedData with chunk_size 4096*1024, chunks 256, without Range header (i.e. python -m http.server):
+      Note: 1,073,741,824B / 1GB cache using deque
+      Note: Test case only valid when entire target fits in memory.
+
+      real  0m0.573s
+      user  0m0.951s
+      sys   0m2.645s
+
+    
+    HttpCachedData with chunk_size 4096*256, chunks 1024, without Range header (i.e. python -m http.server):
+      Note: 1,073,741,824B / 1GB cache using linked list
+      Note: Test case only valid when entire target fits in memory.
+
+      real  0m0.574s
+      user  0m0.953s
+      sys   0m2.421s
+
+
+    HttpCachedData with chunk_size 4096, chunks 1024*256, without Range header (i.e. python -m http.server):
+      Note: 1,073,741,824B / 1GB cache using linked list
+      Note: Test case only valid when entire target fits in memory.
+      Note: Bumped chunk count to see if there was a noticeable difference.
+
+      real  0m0.616s
+      user  0m1.003s
+      sys   0m2.651s
+
+    --- Cached _with_ Range ---
+
+    HttpCachedData with chunk_size 4096, chunks 256, supported Range header (i.e. test-server.py):
+      Note: 1,048,576B / 1MB cache using deque
+
+      real  0m8.478s
+      user  0m5.617s
+      sys   0m2.892s
+
+
+    HttpCachedData with chunk_size 256, chunks 4096, supported Range header (i.e. test-server.py):
+      Note: 1,048,576B / 1MB cache using linked list
+
+      real  0m8.478s
+      user  0m5.617s
+      sys   0m2.892s
+
+
+    HttpCachedData with chunk_size 4096*1024, chunks 256, supported Range header (i.e. test-server.py):
+      Note: 1,073,741,824B / 1GB cache using deque
+
+      real  0m0.759s
+      user  0m1.124s
+      sys   0m2.502s
+
+
+    HttpCachedData with chunk_size 4096*256, chunks 1024, supported Range header (i.e. test-server.py):
+      Note: 1,073,741,824B / 1GB cache using linked list
+
+      real  0m0.825s
+      user  0m1.200s
+      sys   0m2.620s
+
+  Note: AWS has a minimal billable request size of 4K (i.e. 1 byte request is worth 4K in cash.)
 '''
+
+from thirdparty.pparse._httpdata import _HttpCachedData
+
+class HttpCachedData(Data):
+    # ~ 4MiB
+    CHUNK_SIZE = 4096*256
+    # Max Chunks
+    MAX_CHUNKS = 1024
+
+    def __init__(self, url: str, chunk_size: int = CHUNK_SIZE, chunk_max_count: int = MAX_CHUNKS, session=None):
+
+        # ** If we're in a situation where we're requesting a file from a    **
+        # ** remote resource that does not support Range, we might as well   **
+        # ** download the whole thing and operate on it as a file. Any       **
+        # ** realistic situation where the file is too big for memory, we'll **
+        # ** not want to continually download the file when we don't have    **
+        # ** the space we need in cache!                                     **
+
+        # Detect the above scenario by fetching length and first chunk.
+        self._session = session or requests.Session()
+        response = self._session.head(url)
+        response.raise_for_status()
+        self.length = int(response.headers["Content-Length"])
+        self._supports_ranges = response.headers.get("Accept-Ranges", "none").lower() == "bytes"
+
+        if not self._supports_ranges and self.length > chunk_size * chunk_max_count:
+            raise Exception("CAUTION: No ranged queries on server and target to large for cache.")
+
+        self.httpdata = _HttpCachedData(url, chunk_size=chunk_size, chunk_max_count=chunk_max_count, session=self._session)
+
+
+    # Read data ahead without progressing cursor.
+    def peek(self, cursor, length):
+        return self.httpdata._read(cursor.tell(), length)
+
+
+
 class HttpRangeData(Data):
     def __init__(self, url: str=None):
         if not url:
@@ -532,7 +649,8 @@ class HttpRangeData(Data):
         #self._session.headers["Authorization"] = "Bearer <token>"
 
         self.length = self._load_length()
-    
+
+
     def _load_length(self) -> int:
         response = self._session.head(self._url)
         # TODO: Determine how to handle exceptions.
@@ -572,6 +690,7 @@ class HttpRangeData(Data):
     # Read the data.
     def read(self, cursor, length):
         return self.peek(cursor, length)
+
 
 
 # Data manages mmap and fobj. Cursor does not manage mmap or fobj.
