@@ -61,3 +61,17 @@ class Parser(pparse.Parser):
             # Fast forward past the bit we just parsed.
             parent.ctx().seek(ctx._end)
 
+    # extraction = Extraction.from_xml("<job />")
+    @classmethod
+    def from_xml(cls, source):
+        from thirdparty.pparse._xml import XmlNode, XmlEntry
+        xml = XmlNode.as_node(source)
+
+        # Do we have the correct node?
+        # ** Assuming parser has type attribute.
+        if xml.get_el().tag != "parser":
+            raise Exception(f"Expected parser node. Got: {xml.get_el().tag}")
+        if xml['type'] != "zip":
+            raise Exception(f"Expected type zip parser. Got: {xml['type']}")
+        
+        

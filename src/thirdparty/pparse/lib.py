@@ -25,6 +25,31 @@ ASCEND = 2
 COMPLETE = 3
 
 
+# Job's only purpose is to facilitate kick off of XML import.
+class Job:
+    # Assuming root node in XML is <job />
+    @classmethod
+    def from_xml(cls, source):
+        from thirdparty.pparse._xml import XmlNode
+        job = XmlNode(source)
+        if job.get_el().tag != 'job':
+            raise ValueError("root node is not <job /> in Job class.")
+
+        # TODO: Verify schema.
+
+        # Kick off parsing by instantiating the root extraction.
+        # Note: job is only a root node holder (and is thrown away)
+        extraction_cls = globals()[job.extraction['type']]
+        return extraction_cls.from_xml(job.extraction)
+
+    # extraction.to_xml() -> "<job />"
+    def to_xml(self, extraction) -> str:
+
+        # TODO: Verify schema.
+
+        return '\n'.join(['<job>', extraction.to_xml(), '</job>'])
+
+
 # OBE ?
 # # Generally, run the parser on child node.
 # DESCEND = 2
@@ -724,6 +749,33 @@ class FileData(Data):
         self.seek(cursor)
         return self._fobj.read(length)
 
+    # extraction = Extraction.from_xml("<job />")
+    @classmethod
+    def from_xml(cls, source): # -> cls:
+        from thirdparty.pparse._xml import XmlNode, XmlEntry
+        xml = XmlNode.as_node(source)
+
+        # Do we have the correct node?
+        if xml.get_el().tag != "datasource":
+            raise Exception(f"Expected datasource node. Got: {xml.get_el().tag}")
+
+        extra = XmlEntry.using(xml.extra)
+        # TODO: Handle non-posix paths
+        path = extra['posix_path']
+
+        data = cls(path)
+        if data.length != extra['length']:
+            raise Exception(f"Mismatch of length on import of {path}: xml length {extra['length']} real length {data.length}.")
+
+        # Let the XML tree hold the reference
+        xml.set_obj_inst(data)
+
+        return data
+
+    # extraction.to_xml() -> "<job />"
+    def to_xml(self) -> str:
+        raise NotImplementedError("to_xml not implemented")
+
 
 # Data manages mmap and fobj. Cursor does not manage mmap or fobj.
 class FileMmapData(Data):
@@ -850,6 +902,15 @@ class Extraction:
             parser.scan_data()
         return self
 
+    # extraction = Extraction.from_xml("<job />")
+    @classmethod
+    def from_xml(cls, source):
+        raise NotImplementedError("from_xml not implemented")
+
+    # extraction.to_xml() -> "<job />"
+    def to_xml(self) -> str:
+        raise NotImplementedError("to_xml not implemented")
+
 
 # Generic artifact that ties parsers to cursor-ed data.
 class BytesExtraction(Extraction):
@@ -877,6 +938,52 @@ class BytesExtraction(Extraction):
 
     def tell(self):
         return self._reader.tell()
+
+    # extraction = Extraction.from_xml("<job />")
+    @classmethod
+    def from_xml(cls, source):
+        from thirdparty.pparse._xml import XmlNode, XmlEntry
+        xml = XmlNode.as_node(source)
+
+        name = xml['name']
+
+        # XmlNode stores instances for parent<->child relationships.
+        if xml.get_parent().get_el().tag != "child_extractions":
+            source = None
+        else:
+            print("IMPLEMENT PARENT")
+            breakpoint()
+            # Assuming this gets us to source
+            source = xml.get_parent().get_parent()
+
+        # ** Assuming extraction has datasource and datasource has type attribute.
+        data_source = globals()[xml.datasource['type']].from_xml(xml.datasource)
+
+        reader = Range(data_source.open(), data_source.length)
+
+        extraction = cls(name=name, source=source, reader=reader)
+        xml.set_obj_inst(extraction)
+
+        # TODO: parsers
+        # ! This gets nasty. We need another "registry" of parsers to indicate
+        # ! what exists and what is allowed.
+        import thirdparty.pparse.lazy.zip.Parser as LazyZipParser
+        parser_registry = {
+            "zip": LazyZipParser
+        }
+        for parser_xml in xml.parsers:
+            extraction._parser[parser_xml['name']] = parser_registry["zip"].from_xml(parser_xml)
+            if len(parser_xml.result) > 0:
+                extraction._result[parser_xml['name']] = Node.from_xml(parser_xml.result.Node)
+            breakpoint()
+
+        # TODO: child_extractions
+
+        breakpoint()
+
+    # extraction.to_xml() -> "<job />"
+    def to_xml(self) -> str:
+        raise NotImplementedError("to_xml not implemented")
 
 
 # class FolderExtraction(Extraction):
