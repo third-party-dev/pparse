@@ -99,14 +99,17 @@ class Parser(pparse.Parser):
         return False
 
 
-    # RULE: Parser always keeps root node.
-    def __init__(self, source: pparse.Extraction, id: str = "json", parent: pparse.Node = None, ctx_args={}):
-        super().__init__(source, id)
+    def make_root_node(self, parent: pparse.Node = None, init_state = JsonParsingStart, ctx_args={}):
+        init_state = globals()[init_state] if isinstance(init_state, str) else init_state
 
         from thirdparty.pparse.lazy.json.node import NodeContext
-        self._root = pparse.Node(source.open(), self, parent=parent, ctx_class=NodeContext, ctx_args=ctx_args)
-        self._root.ctx()._next_state(JsonParsingStart)
-        source._result[id] = self._root
+        root = pparse.Node(self._source.open(), self, parent=parent, ctx_class=NodeContext, ctx_args=ctx_args)
+        root.ctx()._next_state(init_state)
+        return root
+
+
+    def __init__(self, source: pparse.Extraction, id: str = "json"):
+        super().__init__(source, id)
 
     @staticmethod
     def from_reader(reader: pparse.Reader, parent: pparse.Node = None):
@@ -149,6 +152,11 @@ class Parser(pparse.Parser):
         return pparse.Node(parent.ctx().reader(), self, default_value = {}, parent = parent, ctx_class = NodeContext, ctx_args = ctx_args)
 
 
+    def new_root_node(self, node, ctx_args={}):
+        from thirdparty.pparse.lazy.json.node import NodeContext
+        return pparse.Node(node.ctx().reader(), self, default_value = {}, parent = node.ctx().parent(), ctx_class = NodeContext, ctx_args = ctx_args)
+
+
     def _end_container_node(self, node):
         ctx = node.ctx()
         parent = ctx._parent
@@ -165,7 +173,7 @@ class Parser(pparse.Parser):
             # node.clear_ctx()
 
             # Set current node to parent.
-            self.current = parent
+            #self.current = parent
         # else:
         #     log.debug("end_container: Backtracking to initial node.")
 
@@ -175,19 +183,19 @@ class Parser(pparse.Parser):
         #     # Kill ctx (hopefully reclaiming memory).
         #     ctx.node().clear_ctx()
 
-    def scan_data(self):
-        # While not end of data, keep parsing via states.
-        try:
-            while True:
-                #                                    (parser, ctx )
-                self.current.ctx().state().parse_data(self, self.current.ctx())
-        except pparse.EndOfNodeException as e:
-            pass
-        except pparse.EndOfDataException as e:
-            pass
-        except pparse.UnsupportedFormatException:
-            raise
+    # def scan_data(self):
+    #     # While not end of data, keep parsing via states.
+    #     try:
+    #         while True:
+    #             #                                    (parser, ctx )
+    #             self.current.ctx().state().parse_data(self, self.current.ctx())
+    #     except pparse.EndOfNodeException as e:
+    #         pass
+    #     except pparse.EndOfDataException as e:
+    #         pass
+    #     except pparse.UnsupportedFormatException:
+    #         raise
 
-        # TODO: Do all the children.
+    #     # TODO: Do all the children.
 
-        return self
+    #     return self

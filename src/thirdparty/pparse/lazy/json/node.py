@@ -12,6 +12,7 @@ class NodeContext(pparse.NodeContext):
     def __init__(self, node: "Node", parent: "Node", reader: pparse.Reader):
         super().__init__(node, parent, reader)
         self._key_reg = None
+        self.json_top = False
 
     def key(self):
         return self._key_reg

@@ -201,6 +201,10 @@ class JsonParsingMeta(JsonParsingState):
 
         data = ctx.peek(1)
         if len(data) < 1:
+            if ctx.json_top:
+                ctx._next_state(JsonParsingComplete)
+                return pparse.ASCEND
+
             raise EndOfDataException(
                 f"Not enough data to parse JSON meta. Offset: {ctx.tell()}"
             )
@@ -238,9 +242,6 @@ class JsonParsingMeta(JsonParsingState):
         # ----- structure stuff -----
 
         if data[:1] == JsonParsingMeta.LEFT_BRACKET:
-            # When we return to root node, assume we're done.
-            parser._root.ctx()._next_state(JsonParsingComplete)
-
             ctx.mark_field_start()  # TODO: relevant?
 
             ctx.skip(1)
@@ -256,9 +257,6 @@ class JsonParsingMeta(JsonParsingState):
             return pparse.AGAIN
 
         if data[:1] == JsonParsingMeta.LEFT_CURLY:
-            # When we return to root node, assume we're done.
-            parser._root.ctx()._next_state(JsonParsingComplete)
-
             ctx.mark_field_start()  # TODO: relevant?
 
             # At this point we have:
@@ -281,15 +279,11 @@ class JsonParsingMeta(JsonParsingState):
 
         if data[:1] in JsonParsingMeta.RIGHT_BRACKET_CURLY:
             ctx.mark_field_start()  # TODO: relevant?
+
             ctx.skip(1)
             parser._end_container_node(node)
 
             log.debug("  Ascending to parent node.")
-
-            # # ! TODO: Is this good enough for detecting the end of JSON?
-            # if node.ctx().parent() == parser._root:
-            #     parser._root.ctx()._next_state(JsonParsingComplete)
-            #     #return pparse.COMPLETE
 
             return pparse.ASCEND
 
@@ -304,6 +298,7 @@ class JsonParsingStart(JsonParsingState):
 
     def parse_data(self, node: pparse.Node):
         ctx = node.ctx()
+        parser = ctx.parser()
 
         data = ctx.peek(2)
         if len(data) < 1:
@@ -311,5 +306,12 @@ class JsonParsingStart(JsonParsingState):
         if not data[:1] in JsonParsingStart.VALID_BYTES or data[1] == b"\x00":
             raise UnsupportedFormatException("Not a valid UTF-8 Encoded JSON")
 
+        # Marking the top allows us to not throw EndOfDataException when we return
+        # to this node in JsonParsingMeta. We can not use parent == None to check
+        # for top because this data could be part of a larger tree.
+        ctx.json_top = True
+        
+        # Enter JsonParsingMeta via JsonParsingWhitespace to lstrip()
+        # Note: Ignoring whitespace after JSON string.
         ctx._next_state(JsonParsingMeta)
         return pparse.AGAIN

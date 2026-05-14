@@ -18,12 +18,10 @@ class Json:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
             parser = LazyJsonParser(self._extraction, 'json')
-            self._extraction.add_parser('json', parser)
-            #self._extraction.discover_parsers({ "json": LazyJsonParser, })
-            # TODO: Generalize the 'json' key below?
-            self._extraction._parser['json']._root.load(recursion=recursion)
-            #self._extraction.scan_data()
-        
+
+            self._extraction.add_result('json', parser.make_root_node())
+            self._extraction._result['json'].load(recursion=recursion)
+
         except pparse.EndOfDataException as e:
             print(e)
             pass
@@ -37,7 +35,7 @@ class Json:
 
 
     def root_node(self):
-        return self._extraction._parser['json']._root
+        return self._extraction._result['json']
 
 
     def open_fpath(self, fpath, recursion=None):
