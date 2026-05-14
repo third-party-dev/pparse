@@ -201,10 +201,10 @@ class JsonParsingMeta(JsonParsingState):
 
         data = ctx.peek(1)
         if len(data) < 1:
+            # TODO: This only works if its the end of the stream.
             if ctx.json_top:
                 ctx._next_state(JsonParsingComplete)
                 return pparse.ASCEND
-
             raise EndOfDataException(
                 f"Not enough data to parse JSON meta. Offset: {ctx.tell()}"
             )
@@ -287,6 +287,10 @@ class JsonParsingMeta(JsonParsingState):
 
             return pparse.ASCEND
 
+        # TODO: This only works if its invalid JSON.
+        if ctx.json_top:
+            ctx._next_state(JsonParsingComplete)
+            return pparse.ASCEND
         raise UnsupportedFormatException(f"Not a valid JSON meta character: {data[:1]}")
 
 

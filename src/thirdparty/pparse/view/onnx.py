@@ -77,9 +77,13 @@ class Onnx:
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
             parser_class = make_protobuf_parser(ext_list=[".onnx"], init_msgtype=".onnx.ModelProto", proto=proto)
             parser = parser_class(self._extraction, 'protobuf')
-            self._extraction.add_parser('protobuf', parser)
+
+            self._extraction.add_result('protobuf', parser.make_root_node())
+            self._extraction._result['protobuf'].load(recursion=recursion)
+
+            #self._extraction.add_parser('protobuf', parser)
             #self._extraction.discover_parsers({"protobuf": parser})
-            self._extraction._parser['protobuf']._root.load(recursion=recursion)
+            #self._extraction._parser['protobuf']._root.load(recursion=recursion)
 
             # Some light post processing.
             self.root = self._extraction._result["protobuf"]
@@ -104,7 +108,7 @@ class Onnx:
 
 
     def root_node(self):
-        return self._extraction._parser['protobuf']._root
+        return self._extraction._result['protobuf']
 
 
     def open_fpath(self, fpath, recursion=None):

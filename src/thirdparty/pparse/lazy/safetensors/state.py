@@ -51,12 +51,10 @@ class SafetensorsParsingTensorsMeta(SafetensorsParsingState):
         ctx = node.ctx()
         parser = ctx.parser()
 
-        # TODO: Detect if Node.load(recursive=True)?
-
         # We only need the data reference, we seek(tensor_data_start) for each node.
         tensor_reader = ctx.reader()
         node._value['tensors'] = {}
-        for k,v in parser._root._value['header']._value._value.items():
+        for k,v in node.value['header'].value.value.items():
             if k == '__metadata__':
                 continue
             # Create UNLOADED nodes for each Tensor.
@@ -81,11 +79,11 @@ class SafetensorsParsingHeaderSetup(SafetensorsParsingState):
 
         #breakpoint()
         from thirdparty.pparse.lazy.json import Parser as LazyJsonParser
-        json_parser = LazyJsonParser.from_reader(node.ctx().reader(), parent=node)
+        json_parser = LazyJsonParser.from_reader(node.ctx().reader())
 
-        node._value['header'] = json_parser._root
+        node._value['header'] = json_parser.make_root_node(parent=node)
         # Let Node.load() handle it.
-        node.ctx()._descendants.append(json_parser._root)
+        node.ctx()._descendants.append(node._value['header'])
 
         # ! Assuming success. TODO: Node should be able to verify json parse success before continuing.
         ctx._next_state(SafetensorsParsingTensorsMeta)

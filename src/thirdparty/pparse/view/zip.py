@@ -26,9 +26,13 @@ class Zip:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
             parser = LazyZipParser(self._extraction, 'zip')
-            self._extraction.add_parser('zip', parser)
+
+            self._extraction.add_result('zip', parser.make_root_node())
+            self._extraction._result['zip'].load(recursion=recursion)
+
+            #self._extraction.add_parser('zip', parser)
             #self._extraction.discover_parsers({ "zip": LazyZipParser, })
-            self._extraction._parser['zip']._root.load(recursion=recursion)
+            #self._extraction._parser['zip']._root.load(recursion=recursion)
         
         except pparse.EndOfDataException as e:
             print(e)
@@ -43,7 +47,7 @@ class Zip:
 
 
     def root_node(self):
-        return self._extraction._parser['zip']._root
+        return self._extraction._result['zip']
 
 
     def open_fpath(self, fpath, recursion=None):

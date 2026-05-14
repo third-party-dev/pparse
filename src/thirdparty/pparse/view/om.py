@@ -20,8 +20,11 @@ class Om:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
             parser = LazyOmParser(self._extraction, 'om')
-            self._extraction.add_parser('om', parser)
-            self._extraction._parser['om']._root.load(recursion=recursion)
+            self._extraction.add_result('om', parser.make_root_node())
+            self._extraction._result['om'].load(recursion=recursion)
+
+            #self._extraction.add_parser('om', parser)
+            #self._extraction._parser['om']._root.load(recursion=recursion)
 
         except pparse.EndOfDataException as e:
             print(e)
@@ -36,7 +39,7 @@ class Om:
 
 
     def root_node(self):
-        return self._extraction._parser['om']._root
+        return self._extraction._result['om']
 
 
     def open_fpath(self, fpath, recursion=None, header_only=False):

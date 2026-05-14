@@ -130,7 +130,7 @@ class SafeTensors:
 
     def tensor_names(self):
 
-        tensor_dict = self._extraction._parser['safetensors']._root.value['tensors']
+        tensor_dict = self._extraction._result['safetensors'].value['tensors']
         return [k for k in tensor_dict if k != "__metadata__"]
         # return self.header().keys()
 
@@ -163,9 +163,13 @@ class SafeTensors:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
             parser = LazySafetensorsParser(self._extraction, 'safetensors')
-            self._extraction.add_parser('safetensors', parser)
+
+            self._extraction.add_result('safetensors', parser.make_root_node())
+            self._extraction._result['safetensors'].load(recursion=recursion)
+
+            #self._extraction.add_parser('safetensors', parser)
             #self._extraction.discover_parsers({"safetensors": LazySafetensorsParser})
-            self._extraction._parser['safetensors']._root.load(recursion=recursion)
+            #self._extraction._parser['safetensors']._root.load(recursion=recursion)
 
         except pparse.EndOfDataException:
             pass
@@ -179,7 +183,7 @@ class SafeTensors:
 
 
     def root_node(self):
-        return self._extraction._parser['safetensors']._root
+        return self._extraction._result['safetensors']
 
 
     def open_fpath(self, fpath, recursion=None):
@@ -271,11 +275,11 @@ class SafeTensorsIndex:
     #     return self._extraction._result["safetensors_index"].value.value["metadata"]
 
     def tensor(self, name):
-        tensor_node = self._root.value['tensors'][name]
+        tensor_node = self._extraction._result['safetensors_index'].value['tensors'][name]
         return SafeTensorsIndexTensor(name, tensor_node)
 
     def tensor_names(self):
-        return list(self._root.value['tensors'].keys())
+        return list(self._extraction._result['safetensors_index'].value['tensors'].keys())
 
     # fpath - Index file.
     def _parse(self, idx_data, fname="unnamed.index.json", recursion=None):
@@ -283,9 +287,16 @@ class SafeTensorsIndex:
             # Process the index file.
             idx_range = pparse.Range(idx_data.open(), idx_data.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=idx_range)
-            self._extraction.discover_parsers({"safetensors_index": LazySafetensorsIndexParser})
-            self._root = self._extraction._parser['safetensors_index']._root
-            self._root.load(recursion=recursion)
+
+            # ! BUSTED
+            parser = LazySafetensorsIndexParser(self._extraction, 'safetensors_index')
+
+            self._extraction.add_result('safetensors_index', parser.make_root_node())
+            self._extraction._result['safetensors_index'].load(recursion=recursion)
+
+            #self._extraction.discover_parsers({"safetensors_index": LazySafetensorsIndexParser})
+            #self._root = self._extraction._result['safetensors_index']
+            #self._root.load(recursion=recursion)
             
 
         except pparse.EndOfDataException:
@@ -300,7 +311,7 @@ class SafeTensorsIndex:
 
 
     def root_node(self):
-        return self._extraction._parser['safetensors_index']._root
+        return self._extraction._result['safetensors_index']
 
 
     def open_fpath(self, fpath, recursion=None):

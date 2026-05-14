@@ -73,9 +73,9 @@ class PyTorchParsingPickle(PyTorchParsingState):
 
         from thirdparty.pparse.lazy.pickle import Parser as LazyPickleParser
         bytes_io = data_pkl_obj._value['decomp_data']._value
-        pkl_parser = LazyPickleParser.from_bytesio(bytes_io, parent=node)
-        node._value['pkl'] = pkl_parser._root
-        ctx._descendants.append(pkl_parser._root)
+        pkl_parser = LazyPickleParser.from_bytesio(bytes_io)
+        node._value['pkl'] = pkl_parser.make_root_node(parent=node)
+        ctx._descendants.append(node._value['pkl'])
 
         # ! Assuming success. TODO: Node should be able to verify pkl parse success before continuing.
         ctx._next_state(PyTorchParsingTensorsMeta)
@@ -101,9 +101,9 @@ class PyTorchParsingZip(PyTorchParsingState):
         parser = ctx.parser()
 
         from thirdparty.pparse.lazy.zip import Parser as LazyZipParser
-        zip_parser = LazyZipParser.from_reader(node.ctx().reader(), parent=node)
-        node._value['zip'] = zip_parser._root
-        ctx._descendants.append(zip_parser._root)
+        zip_parser = LazyZipParser.from_reader(node.ctx().reader())
+        node._value['zip'] = zip_parser.make_root_node(parent=node)
+        ctx._descendants.append(node._value['zip'])
 
         # ! Assuming success. TODO: Node should be able to verify zip parse success before continuing.
         ctx._next_state(PyTorchParsingZipPostProcess)

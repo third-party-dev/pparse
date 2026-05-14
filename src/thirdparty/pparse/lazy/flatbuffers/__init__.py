@@ -35,7 +35,15 @@ def make_flatbuffers_parser(ext_list=['.unknown'], json_schema={}):
             # TODO: Look for TFL3 after root_table offset.
             return False
 
-        def __init__(self, source: pparse.Extraction, id: str = "flatbuffers", parent: pparse.Node = None):
+        def make_root_node(self, parent: pparse.Node = None, init_state = FlatbuffersParsingRootTableOffset):
+            init_state = globals()[init_state] if isinstance(init_state, str) else init_state
+
+            root = pparse.Node(self._source.open(), self, default_value={}, parent=parent)
+            root.ctx()._next_state(init_state)
+            return root
+
+
+        def __init__(self, source: pparse.Extraction, id: str = "flatbuffers"):
             super().__init__(source, id)
 
             '''
@@ -45,13 +53,6 @@ def make_flatbuffers_parser(ext_list=['.unknown'], json_schema={}):
 
             self.top_reader = source.open()
             self.schema = FlatbuffersSchema(schema_obj=json_schema)
-
-            self._root = pparse.Node(source.open(), self, default_value={}, parent=parent)
-            self._root.ctx()._next_state(FlatbuffersParsingRootTableOffset)
-            source._result[id] = self._root
-
-            # self.current = Node(None, source.open(), 0)
-            # source._result[id] = self.current
 
 
         # Note: Expecting ctx.reader() to be at start of new node table.

@@ -47,14 +47,15 @@ class SafetensorsIndexParsingShards(SafetensorsIndexParsingState):
 
         # ! Super hacky way to get path to the weight_map files.
         from pathlib import Path
-        prefix = Path(parser._root.ctx().reader().cursor()._data._path).parent
+        prefix = Path(node._reader._cursor._data._path).parent
 
         weight_map = node.value['index'].value.value['weight_map'].value
         for tname in weight_map:
             st_fpath = str(prefix / weight_map[tname])
-            st_parser = LazySafeTensorsParser.from_fpath(st_fpath, parent=node)
-            node._value.setdefault('stfiles', {})[st_fpath] = st_parser._root
-            ctx._descendants.append(st_parser._root)
+            st_parser = LazySafeTensorsParser.from_fpath(st_fpath)
+
+            node._value.setdefault('stfiles', {})[st_fpath] = st_parser.make_root_node(parent=node)
+            ctx._descendants.append(node._value['stfiles'][st_fpath])
 
         ctx._next_state(SafetensorsIndexParsingTensors)
         return pparse.AGAIN
@@ -66,10 +67,10 @@ class SafetensorsIndexParsingIndex(SafetensorsIndexParsingState):
         parser = ctx.parser()
 
         from thirdparty.pparse.lazy.json import Parser as LazyJsonParser
-        json_parser = LazyJsonParser.from_reader(node.ctx().reader(), parent=node)
+        json_parser = LazyJsonParser.from_reader(node.ctx().reader())
 
-        node._value['index'] = json_parser._root
-        node.ctx()._descendants.append(json_parser._root)
+        node._value['index'] = json_parser.make_root_node(parent=node)
+        node.ctx()._descendants.append(node._value['index'])
 
         ctx._next_state(SafetensorsIndexParsingShards)
 

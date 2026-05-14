@@ -42,19 +42,16 @@ class Parser(pparse.Parser):
     def match_magic(cursor: pparse.Cursor):
         return False
 
-    def __init__(self, source: pparse.Extraction, id: str):
+    def make_root_node(self, parent: pparse.Node = None, init_state = OmParsingHeader):
+        init_state = globals()[init_state] if isinstance(init_state, str) else init_state
+
+        # Current path of pending things.
+        root = pparse.Node(source.open(), self, default_value={}, parent=parent)
+        root.ctx()._next_state(init_state)
+        return root
+
+    def __init__(self, source: pparse.Extraction, id: str = "om"):
         super().__init__(source, id)
-
-        # Current path of pending things.
-        # self.current = NodeMap(None, source.open())
-        # self.current.ctx()._next_state(OmParsingHeader)
-        # source._result[id] = self.current
-
-        # Current path of pending things.
-        self._root = pparse.Node(source.open(), self, default_value={})
-        self._root.ctx()._next_state(OmParsingHeader)
-        source._result[id] = self._root
-
 
     def new_map_node(self, node):
         return pparse.Node(node.ctx().reader(), self, parent=node, default_value={})

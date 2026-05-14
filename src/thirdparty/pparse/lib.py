@@ -26,28 +26,34 @@ COMPLETE = 3
 
 
 # Job's only purpose is to facilitate kick off of XML import.
-class Job:
+class PparseXml:
+
+    def __init__(self, xml):
+        self.xml = xml
+
     # Assuming root node in XML is <job />
     @classmethod
     def from_xml(cls, source):
         from thirdparty.pparse._xml import XmlNode
-        job = XmlNode(source)
-        if job.get_el().tag != 'job':
-            raise ValueError("root node is not <job /> in Job class.")
+        xml = XmlNode(source)
+        xml.set_obj_inst(PparseXml(xml))
 
-        # TODO: Verify schema.
+        if xml.get_el().tag != 'pparse':
+            raise ValueError("root node is not <pparse /> in PparseXml class.")
+
+        # TODO: Verify with schema.
+        # TODO: Verify parsers.
 
         # Kick off parsing by instantiating the root extraction.
-        # Note: job is only a root node holder (and is thrown away)
         extraction_cls = globals()[job.extraction['type']]
-        return extraction_cls.from_xml(job.extraction)
+        xml.extraction.set_obj_inst(extraction_cls.from_xml(xml.extraction))
 
-    # extraction.to_xml() -> "<job />"
-    def to_xml(self, extraction) -> str:
+    # # extraction.to_xml() -> "<job />"
+    # def to_xml(self, extraction) -> str:
 
-        # TODO: Verify schema.
+    #     # TODO: Verify schema.
 
-        return '\n'.join(['<job>', extraction.to_xml(), '</job>'])
+    #     return '\n'.join(['<job>', extraction.to_xml(), '</job>'])
 
 
 # OBE ?
@@ -873,6 +879,19 @@ class Extraction:
         self._name = name
         return self
 
+
+    # ! adding parser to an extraction is the old way of thinking. Now, we want to add a new
+    # ! potential result tree.
+
+    # At this point, caller has identified a parser for the extraction. The system now
+    # needs to create a result slot that will contain the root node of the result and
+    # the root node will hold the initial parser instance (which gets copied to all
+    # relevant children).
+    def add_result(self, id, root_node: Optional["Node"]):
+        self._result[id] = root_node
+
+    # TODO: Create passthrough load() for result or results
+
     def add_parser(self, id, parser: Optional["Parser"]):
         self._parser[id] = parser
 
@@ -961,6 +980,7 @@ class BytesExtraction(Extraction):
 
         reader = Range(data_source.open(), data_source.length)
 
+        # extraction = BytesExtraction(name=name, source=source, reader=reader)
         extraction = cls(name=name, source=source, reader=reader)
         xml.set_obj_inst(extraction)
 
@@ -972,7 +992,9 @@ class BytesExtraction(Extraction):
             "zip": LazyZipParser
         }
         for parser_xml in xml.parsers:
+            
             extraction._parser[parser_xml['name']] = parser_registry["zip"].from_xml(parser_xml)
+
             if len(parser_xml.result) > 0:
                 extraction._result[parser_xml['name']] = Node.from_xml(parser_xml.result.Node)
             breakpoint()

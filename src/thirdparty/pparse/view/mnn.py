@@ -26,9 +26,13 @@ class MNN:
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
             parser_class = make_flatbuffers_parser(ext_list=[Path(fname).suffix], json_schema=json_schema)
             parser = parser_class(self._extraction, 'flatbuffers')
-            self._extraction.add_parser('flatbuffers', parser)
+
+            self._extraction.add_result('flatbuffers', parser.make_root_node())
+            self._extraction._result['flatbuffers'].load(recursion=recursion)
+
+            #self._extraction.add_parser('flatbuffers', parser)
             #self._extraction.discover_parsers({'flatbuffers': parser})
-            self._extraction._parser['flatbuffers']._root.load(recursion=recursion)
+            #self._extraction._parser['flatbuffers']._root.load(recursion=recursion)
 
             # TODO: Build out tensor objects.
             # TFlite's looks like this:
@@ -52,7 +56,7 @@ class MNN:
 
 
     def root_node(self):
-        return self._extraction._parser['flatbuffers']._root
+        return self._extraction._result['flatbuffers']
 
 
     def open_fpath(self, fpath, recursion=None):

@@ -23,9 +23,13 @@ class Parser:
             self._extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
             parser_class = make_protobuf_parser(ext_list=[Path(fpath).suffix], init_msgtype=msgtype, proto=PbImport(pbpath))
             parser = parser_class(self._extraction, 'protobuf')
-            self._extraction.add_parser('protobuf', parser)
+
+            self._extraction.add_result('protobuf', parser.make_root_node())
+            self._extraction._result['protobuf'].load(recursion=recursion)
+
+            #self._extraction.add_parser('protobuf', parser)
             #self._extraction.discover_parsers({"protobuf": parser})
-            self._extraction._parser['protobuf']._root.load(recursion=recursion)
+            #self._extraction._parser['protobuf']._root.load(recursion=recursion)
 
         except pparse.EndOfDataException as e:
             print(e)
@@ -40,7 +44,7 @@ class Parser:
 
 
     def root_node(self):
-        return self._extraction._parser['protobuf']._root
+        return self._extraction._result['protobuf']
 
 
     def open_fpath(self, fpath, pbpath, msgtype, recursion=None):

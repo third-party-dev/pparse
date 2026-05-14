@@ -21,12 +21,16 @@ class Parser(pparse.Parser):
         return False
 
 
-    def __init__(self, source: pparse.Extraction, id: str = "safetensors_index", parent: pparse.Node = None):
-        super().__init__(source, id)
+    def make_root_node(self, parent: pparse.Node = None, init_state = SafetensorsIndexParsingIndex):
+        init_state = globals()[init_state] if isinstance(init_state, str) else init_state
 
-        self._root = pparse.Node(source.open(), self, default_value={}, parent=parent)
-        self._root.ctx()._next_state(SafetensorsIndexParsingIndex)
-        source._result[id] = self._root
+        root = pparse.Node(self._source.open(), self, default_value={}, parent=parent)
+        root.ctx()._next_state(init_state)
+        return root
+
+
+    def __init__(self, source: pparse.Extraction, id: str = "safetensors_index"):
+        super().__init__(source, id)
 
 
 

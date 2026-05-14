@@ -38,18 +38,24 @@ def make_protobuf_parser(ext_list=[], init_msgtype="", proto=PbImport()):
             return Parser(extraction, parent=parent)
 
 
-        def __init__(self, source: pparse.Extraction, id: str = "protobuf", parent: pparse.Node = None):
+        def make_root_node(self, parent: pparse.Node = None, init_state = ProtobufParsingTag):
+            init_state = globals()[init_state] if isinstance(init_state, str) else init_state
+
+            root = pparse.Node(self._source.open(), self, default_value={}, parent=parent, ctx_class=NodeContext)
+            root.ctx()._next_state(init_state)
+            root.ctx()._type_desc = self.schema.by_type_name(init_msgtype)
+
+            return root
+
+
+        def __init__(self, source: pparse.Extraction, id: str = "protobuf"):
             super().__init__(source, id)
+
             self.schema = proto
 
             # Initial node is a map of type '.onnx.ModelProto'
             # protobuf_type = proto.by_type_name('.onnx.ModelProto')
-            protobuf_type = proto.by_type_name(init_msgtype)
-            self._root = pparse.Node(source.open(), self, default_value={}, parent=parent, ctx_class=NodeContext)
-            self._root.ctx()._next_state(ProtobufParsingTag)
-            self._root.ctx()._type_desc = proto.by_type_name(init_msgtype)
-            #self.current = NodeMap(None, source.open(), protobuf_type)
-            source._result[id] = self._root
+            protobuf_type = self.schema.by_type_name(init_msgtype)
 
             # TODO: Consider adding hook for booking as the nodes are completed.
             # # def _node_complete_callable(parser, node_ctx, user_arg):

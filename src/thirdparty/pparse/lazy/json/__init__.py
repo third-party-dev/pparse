@@ -112,9 +112,9 @@ class Parser(pparse.Parser):
         super().__init__(source, id)
 
     @staticmethod
-    def from_reader(reader: pparse.Reader, parent: pparse.Node = None):
+    def from_reader(reader: pparse.Reader):
         extraction = pparse.BytesExtraction(name="data.json", reader=reader.dup())
-        return Parser(extraction, parent=parent)
+        return Parser(extraction)
 
 
     def apply_node_value(self, node, value):

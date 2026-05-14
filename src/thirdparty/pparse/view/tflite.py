@@ -92,9 +92,13 @@ class TFLite:
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
             parser_class = make_flatbuffers_parser(ext_list=[Path(fname).suffix], json_schema=json_schema)
             parser = parser_class(self._extraction, 'flatbuffers')
-            self._extraction.add_parser('flatbuffers', parser)
+
+            self._extraction.add_result('flatbuffers', parser.make_root_node())
+            self._extraction._result['flatbuffers'].load(recursion=recursion)
+
+            #self._extraction.add_parser('flatbuffers', parser)
             #self._extraction.discover_parsers({"flatbuffers": parser})
-            self._extraction._parser['flatbuffers']._root.load(recursion=recursion)
+            #self._extraction._parser['flatbuffers']._root.load(recursion=recursion)
 
             root_table = self.root_node().value['root_table'].value
             buffers = root_table['buffers'].value
@@ -117,7 +121,7 @@ class TFLite:
 
 
     def root_node(self):
-        return self._extraction._parser['flatbuffers']._root
+        return self._extraction._result['flatbuffers']
 
 
     # TEST: curl http://host.containers.internal:44444/yolov5su_float32.tflite

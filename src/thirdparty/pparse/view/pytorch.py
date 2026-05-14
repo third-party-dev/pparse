@@ -69,9 +69,13 @@ class PyTorch:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
             parser = LazyPyTorchParser(self._extraction, 'pt')
-            self._extraction.add_parser('pt', parser)
+
+            self._extraction.add_result('pt', parser.make_root_node())
+            self._extraction._result['pt'].load(recursion=recursion)
+
+            #self._extraction.add_parser('pt', parser)
             #self._extraction.discover_parsers({"pt": LazyPyTorchParser})
-            self._extraction._parser['pt']._root.load(recursion=recursion)
+            #self._extraction._parser['pt']._root.load(recursion=recursion)
         except pparse.EndOfDataException as e:
             print(e)
             pass
@@ -85,7 +89,7 @@ class PyTorch:
 
 
     def root_node(self):
-        return self._extraction._parser['pt']._root
+        return self._extraction._result['pt']
 
 
     def open_fpath(self, fpath, recursion=None):
@@ -215,10 +219,10 @@ class PyTorch:
     def tensor(self, name):
         if name not in self.tensor_names():
             raise KeyError("Tensor name not found.")
-        return Tensor(name, self._extraction._parser['pt']._root._value['tensors'][name])
+        return Tensor(name, self._extraction._result['pt']._value['tensors'][name])
 
 
     def tensor_names(self):
-        return list(self._extraction._parser['pt']._root._value['tensors'].keys())
+        return list(self._extraction._result['pt']._value['tensors'].keys())
 
 

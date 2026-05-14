@@ -15,9 +15,13 @@ class Pickle:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
             parser = LazyPickleParser(self._extraction, 'pkl')
-            self._extraction.add_parser('pkl', parser)
+
+            self._extraction.add_result('pkl', parser.make_root_node())
+            self._extraction._result['pkl'].load(recursion=recursion)
+
+            #self._extraction.add_parser('pkl', parser)
             #self._extraction.discover_parsers({"pkl": LazyPickleParser})
-            self._extraction._parser['pkl']._root.load(recursion=recursion)
+            #self._extraction._parser['pkl']._root.load(recursion=recursion)
         
         except pparse.EndOfDataException as e:
             print(e)
@@ -32,7 +36,7 @@ class Pickle:
 
 
     def root_node(self):
-        return self._extraction._parser['pkl']._root
+        return self._extraction._result['pkl']
 
 
     def open_fpath(self, fpath, recursion=None):

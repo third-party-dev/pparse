@@ -27,18 +27,22 @@ class Parser(pparse.Parser):
         return False
 
 
-    def __init__(self, source: pparse.Extraction, id: str = "zip", parent: pparse.Node = None):
-        super().__init__(source, id)
+    def make_root_node(self, parent: pparse.Node = None, init_state = ZipParsingMagic):
+        init_state = globals()[init_state] if isinstance(init_state, str) else init_state
 
-        self._root = pparse.Node(source.open(), self, default_value = [], parent = parent)
-        self._root.ctx()._next_state(ZipParsingMagic)
-        source._result[id] = self._root
+        root = pparse.Node(self._source.open(), self, default_value = [], parent = parent)
+        root.ctx()._next_state(init_state)
+        return root
+
+
+    def __init__(self, source: pparse.Extraction, id: str = "zip"):
+        super().__init__(source, id)
 
 
     @staticmethod
-    def from_reader(reader: pparse.Reader, parent: pparse.Node = None):
+    def from_reader(reader: pparse.Reader):
         extraction = pparse.BytesExtraction(name="data.zip", reader=reader.dup())
-        return Parser(extraction, parent=parent)
+        return Parser(extraction)
 
 
     def new_map_node(self, parent):
@@ -74,4 +78,4 @@ class Parser(pparse.Parser):
         if xml['type'] != "zip":
             raise Exception(f"Expected type zip parser. Got: {xml['type']}")
         
-        
+

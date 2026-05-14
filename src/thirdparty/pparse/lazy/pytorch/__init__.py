@@ -27,13 +27,17 @@ class Parser(pparse.Parser):
         return False
 
 
-    def __init__(self, source: pparse.Extraction, id: str = "pt"):
-        super().__init__(source, id)
+    def make_root_node(self, parent: pparse.Node = None, init_state = PyTorchParsingZip):
+        init_state = globals()[init_state] if isinstance(init_state, str) else init_state
 
         # Current path of pending things.
-        self._root = pparse.Node(source.open(), self, default_value={})
-        self._root.ctx()._next_state(PyTorchParsingZip)
-        source._result[id] = self._root
+        root = pparse.Node(self._source.open(), self, default_value={}, parent=parent)
+        root.ctx()._next_state(init_state)
+        return root
+
+
+    def __init__(self, source: pparse.Extraction, id: str = "pt"):
+        super().__init__(source, id)
 
 
     def _traverse_pt(self, node, state, path_arr=[], metrics={ 'param_cnt': 0 }):

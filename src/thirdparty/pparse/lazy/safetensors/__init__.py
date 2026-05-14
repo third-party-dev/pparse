@@ -25,27 +25,31 @@ class Parser(pparse.Parser):
         # TODO: 8 bytes of offset til '}', then '{'.
         return False
 
-
-    def __init__(self, source: pparse.Extraction, id: str = "safetensors", parent: pparse.Node = None):
-        super().__init__(source, id)
+    def make_root_node(self, parent: pparse.Node = None, init_state = SafetensorsParsingLength):
+        init_state = globals()[init_state] if isinstance(init_state, str) else init_state
 
         # Current path of pending things.
-        self._root = pparse.Node(source.open(), self, default_value={}, parent=parent)
-        self._root.ctx()._next_state(SafetensorsParsingLength)
-        source._result[id] = self._root
+        root = pparse.Node(self._source.open(), self, default_value={}, parent=parent)
+        root.ctx()._next_state(init_state)
+        return root
+
+    def __init__(self, source: pparse.Extraction, id: str = "safetensors"):
+        super().__init__(source, id)
+
 
 
     @staticmethod
-    def from_fpath(fpath, parent: pparse.Node = None):
+    def from_fpath(fpath):
         data_source = pparse.FileData(path=fpath)
         data_range = pparse.Range(data_source.open(), data_source.length)
         extraction = pparse.BytesExtraction(name=fpath, reader=data_range)
-        return Parser(extraction, parent=parent)
+        return Parser(extraction)
 
 
     def tensor_node_from(self, tensor_reader: pparse.Reader, node: pparse.Node, header_key: str, header_node: pparse.Node):
 
-        header_length = self._root._value['header_length']
+        # TODO: I don't like this.
+        header_length = node.value['header_length']
         (start, end) = header_node._value['data_offsets']._value
         # Seek to the start offset of tensor data
         tensor_reader.seek(8 + header_length + start)
