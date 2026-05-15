@@ -5,7 +5,7 @@ log = logging.getLogger(__name__)
 
 import struct
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.flatbuffers import make_flatbuffers_parser
+from thirdparty.pparse.lazy.flatbuffers import configure_pparser
 
 
 class Tensor(pparse.Tensor):
@@ -90,7 +90,7 @@ class TFLite:
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            parser_class = make_flatbuffers_parser(ext_list=[Path(fname).suffix], json_schema=json_schema)
+            parser_class = configure_pparser(ext_list=[Path(fname).suffix], json_schema=json_schema)
             parser = parser_class(self._extraction, 'flatbuffers')
 
             self._extraction.add_result('flatbuffers', parser.make_root_node())

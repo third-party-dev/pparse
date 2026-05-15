@@ -5,7 +5,7 @@ import logging
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.json import Parser as LazyJsonParser
+from thirdparty.pparse.lazy.json import configure_pparser
 
 
 class Json:
@@ -17,7 +17,7 @@ class Json:
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            parser = LazyJsonParser(self._extraction, 'json')
+            parser = configure_pparser()(self._extraction, 'json')
 
             self._extraction.add_result('json', parser.make_root_node())
             self._extraction._result['json'].load(recursion=recursion)

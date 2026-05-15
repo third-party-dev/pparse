@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 from pprint import pprint
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.pytorch import Parser as LazyPyTorchParser
+from thirdparty.pparse.lazy.pytorch import configure_pparser
 
 
 class Tensor(pparse.Tensor):
@@ -68,7 +68,7 @@ class PyTorch:
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            parser = LazyPyTorchParser(self._extraction, 'pt')
+            parser = configure_pparser()(self._extraction, 'pt')
 
             self._extraction.add_result('pt', parser.make_root_node())
             self._extraction._result['pt'].load(recursion=recursion)

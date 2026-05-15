@@ -18,7 +18,16 @@ from thirdparty.pparse.lazy.flatbuffers.node import NodeContext
 
 #proto = OnnxPb()
 
-def make_flatbuffers_parser(ext_list=['.unknown'], json_schema={}):
+def configure_pparser(**kwargs):
+
+    ext_list = ['.unknown']
+    if 'ext_list' in kwargs:
+        ext_list = kwargs['ext_list']
+    
+    json_schema = {}
+    if 'json_schema' in kwargs:
+        json_schema = kwargs['json_schema']
+
     class Parser(pparse.Parser):
         @staticmethod
         def match_extension(fname: str):

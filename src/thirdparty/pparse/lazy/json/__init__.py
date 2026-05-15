@@ -82,120 +82,124 @@ from thirdparty.pparse.lazy.json.state import JsonParsingStart
 #         ...
 #     return Parser
 
-class Parser(pparse.Parser):
-    # RULE: Parser knows extensions
-    @staticmethod
-    def match_extension(fname: str) -> bool:
-        if not fname:
+def configure_pparser(**kwargs):
+
+    class Parser(pparse.Parser):
+        # RULE: Parser knows extensions
+        @staticmethod
+        def match_extension(fname: str) -> bool:
+            if not fname:
+                return False
+            for ext in [".json"]:
+                if fname.endswith(ext):
+                    return True
             return False
-        for ext in [".json"]:
-            if fname.endswith(ext):
-                return True
-        return False
 
-    # RULE: Parser knows magic
-    @staticmethod
-    def match_magic(cursor: pparse.Cursor):
-        return False
+        # RULE: Parser knows magic
+        @staticmethod
+        def match_magic(cursor: pparse.Cursor):
+            return False
 
 
-    def make_root_node(self, parent: pparse.Node = None, init_state = JsonParsingStart, ctx_args={}):
-        init_state = globals()[init_state] if isinstance(init_state, str) else init_state
+        def make_root_node(self, parent: pparse.Node = None, init_state = JsonParsingStart, ctx_args={}):
+            init_state = globals()[init_state] if isinstance(init_state, str) else init_state
 
-        from thirdparty.pparse.lazy.json.node import NodeContext
-        root = pparse.Node(self._source.open(), self, parent=parent, ctx_class=NodeContext, ctx_args=ctx_args)
-        root.ctx()._next_state(init_state)
-        return root
-
-
-    def __init__(self, source: pparse.Extraction, id: str = "json"):
-        super().__init__(source, id)
-
-    @staticmethod
-    def from_reader(reader: pparse.Reader):
-        extraction = pparse.BytesExtraction(name="data.json", reader=reader.dup())
-        return Parser(extraction)
+            from thirdparty.pparse.lazy.json.node import NodeContext
+            root = pparse.Node(self._source.open(), self, parent=parent, ctx_class=NodeContext, ctx_args=ctx_args)
+            root.ctx()._next_state(init_state)
+            return root
 
 
-    def apply_node_value(self, node, value):
-        ctx = node.ctx()
+        def __init__(self, source: pparse.Extraction, id: str = "json"):
+            super().__init__(source, id)
 
-        if ctx.key():
-            log.debug(f"apply_val: Inside map, unset keyreg, set value ({value})")
-            node._value[ctx.key()] = value
-            ctx.set_key(None)
-
-        elif callable(getattr(node._value, "append", None)):
-            log.debug(f"apply_val: Inside arr, append value ({value})")
-            node._value.append(value)
-
-        elif isinstance(node._value, dict) and ctx.key() is None:
-            log.debug(f"apply_val: Inside map, setting key reg ({value})")
-            ctx.set_key(value)
-
-        else:
-            log.debug(f"apply_val: Top level or on-demand loading, set value ({value})")
-            # breakpoint()
-            # Note: This implicitly covers the root node case.
-            node._value = value
+        @staticmethod
+        def from_reader(reader: pparse.Reader):
+            extraction = pparse.BytesExtraction(name="data.json", reader=reader.dup())
+            return Parser(extraction)
 
 
-    def new_array_node(self, parent, ctx_args={}):
-        # TODO: Consider alternative ctx()._state management? Currently set by State object.
-        from thirdparty.pparse.lazy.json.node import NodeContext
-        return pparse.Node(parent.ctx().reader(), self, default_value = [], parent = parent, ctx_class = NodeContext, ctx_args = ctx_args)
+        def apply_node_value(self, node, value):
+            ctx = node.ctx()
+
+            if ctx.key():
+                log.debug(f"apply_val: Inside map, unset keyreg, set value ({value})")
+                node._value[ctx.key()] = value
+                ctx.set_key(None)
+
+            elif callable(getattr(node._value, "append", None)):
+                log.debug(f"apply_val: Inside arr, append value ({value})")
+                node._value.append(value)
+
+            elif isinstance(node._value, dict) and ctx.key() is None:
+                log.debug(f"apply_val: Inside map, setting key reg ({value})")
+                ctx.set_key(value)
+
+            else:
+                log.debug(f"apply_val: Top level or on-demand loading, set value ({value})")
+                # breakpoint()
+                # Note: This implicitly covers the root node case.
+                node._value = value
 
 
-    def new_map_node(self, parent, ctx_args={}):
-        # TODO: Consider alternative ctx()._state management? Currently set by State object.
-        from thirdparty.pparse.lazy.json.node import NodeContext
-        return pparse.Node(parent.ctx().reader(), self, default_value = {}, parent = parent, ctx_class = NodeContext, ctx_args = ctx_args)
+        def new_array_node(self, parent, ctx_args={}):
+            # TODO: Consider alternative ctx()._state management? Currently set by State object.
+            from thirdparty.pparse.lazy.json.node import NodeContext
+            return pparse.Node(parent.ctx().reader(), self, default_value = [], parent = parent, ctx_class = NodeContext, ctx_args = ctx_args)
 
 
-    def new_root_node(self, node, ctx_args={}):
-        from thirdparty.pparse.lazy.json.node import NodeContext
-        return pparse.Node(node.ctx().reader(), self, default_value = {}, parent = node.ctx().parent(), ctx_class = NodeContext, ctx_args = ctx_args)
+        def new_map_node(self, parent, ctx_args={}):
+            # TODO: Consider alternative ctx()._state management? Currently set by State object.
+            from thirdparty.pparse.lazy.json.node import NodeContext
+            return pparse.Node(parent.ctx().reader(), self, default_value = {}, parent = parent, ctx_class = NodeContext, ctx_args = ctx_args)
 
 
-    def _end_container_node(self, node):
-        ctx = node.ctx()
-        parent = ctx._parent
-        if parent:
-            log.debug(f"end_container (off:{ctx.tell()}): Backtracking to parent.")
+        def new_root_node(self, node, ctx_args={}):
+            from thirdparty.pparse.lazy.json.node import NodeContext
+            return pparse.Node(node.ctx().reader(), self, default_value = {}, parent = node.ctx().parent(), ctx_class = NodeContext, ctx_args = ctx_args)
 
-            # Set the end pointer to advance parent past field.
-            ctx.mark_end(node)
 
-            # Fast forward past the bit we just parsed.
-            parent.ctx().seek(ctx._end)
+        def _end_container_node(self, node):
+            ctx = node.ctx()
+            parent = ctx._parent
+            if parent:
+                log.debug(f"end_container (off:{ctx.tell()}): Backtracking to parent.")
 
-            # # Kill ctx (hopefully reclaiming memory).
-            # node.clear_ctx()
+                # Set the end pointer to advance parent past field.
+                ctx.mark_end(node)
 
-            # Set current node to parent.
-            #self.current = parent
-        # else:
-        #     log.debug("end_container: Backtracking to initial node.")
+                # Fast forward past the bit we just parsed.
+                parent.ctx().seek(ctx._end)
 
-        #     # Set the end pointer to advance parent past field.
-        #     ctx.mark_end()
+                # # Kill ctx (hopefully reclaiming memory).
+                # node.clear_ctx()
 
-        #     # Kill ctx (hopefully reclaiming memory).
-        #     ctx.node().clear_ctx()
+                # Set current node to parent.
+                #self.current = parent
+            # else:
+            #     log.debug("end_container: Backtracking to initial node.")
 
-    # def scan_data(self):
-    #     # While not end of data, keep parsing via states.
-    #     try:
-    #         while True:
-    #             #                                    (parser, ctx )
-    #             self.current.ctx().state().parse_data(self, self.current.ctx())
-    #     except pparse.EndOfNodeException as e:
-    #         pass
-    #     except pparse.EndOfDataException as e:
-    #         pass
-    #     except pparse.UnsupportedFormatException:
-    #         raise
+            #     # Set the end pointer to advance parent past field.
+            #     ctx.mark_end()
 
-    #     # TODO: Do all the children.
+            #     # Kill ctx (hopefully reclaiming memory).
+            #     ctx.node().clear_ctx()
 
-    #     return self
+        # def scan_data(self):
+        #     # While not end of data, keep parsing via states.
+        #     try:
+        #         while True:
+        #             #                                    (parser, ctx )
+        #             self.current.ctx().state().parse_data(self, self.current.ctx())
+        #     except pparse.EndOfNodeException as e:
+        #         pass
+        #     except pparse.EndOfDataException as e:
+        #         pass
+        #     except pparse.UnsupportedFormatException:
+        #         raise
+
+        #     # TODO: Do all the children.
+
+        #     return self
+
+    return Parser

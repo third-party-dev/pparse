@@ -71,9 +71,9 @@ class PyTorchParsingPickle(PyTorchParsingState):
         if not data_pkl_obj:
             raise pparse.UnsupportedFormatException("No data.pkl in pytorch zip.")
 
-        from thirdparty.pparse.lazy.pickle import Parser as LazyPickleParser
+        from thirdparty.pparse.lazy.pickle import configure_pparser
         bytes_io = data_pkl_obj._value['decomp_data']._value
-        pkl_parser = LazyPickleParser.from_bytesio(bytes_io)
+        pkl_parser = configure_pparser().from_bytesio(bytes_io)
         node._value['pkl'] = pkl_parser.make_root_node(parent=node)
         ctx._descendants.append(node._value['pkl'])
 
@@ -100,8 +100,8 @@ class PyTorchParsingZip(PyTorchParsingState):
         ctx = node.ctx()
         parser = ctx.parser()
 
-        from thirdparty.pparse.lazy.zip import Parser as LazyZipParser
-        zip_parser = LazyZipParser.from_reader(node.ctx().reader())
+        from thirdparty.pparse.lazy.zip import configure_pparser
+        zip_parser = configure_pparser().from_reader(node.ctx().reader())
         node._value['zip'] = zip_parser.make_root_node(parent=node)
         ctx._descendants.append(node._value['zip'])
 

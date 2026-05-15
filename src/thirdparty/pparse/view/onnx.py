@@ -7,7 +7,7 @@ import numpy
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.protobuf import make_protobuf_parser
+from thirdparty.pparse.lazy.protobuf import configure_pparser
 from thirdparty.pparse.lazy.protobuf.meta import PbImport
 from thirdparty.pparse.lazy.onnx.meta import OnnxDataType
 
@@ -75,7 +75,7 @@ class Onnx:
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            parser_class = make_protobuf_parser(ext_list=[".onnx"], init_msgtype=".onnx.ModelProto", proto=proto)
+            parser_class = configure_pparser(ext_list=[".onnx"], init_msgtype=".onnx.ModelProto", proto=proto)
             parser = parser_class(self._extraction, 'protobuf')
 
             self._extraction.add_result('protobuf', parser.make_root_node())

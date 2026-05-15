@@ -27,150 +27,153 @@ States:
         - raw_data
 '''
 
+def configure_pparser(**kwargs):
 
-class Parser(pparse.Parser):
-    @staticmethod
-    def match_extension(fname: str) -> bool:
-        if not fname:
+    class Parser(pparse.Parser):
+        @staticmethod
+        def match_extension(fname: str) -> bool:
+            if not fname:
+                return False
+            for ext in [".om"]:
+                if fname.endswith(ext):
+                    return True
             return False
-        for ext in [".om"]:
-            if fname.endswith(ext):
-                return True
-        return False
 
-    @staticmethod
-    def match_magic(cursor: pparse.Cursor):
-        return False
+        @staticmethod
+        def match_magic(cursor: pparse.Cursor):
+            return False
 
-    def make_root_node(self, parent: pparse.Node = None, init_state = OmParsingHeader):
-        init_state = globals()[init_state] if isinstance(init_state, str) else init_state
+        def make_root_node(self, parent: pparse.Node = None, init_state = OmParsingHeader):
+            init_state = globals()[init_state] if isinstance(init_state, str) else init_state
 
-        # Current path of pending things.
-        root = pparse.Node(source.open(), self, default_value={}, parent=parent)
-        root.ctx()._next_state(init_state)
-        return root
+            # Current path of pending things.
+            root = pparse.Node(source.open(), self, default_value={}, parent=parent)
+            root.ctx()._next_state(init_state)
+            return root
 
-    def __init__(self, source: pparse.Extraction, id: str = "om"):
-        super().__init__(source, id)
+        def __init__(self, source: pparse.Extraction, id: str = "om"):
+            super().__init__(source, id)
 
-    def new_map_node(self, node):
-        return pparse.Node(node.ctx().reader(), self, parent=node, default_value={})
+        def new_map_node(self, node):
+            return pparse.Node(node.ctx().reader(), self, parent=node, default_value={})
 
-    def new_array_node(self, node):
-        return pparse.Node(node.ctx().reader(), self, parent=node, default_value=[])
+        def new_array_node(self, node):
+            return pparse.Node(node.ctx().reader(), self, parent=node, default_value=[])
 
-    # def _new_nodemap(self, parent, reader):
-    #     return NodeMap(parent, reader)
-    
-    # def _new_nodearray(self, parent, reader):
-    #     return NodeArray(parent, reader)
+        # def _new_nodemap(self, parent, reader):
+        #     return NodeMap(parent, reader)
+        
+        # def _new_nodearray(self, parent, reader):
+        #     return NodeArray(parent, reader)
 
-    # def _apply_value(self, ctx, field, value):
-    #     if isinstance(self.current, NodeArray):
-    #         log.debug(
-    #             f"apply_value (off:{ctx.tell()}): Inside {self.current}. Append value."
-    #         )
-    #         self.current.value.append(value)
-    #         return
+        # def _apply_value(self, ctx, field, value):
+        #     if isinstance(self.current, NodeArray):
+        #         log.debug(
+        #             f"apply_value (off:{ctx.tell()}): Inside {self.current}. Append value."
+        #         )
+        #         self.current.value.append(value)
+        #         return
 
-    #     elif isinstance(self.current, NodeMap):
-    #         # TODO: Is this a good place to determine if we Node-ify a value?
+        #     elif isinstance(self.current, NodeMap):
+        #         # TODO: Is this a good place to determine if we Node-ify a value?
 
-    #         log.debug(
-    #             f"apply_value (off:{ctx.tell()}): Inside {self.current}. Set value to key {field.name}."
-    #         )
-    #         self.current.value[field] = value
-    #         return
+        #         log.debug(
+        #             f"apply_value (off:{ctx.tell()}): Inside {self.current}. Set value to key {field.name}."
+        #         )
+        #         self.current.value[field] = value
+        #         return
 
-    #     log.debug(
-    #         f"UNLIKELY!! apply_value (off:{ctx.tell()}): Create arr as top level object."
-    #     )
-    #     breakpoint()
+        #     log.debug(
+        #         f"UNLIKELY!! apply_value (off:{ctx.tell()}): Create arr as top level object."
+        #     )
+        #     breakpoint()
 
-    # def _start_map_node(self, ctx):
-    #     parent = self.current
-    #     # BUG: When we get a cursor, we're getting a duplicate of the cursor and its _current_ offset.
-    #     # BUG: When we get a range, we're getting a duplicate of the range with the original offset?!
-    #     newmap = NodeMap(parent, ctx.reader())
-    #     newmap.ctx().skip(1)
+        # def _start_map_node(self, ctx):
+        #     parent = self.current
+        #     # BUG: When we get a cursor, we're getting a duplicate of the cursor and its _current_ offset.
+        #     # BUG: When we get a range, we're getting a duplicate of the range with the original offset?!
+        #     newmap = NodeMap(parent, ctx.reader())
+        #     newmap.ctx().skip(1)
 
-    #     if ctx.key():
-    #         log.debug(
-    #             f"start_map (off:{ctx.tell()}): Found key, assuming in Map. Add new map to current map."
-    #         )
-    #         parent.value[ctx.key()] = newmap
-    #         self.current = parent.value[ctx.key()]
-    #         ctx.set_key(None)
-    #     elif isinstance(self.current, NodeArray):
-    #         log.debug(
-    #             f"start_map (off:{ctx.tell()}): Inside Array. Append new map to current array."
-    #         )
-    #         self.current.value.append(newmap)
-    #         self.current = newmap
-    #     else:
-    #         log.debug(f"start_map (off:{ctx.tell()}): Create map as top level object.")
-    #         parent.value = newmap
-    #         self.current = newmap
+        #     if ctx.key():
+        #         log.debug(
+        #             f"start_map (off:{ctx.tell()}): Found key, assuming in Map. Add new map to current map."
+        #         )
+        #         parent.value[ctx.key()] = newmap
+        #         self.current = parent.value[ctx.key()]
+        #         ctx.set_key(None)
+        #     elif isinstance(self.current, NodeArray):
+        #         log.debug(
+        #             f"start_map (off:{ctx.tell()}): Inside Array. Append new map to current array."
+        #         )
+        #         self.current.value.append(newmap)
+        #         self.current = newmap
+        #     else:
+        #         log.debug(f"start_map (off:{ctx.tell()}): Create map as top level object.")
+        #         parent.value = newmap
+        #         self.current = newmap
 
-    # def _start_array_node(self, ctx):
-    #     newarr = NodeArray(self.current, ctx.reader())
-    #     newarr.ctx().skip(1)
+        # def _start_array_node(self, ctx):
+        #     newarr = NodeArray(self.current, ctx.reader())
+        #     newarr.ctx().skip(1)
 
-    #     if ctx.key():
-    #         log.debug(
-    #             f"start_arr (off:{ctx.tell()}): Found key, assuming in Map. Add new arr to current map."
-    #         )
-    #         self.current.value[ctx.key()] = newarr
-    #         self.current = self.current.value[ctx.key()]
-    #         ctx.set_key(None)
-    #     elif isinstance(self.current, NodeArray):
-    #         log.debug(
-    #             f"start_arr (off:{ctx.tell()}): Inside Array. Append new arr to current array."
-    #         )
-    #         self.current.value.append(newarr)
-    #         self.current = newarr
-    #     else:
-    #         log.debug(f"start_arr (off:{ctx.tell()}): Create arr as top level object.")
-    #         self.current = newarr
+        #     if ctx.key():
+        #         log.debug(
+        #             f"start_arr (off:{ctx.tell()}): Found key, assuming in Map. Add new arr to current map."
+        #         )
+        #         self.current.value[ctx.key()] = newarr
+        #         self.current = self.current.value[ctx.key()]
+        #         ctx.set_key(None)
+        #     elif isinstance(self.current, NodeArray):
+        #         log.debug(
+        #             f"start_arr (off:{ctx.tell()}): Inside Array. Append new arr to current array."
+        #         )
+        #         self.current.value.append(newarr)
+        #         self.current = newarr
+        #     else:
+        #         log.debug(f"start_arr (off:{ctx.tell()}): Create arr as top level object.")
+        #         self.current = newarr
 
-    # def _end_container_node(self, ctx):
-    #     parent = ctx._parent
-    #     if parent:
-    #         log.debug(f"end_container (off:{ctx.tell()}): Backtracking to parent.")
+        # def _end_container_node(self, ctx):
+        #     parent = ctx._parent
+        #     if parent:
+        #         log.debug(f"end_container (off:{ctx.tell()}): Backtracking to parent.")
 
-    #         # Set the end pointer to advance parent past field.
-    #         ctx.mark_end()
+        #         # Set the end pointer to advance parent past field.
+        #         ctx.mark_end()
 
-    #         # Fast forward past the bit we just parsed.
-    #         parent.ctx().seek(ctx._end)
+        #         # Fast forward past the bit we just parsed.
+        #         parent.ctx().seek(ctx._end)
 
-    #         # Kill ctx (hopefully reclaiming memory).
-    #         ctx.node().clear_ctx()
+        #         # Kill ctx (hopefully reclaiming memory).
+        #         ctx.node().clear_ctx()
 
-    #         # Set current node to parent.
-    #         self.current = parent
-    #     # else:
-    #     #     log.debug("end_container: Backtracking to initial node.")
+        #         # Set current node to parent.
+        #         self.current = parent
+        #     # else:
+        #     #     log.debug("end_container: Backtracking to initial node.")
 
-    #     #     # Set the end pointer to advance parent past field.
-    #     #     ctx.mark_end()
+        #     #     # Set the end pointer to advance parent past field.
+        #     #     ctx.mark_end()
 
-    #     #     # Kill ctx (hopefully reclaiming memory).
-    #     #     ctx.node().clear_ctx()
+        #     #     # Kill ctx (hopefully reclaiming memory).
+        #     #     ctx.node().clear_ctx()
 
-    def scan_data(self):
-        # While not end of data, keep parsing via states.
-        try:
-            while True:
-                #                                    (parser, ctx )
-                self.current.ctx().state().parse_data(self, self.current.ctx())
-        except pparse.EndOfNodeException as e:
-            pass
-        except pparse.EndOfDataException as e:
-            pass
-        except pparse.UnsupportedFormatException:
-            raise
+        def scan_data(self):
+            # While not end of data, keep parsing via states.
+            try:
+                while True:
+                    #                                    (parser, ctx )
+                    self.current.ctx().state().parse_data(self, self.current.ctx())
+            except pparse.EndOfNodeException as e:
+                pass
+            except pparse.EndOfDataException as e:
+                pass
+            except pparse.UnsupportedFormatException:
+                raise
 
-        # TODO: Do all the children.
+            # TODO: Do all the children.
 
-        return self
+            return self
+
+    return Parser

@@ -13,7 +13,7 @@ import numpy
 from pprint import pprint
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.zip import Parser as LazyZipParser
+from thirdparty.pparse.lazy.zip import configure_pparser
 
 
 class Zip:
@@ -25,7 +25,7 @@ class Zip:
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            parser = LazyZipParser(self._extraction, 'zip')
+            parser = configure_pparser()(self._extraction, 'zip')
 
             self._extraction.add_result('zip', parser.make_root_node())
             self._extraction._result['zip'].load(recursion=recursion)

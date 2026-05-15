@@ -10,12 +10,23 @@ log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.protobuf.meta import Protobuf, PbImport
-# from thirdparty.pparse.lazy.protobuf.node import Node, NodeArray, NodeMap
 from thirdparty.pparse.lazy.protobuf.node import NodeContext
 from thirdparty.pparse.lazy.protobuf.state import ProtobufParsingTag
 
-# make_protobuf_parser(ext_list=['.onnx'], init_msgtype='.onnx.ModelProto')
-def make_protobuf_parser(ext_list=[], init_msgtype="", proto=PbImport()):
+def configure_pparser(**kwargs):
+
+    ext_list = []
+    if 'ext_list' in kwargs:
+        ext_list = kwargs['ext_list']
+
+    init_msgtype = ""
+    if 'init_msgtype' in kwargs:
+        init_msgtype = kwargs['init_msgtype']
+
+    proto = PbImport()
+    if 'proto' in kwargs:
+        proto = kwargs['proto']
+
     class Parser(pparse.Parser):
         @staticmethod
         def match_extension(fname: str):

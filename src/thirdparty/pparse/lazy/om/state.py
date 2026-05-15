@@ -28,7 +28,7 @@ class OmParsingPartitionModelDef(OmParsingState):
         MODELDEF_HEADER_SIZE= 0x80 #(OR partition table size? 5 * 24 + 8)
         ctx.seek(FILE_HEADER_SIZE + node._value['offset'] + MODELDEF_HEADER_SIZE)
 
-        from thirdparty.pparse.lazy.protobuf import make_protobuf_parser
+        from thirdparty.pparse.lazy.protobuf import configure_pparser
         from thirdparty.pparse.lazy.protobuf.meta import PbImport
 
         # Define the range of data, based on partition table.
@@ -40,7 +40,7 @@ class OmParsingPartitionModelDef(OmParsingState):
         proto = PbImport(data_path / "proto" / "ge_ir.pb")
 
         # Setup the parser for descendant iteration.
-        pb_parser_class = make_protobuf_parser(ext_list=['.pb'], init_msgtype=".ge.proto.ModelDef", proto=proto)
+        pb_parser_class = configure_pparser(ext_list=['.pb'], init_msgtype=".ge.proto.ModelDef", proto=proto)
         pb_parser = pb_parser_class.from_reader(pb_data, node)
         node._value['protobuf'] = pb_parser._root
         ctx._descendants.append(pb_parser._root)

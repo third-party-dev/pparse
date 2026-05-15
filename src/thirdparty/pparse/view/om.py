@@ -5,9 +5,8 @@ import logging
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.protobuf import make_protobuf_parser
 from thirdparty.pparse.lazy.protobuf.meta import PbImport
-from thirdparty.pparse.lazy.om import Parser as LazyOmParser
+from thirdparty.pparse.lazy.om import configure_pparser
 
 class Om:
     def __init__(self):
@@ -19,7 +18,7 @@ class Om:
             log.info("Parsing the OM container file.")
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            parser = LazyOmParser(self._extraction, 'om')
+            parser = configure_pparser()(self._extraction, 'om')
             self._extraction.add_result('om', parser.make_root_node())
             self._extraction._result['om'].load(recursion=recursion)
 

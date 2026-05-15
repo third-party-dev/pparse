@@ -9,8 +9,8 @@ import numpy
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.safetensors import Parser as LazySafetensorsParser
-from thirdparty.pparse.lazy.safetensors.index import Parser as LazySafetensorsIndexParser
+from thirdparty.pparse.lazy.safetensors import configure_pparser as configure_safetensors_pparser
+from thirdparty.pparse.lazy.safetensors.index import configure_pparser as configure_safetensors_index_pparser
 
 
 class Tensor:
@@ -162,7 +162,7 @@ class SafeTensors:
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            parser = LazySafetensorsParser(self._extraction, 'safetensors')
+            parser = configure_safetensors_pparser()(self._extraction, 'safetensors')
 
             self._extraction.add_result('safetensors', parser.make_root_node())
             self._extraction._result['safetensors'].load(recursion=recursion)
@@ -289,7 +289,7 @@ class SafeTensorsIndex:
             self._extraction = pparse.BytesExtraction(name=fname, reader=idx_range)
 
             # ! BUSTED
-            parser = LazySafetensorsIndexParser(self._extraction, 'safetensors_index')
+            parser = configure_safetensors_index_pparser()(self._extraction, 'safetensors_index')
 
             self._extraction.add_result('safetensors_index', parser.make_root_node())
             self._extraction._result['safetensors_index'].load(recursion=recursion)

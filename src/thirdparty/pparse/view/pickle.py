@@ -5,7 +5,7 @@ import logging
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.pickle import Parser as LazyPickleParser
+from thirdparty.pparse.lazy.pickle import configure_pparser
 
 class Pickle:
 
@@ -14,7 +14,7 @@ class Pickle:
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            parser = LazyPickleParser(self._extraction, 'pkl')
+            parser = configure_pparser()(self._extraction, 'pkl')
 
             self._extraction.add_result('pkl', parser.make_root_node())
             self._extraction._result['pkl'].load(recursion=recursion)

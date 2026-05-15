@@ -78,8 +78,8 @@ class SafetensorsParsingHeaderSetup(SafetensorsParsingState):
         parser = ctx.parser()
 
         #breakpoint()
-        from thirdparty.pparse.lazy.json import Parser as LazyJsonParser
-        json_parser = LazyJsonParser.from_reader(node.ctx().reader())
+        from thirdparty.pparse.lazy.json import configure_pparser
+        json_parser = configure_pparser().from_reader(node.ctx().reader())
 
         node._value['header'] = json_parser.make_root_node(parent=node)
         # Let Node.load() handle it.
