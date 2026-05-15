@@ -79,12 +79,29 @@ class Parser:
 
         # _all_states allows us to get a state class via a string name (in the context of a parser name)
         self._all_states = {}
+        self._base_state_cls = None
         if base_state_cls:
+            self._base_state_cls = base_state_cls
             def all_subclasses(base_cls):
                 return base_cls.__subclasses__() + [s for sub in base_cls.__subclasses__() for s in all_subclasses(sub)]
             state_classes = all_subclasses(base_state_cls)
             for state in state_classes:
                 self._all_states[state.__name__] = state
+
+
+    def _init_state_as_cls(self, init_state):
+        if isinstance(init_state, str):
+            if init_state not in self._all_states:
+                raise Exception(f"{self._base_state_cls.__name__} subclass given as string ({init_state}) is not in scope.")
+            return self._all_states[init_state]
+
+        if self._base_state_cls:
+            if not isinstance(init_state, type):
+                raise Exception(f"init_state parameter is not a class object.")
+            if not issubclass(init_state, self._base_state_cls):
+                raise Exception(f"Given state class ({init_state.__name__}) not a subclass of {self._base_state_cls.__name__}")
+
+        return init_state
 
 
     def source(self):

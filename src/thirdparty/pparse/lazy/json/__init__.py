@@ -102,7 +102,7 @@ def configure_pparser(**kwargs):
 
 
         def make_root_node(self, parent: pparse.Node = None, init_state = JsonParsingStart, ctx_args={}):
-            init_state = globals()[init_state] if isinstance(init_state, str) else init_state
+            init_state = self._init_state_as_cls(init_state)
 
             from thirdparty.pparse.lazy.json.node import NodeContext
             root = pparse.Node(self._source.open(), self, parent=parent, ctx_class=NodeContext, ctx_args=ctx_args)

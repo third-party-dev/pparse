@@ -31,7 +31,7 @@ def configure_pparser(**kwargs):
 
 
         def make_root_node(self, parent: pparse.Node = None, init_state = PickleParsingPickleStream):
-            init_state = globals()[init_state] if isinstance(init_state, str) else init_state
+            init_state = self._init_state_as_cls(init_state)
 
             root = Node(self._source.open(), self, default_value=[], parent=parent)
             root.ctx()._next_state(init_state)

@@ -44,7 +44,7 @@ def configure_pparser(**kwargs):
             return False
 
         def make_root_node(self, parent: pparse.Node = None, init_state = OmParsingHeader):
-            init_state = globals()[init_state] if isinstance(init_state, str) else init_state
+            init_state = self._init_state_as_cls(init_state)
 
             # Current path of pending things.
             root = pparse.Node(source.open(), self, default_value={}, parent=parent)
