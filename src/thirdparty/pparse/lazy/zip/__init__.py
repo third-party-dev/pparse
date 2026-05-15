@@ -8,10 +8,13 @@ import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.zip.meta import Zip
 from thirdparty.pparse.lazy.zip.state import ZipParsingMagic
 
+from thirdparty.pparse.lazy.zip.state import ZipParsingState
 
 def configure_pparser(**kwargs):
 
     class Parser(pparse.Parser):
+
+
         @staticmethod
         def match_extension(fname: str):
             if not fname:
@@ -38,7 +41,7 @@ def configure_pparser(**kwargs):
 
 
         def __init__(self, source: pparse.Extraction, id: str = "zip"):
-            super().__init__(source, id)
+            super().__init__(source, id, ZipParsingState)
 
 
         @staticmethod

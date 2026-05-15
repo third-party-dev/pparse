@@ -5,7 +5,7 @@ import sys
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.json.state import JsonParsingStart
+from thirdparty.pparse.lazy.json.state import JsonParsingStart, JsonParsingState
 
 
 '''
@@ -111,7 +111,7 @@ def configure_pparser(**kwargs):
 
 
         def __init__(self, source: pparse.Extraction, id: str = "json"):
-            super().__init__(source, id)
+            super().__init__(source, id, JsonParsingState)
 
         @staticmethod
         def from_reader(reader: pparse.Reader):

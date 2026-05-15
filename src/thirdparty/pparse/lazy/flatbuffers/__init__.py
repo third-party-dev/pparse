@@ -11,7 +11,8 @@ import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.flatbuffers.state import (
     FlatbuffersParsingRootTableOffset,
     FlatbuffersParsingVTable,
-    FlatbuffersParsingString
+    FlatbuffersParsingString,
+    FlatbuffersParsingState
 )
 from thirdparty.pparse.lazy.flatbuffers.meta import FlatbuffersSchema
 from thirdparty.pparse.lazy.flatbuffers.node import NodeContext
@@ -53,7 +54,7 @@ def configure_pparser(**kwargs):
 
 
         def __init__(self, source: pparse.Extraction, id: str = "flatbuffers"):
-            super().__init__(source, id)
+            super().__init__(source, id, FlatbuffersParsingState)
 
             '''
             The top_reader is from the top of the file (req'd for flatbuffers).

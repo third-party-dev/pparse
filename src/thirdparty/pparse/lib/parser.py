@@ -62,7 +62,7 @@ from .extraction import (
 # Base Parser for Extraction parsers.
 class Parser:
     
-    def __init__(self, source: Extraction, id: str):
+    def __init__(self, source: Extraction, id: str, base_state_cls = None):
         if not isinstance(source, Extraction):
             raise TypeError("source must be an Extraction")
 
@@ -76,6 +76,16 @@ class Parser:
         # TODO: Store root node.
         # Current "Default" Node
         self.current = None
+
+        # _all_states allows us to get a state class via a string name (in the context of a parser name)
+        self._all_states = {}
+        if base_state_cls:
+            def all_subclasses(base_cls):
+                return base_cls.__subclasses__() + [s for sub in base_cls.__subclasses__() for s in all_subclasses(sub)]
+            state_classes = all_subclasses(base_state_cls)
+            for state in state_classes:
+                self._all_states[state.__name__] = state
+
 
     def source(self):
         return self._source

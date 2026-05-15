@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 import thirdparty.pparse.lib as pparse
 from thirdparty.pparse.lazy.protobuf.meta import Protobuf, PbImport
 from thirdparty.pparse.lazy.protobuf.node import NodeContext
-from thirdparty.pparse.lazy.protobuf.state import ProtobufParsingTag
+from thirdparty.pparse.lazy.protobuf.state import ProtobufParsingTag, ProtobufParsingState
 
 def configure_pparser(**kwargs):
 
@@ -60,7 +60,7 @@ def configure_pparser(**kwargs):
 
 
         def __init__(self, source: pparse.Extraction, id: str = "protobuf"):
-            super().__init__(source, id)
+            super().__init__(source, id, ProtobufParsingState)
 
             self.schema = proto
 

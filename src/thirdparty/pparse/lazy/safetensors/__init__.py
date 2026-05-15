@@ -5,7 +5,7 @@ import sys
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.safetensors.state import SafetensorsParsingLength, SafetensorsParsingTensorNode
+from thirdparty.pparse.lazy.safetensors.state import SafetensorsParsingLength, SafetensorsParsingTensorNode, SafetensorsParsingState
 
 
 def configure_pparser(**kwargs):
@@ -36,7 +36,7 @@ def configure_pparser(**kwargs):
             return root
 
         def __init__(self, source: pparse.Extraction, id: str = "safetensors"):
-            super().__init__(source, id)
+            super().__init__(source, id, SafetensorsParsingState)
 
 
 

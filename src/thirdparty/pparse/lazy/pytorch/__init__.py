@@ -5,7 +5,7 @@ import sys
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.pytorch.state import PyTorchParsingZip
+from thirdparty.pparse.lazy.pytorch.state import PyTorchParsingZip, PyTorchParsingState
 from thirdparty.pparse.lazy.pytorch.meta import PT
 
 def configure_pparser(**kwargs):
@@ -38,7 +38,7 @@ def configure_pparser(**kwargs):
 
 
         def __init__(self, source: pparse.Extraction, id: str = "pt"):
-            super().__init__(source, id)
+            super().__init__(source, id, PyTorchParsingState)
 
 
         def _traverse_pt(self, node, state, path_arr=[], metrics={ 'param_cnt': 0 }):

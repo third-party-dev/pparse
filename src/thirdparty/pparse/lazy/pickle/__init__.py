@@ -9,7 +9,7 @@ from typing import Optional
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.pickle.state import PickleParsingPickleStream
+from thirdparty.pparse.lazy.pickle.state import PickleParsingPickleStream, PickleParsingState
 from thirdparty.pparse.lazy.pickle.node import Node
 
 def configure_pparser(**kwargs):
@@ -39,7 +39,7 @@ def configure_pparser(**kwargs):
 
 
         def __init__(self, source: pparse.Extraction, id: str = "pkl"):
-            super().__init__(source, id)
+            super().__init__(source, id, PickleParsingState)
 
         @staticmethod
         def from_reader(reader: pparse.Reader):

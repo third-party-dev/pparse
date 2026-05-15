@@ -5,7 +5,7 @@ import sys
 log = logging.getLogger(__name__)
 
 import thirdparty.pparse.lib as pparse
-from thirdparty.pparse.lazy.om.state import OmParsingHeader
+from thirdparty.pparse.lazy.om.state import OmParsingHeader, OmParsingState
 
 '''
 OM doesn't have a clear specification. What I'm comfortable building out:
@@ -52,7 +52,7 @@ def configure_pparser(**kwargs):
             return root
 
         def __init__(self, source: pparse.Extraction, id: str = "om"):
-            super().__init__(source, id)
+            super().__init__(source, id, OmParsingState)
 
         def new_map_node(self, node):
             return pparse.Node(node.ctx().reader(), self, parent=node, default_value={})
