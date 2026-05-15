@@ -31,29 +31,98 @@ class PparseXml:
     def __init__(self, xml):
         self.xml = xml
 
-    # Assuming root node in XML is <job />
-    @classmethod
-    def from_xml(cls, source):
-        from thirdparty.pparse._xml import XmlNode
-        xml = XmlNode(source)
-        xml.set_obj_inst(PparseXml(xml))
+        # Table for reference matching
+        self._result_ref_to_extraction = {}
 
-        if xml.get_el().tag != 'pparse':
+    def add_result_ref(self, result_ref_id, extraction):
+        self._result_ref_to_extraction[result_ref_id] = extraction
+    
+    def has_extraction(self, result_ref_id) -> bool:
+        return result_ref_id in self._result_ref_to_extraction
+
+    def get_extraction(self, result_ref_id):
+        return self._result_ref_to_extraction[result_ref_id]
+
+    # pparse xmls use pparse as the root element, but it is wrong to assume <pparse />
+    # is the root of the xml we're working with. Instead, we assume its the top of the
+    # scope pparse is able to process and reason about.
+    @classmethod
+    def from_xml(cls, xml_src):
+
+        # TODO: Consider xmlnode.py, xmlentry.py, and shoving this class in _xml.py.
+        from thirdparty.pparse._xml import XmlNode
+        # Ensure our parameters is an XmlNode
+        xml = XmlNode.as_node(xml_src)
+        
+        # Store an instance of this class with our XmlNode.
+        pparse_xml = xml.set_obj_inst(PparseXml(xml))
+
+        if not xml.has_tag('pparse'):
             raise ValueError("root node is not <pparse /> in PparseXml class.")
 
         # TODO: Verify with schema.
         # TODO: Verify parsers.
 
         # Kick off parsing by instantiating the root extraction.
-        extraction_cls = globals()[job.extraction['type']]
-        xml.extraction.set_obj_inst(extraction_cls.from_xml(xml.extraction))
+        if not xml.extraction.has_attr('type'):
+            raise Exception("Extraction must have a type.")
+        if xml.extraction['type'] not in globals():
+            raise Exception(f"Extraction type {xml.extraction['type']} not in scope.")
+        extraction_cls = globals()[xml.extraction['type']]
+        xml.extraction.set_obj_inst(extraction_cls.from_xml(xml.extraction, pparse_xml))
 
-    # # extraction.to_xml() -> "<job />"
-    # def to_xml(self, extraction) -> str:
 
-    #     # TODO: Verify schema.
 
-    #     return '\n'.join(['<job>', extraction.to_xml(), '</job>'])
+
+
+
+
+        # Parse the results
+        for result_xml in xml.results:
+            # <result> should only ever have a single <node>
+            # Note: <result> exists as a generic referable container for extractions.
+            if len(result_xml) != 1 or result_xml.get("node") is None:
+                # TODO: What should we do with all cases:
+                # TODO: - empty?
+                # TODO: - extra?
+                continue
+            
+            node_xml = result_xml.node
+
+            # node type defaults to (pparse) Node
+            node_type = node_xml['type'] if node_xml.has_attr('type') else 'Node'
+            node_cls = globals()[node_type]
+
+            node = node_cls.from_xml(node_xml, xml_root)
+            node_xml.set_obj_inst(node)
+
+            # TODO: At this point, we should know all the extraction result 
+            # TODO:   references and can match results (as we parse them) to
+            # TODO:   the extraction object.
+            result_ref_id = result_xml['id']
+
+
+# # TODO: parsers
+# # ! This gets nasty. We need another "registry" of parsers to indicate
+# # ! what exists and what is allowed.
+# import thirdparty.pparse.lazy.zip.Parser as LazyZipParser
+# parser_registry = {
+#     "zip": LazyZipParser
+# }
+# for parser_xml in xml.parsers:
+    
+#     extraction._parser[parser_xml['name']] = parser_registry["zip"].from_xml(parser_xml)
+
+#     if len(parser_xml.result) > 0:
+#         extraction._result[parser_xml['name']] = Node.from_xml(parser_xml.result.Node)
+#     breakpoint()
+
+# # extraction.to_xml() -> "<job />"
+# def to_xml(self, extraction) -> str:
+
+#     # TODO: Verify schema.
+
+#     return '\n'.join(['<job>', extraction.to_xml(), '</job>'])
 
 
 # OBE ?
@@ -448,7 +517,7 @@ class Node:
                     calls the load() method on those elements.
                 '''
                 while self.ctx()._descendants:
-                    #breakpoint()self
+                    
                     # ! Here, we're making Node responsible for _descendants cleanup.
                     child = self.ctx()._descendants.pop(0)
 
@@ -491,6 +560,140 @@ class Node:
         if not dumper:
             dumper = Dumper.default()
         dumper.dump("Node", self._value, ' '.join(node_attrs), depth=depth, step=step)
+
+
+    @classmethod
+    def from_xml(cls, src_xml, xml_root):
+        from thirdparty.pparse._xml import XmlNode
+        xml = XmlNode.as_node(src_xml)
+        
+        if xml.get_el().tag != 'node':
+            raise Exception(f"Expected <node />, got <{xml.get_el().tag} />")
+
+        # ! ref_tbl not working on XmlNode because we hijacked __getattr__
+        '''
+          New Plan:
+
+          - Extractions Link To Datasources
+          - Results Link To Extractions
+          - Parsers are weakly linked to results
+          - Nodes Link To Parsers
+
+          There is a clear chain here that we should be able to manage via a single parameter
+          that is a chain of parser -> result -> extraction (+ datasource) -> pparse_xml.
+
+          - Each extraction gets from_xml(XmlNode<extraction>, XmlNode<pparse_xml>)
+          - Each Result gets from_xml(XmlNode<result>, XmlNode<pparse_xml>)
+
+        '''
+
+
+        extraction = xml_root.ref_tbl[int(xml.get_parent()['id'])]
+        reader = extraction._source.open()
+
+        # offset = None
+        # length = None
+        # # TODO: Get reference to extraction datasource.
+        # if xml.has_attr("offset") and xml.has_attr("length"):
+        #     # use range
+        #     offset = int(xml['offset'])
+        #     length = int(xml['length'])
+            
+        #     cursor = Cursor(data, offset)
+        #     reader = Range(cursor, length)
+        # elif xml.has_attr("offset"):
+        #     # use cursor
+        #     offset = int(xml['offset'])
+        #     reader = Cursor(data, offset)
+        # else:
+        #     raise Exception("Expected offset in <node />")
+        
+
+        # Get context data here because we init context with Node constructor.
+        ctx_class = NodeContext
+        ctx_args = {}
+        parser_name = None
+        state_name = None
+        if xml.get("context"):
+
+            if xml.context.has_attr('type'):
+                ctx_class = xml.content['type']
+
+            if xml.context.has_attr('parser'):
+                parser_name = xml.context['parser']
+            # TODO: If no parser defined, look up until we find one.
+            
+            if xml.context.has_attr('state'):
+                state_name = xml.context['state']
+
+            if xml.context.get("extra"):
+                ctx_args = XmlEntry.using(xml.context.extra)
+
+        # Create the node before processing value in case value objects look up tree (e.g. for parser value).
+        #reader: Reader, parser: "Parser", default_value = UNLOADED_VALUE,
+        # parent: "Node" = None,
+        # ctx_class: NodeContext = None, ctx_args={}
+
+        # TODO: Parser should detect tuples and act accordingly.
+        node = Node(reader, (parser, state), ctx_class=ctx_class, ctx_args=ctx_args)
+        xml.set_obj_inst(node)
+
+        # TODO: Process the node's value from XML here. (Recursive.)
+        if not xml.get("value"):
+            node._value = UNLOADED_VALUE
+            return
+
+        # Note: We pass a node_cb so that _xml.py doesn't get caught up in import races.
+        def process_node_entry(xml_root):
+            def _process_node_entry(entry, node_cb):
+                # TODO: Do we need node_cb parameter?
+                if len(entry) != 1 or not entry.get("node"):
+                    raise Exception("Expected only <node /> in <entry />.")
+                
+                node_cls = Node
+                if entry.node.has_attr("type"):
+                    node_cls = globals()[entry.node['type']]
+                
+                return node_cls.from_xml(entry.node, xml_root)
+            return _process_node_entry
+
+        node._value = XmlEntry.using(xml.value, process_node_entry(xml_root))
+
+        return node
+        '''
+        <node offset="0" length="164892">
+            <!-- (optional) for context parse replay (i.e. context initialization) -->
+            <!-- when we don't know how to replay parsing, we go further up the tree until we do. -->
+            <!-- if we reach root without seeing context init args, we let the parser decide. -->
+            <!-- TODO: determine what this looks like in python -->
+            <context parser="zip" state="complete" />
+            <!-- every node has a value or `<unloaded_value />` -->
+            <value type="node">
+                <node offset="10" length="164882">
+                    <value type="map">
+                        <entry type="int" name="int_key">42</entry>
+                        <entry type="float" name="float_key">3.14</entry>
+                        <entry type="str" name="str_key">dance</entry>
+                        <!-- entry is inherently json friendly, therefore type="json" -->
+                        <!--   assumes the return should use json.loads -->
+                        <entry type="json" name="json_key">
+                            [1, 8, 16, 16]
+                        </entry>
+                        <!-- "normal" entry of type="list" has more entries -->
+                        <entry type="list" name="list_key">
+                            <entry type="int">1</entry>
+                            <entry type="int">8</entry>
+                            <entry type="int">16</entry>
+                            <entry type="int">16</entry>
+                        </entry>
+                    </value>
+                    <value type="node|map|list|str|int|float">value_here</value>
+                </node>
+            </value>
+        </node>
+        '''
+
+        
 
 
 # Data Considerations:
@@ -757,7 +960,7 @@ class FileData(Data):
 
     # extraction = Extraction.from_xml("<job />")
     @classmethod
-    def from_xml(cls, source): # -> cls:
+    def from_xml(cls, source, xml_root): # -> cls:
         from thirdparty.pparse._xml import XmlNode, XmlEntry
         xml = XmlNode.as_node(source)
 
@@ -767,6 +970,8 @@ class FileData(Data):
 
         extra = XmlEntry.using(xml.extra)
         # TODO: Handle non-posix paths
+        if not ('posix_path' in extra or 'windows_path' in extra):
+            raise Exception("FileData expected to have one of: posix_path, windows_path")
         path = extra['posix_path']
 
         data = cls(path)
@@ -923,7 +1128,7 @@ class Extraction:
 
     # extraction = Extraction.from_xml("<job />")
     @classmethod
-    def from_xml(cls, source):
+    def from_xml(cls, xml_src, xml_root):
         raise NotImplementedError("from_xml not implemented")
 
     # extraction.to_xml() -> "<job />"
@@ -960,10 +1165,12 @@ class BytesExtraction(Extraction):
 
     # extraction = Extraction.from_xml("<job />")
     @classmethod
-    def from_xml(cls, source):
+    def from_xml(cls, xml_src, xml_root):
         from thirdparty.pparse._xml import XmlNode, XmlEntry
-        xml = XmlNode.as_node(source)
+        xml = XmlNode.as_node(xml_src)
 
+        if not xml.has_attr("name"):
+            raise Exception("extraction must have a name")
         name = xml['name']
 
         # XmlNode stores instances for parent<->child relationships.
@@ -976,7 +1183,7 @@ class BytesExtraction(Extraction):
             source = xml.get_parent().get_parent()
 
         # ** Assuming extraction has datasource and datasource has type attribute.
-        data_source = globals()[xml.datasource['type']].from_xml(xml.datasource)
+        data_source = globals()[xml.datasource['type']].from_xml(xml.datasource, xml_root)
 
         reader = Range(data_source.open(), data_source.length)
 
@@ -984,24 +1191,22 @@ class BytesExtraction(Extraction):
         extraction = cls(name=name, source=source, reader=reader)
         xml.set_obj_inst(extraction)
 
-        # TODO: parsers
-        # ! This gets nasty. We need another "registry" of parsers to indicate
-        # ! what exists and what is allowed.
-        import thirdparty.pparse.lazy.zip.Parser as LazyZipParser
-        parser_registry = {
-            "zip": LazyZipParser
-        }
-        for parser_xml in xml.parsers:
-            
-            extraction._parser[parser_xml['name']] = parser_registry["zip"].from_xml(parser_xml)
+        # TODO: Determine how to pair result references with result objects.
+        # TODO: Post process? Running table?
+        
+        #extraction.result_refs = []
+        for result_ref in xml.results:
+            xml_root.ref_tbl[int(result_ref['id'])] = extraction
+            #extraction.result_refs.append(result_ref['id'])
 
-            if len(parser_xml.result) > 0:
-                extraction._result[parser_xml['name']] = Node.from_xml(parser_xml.result.Node)
-            breakpoint()
+        # Recurse into child extractions
+        for child_extraction in xml.child_extractions:
+            if not child_extraction.has_attr("type"):
+                raise Exception(f"extraction must have a type.")
+            extraction_cls = globals()[child_extraction['type']]
+            child_extraction.set_obj_inst(extraction_cls.from_xml(child_extraction, xml_root))
 
-        # TODO: child_extractions
-
-        breakpoint()
+        return extraction
 
     # extraction.to_xml() -> "<job />"
     def to_xml(self) -> str:

@@ -108,7 +108,7 @@
 
 
 
-
+import json
 from xml.etree.ElementTree import Element, fromstring
 from typing import Optional, Iterator
 
@@ -180,9 +180,13 @@ class XmlNode:
     def has_attr(self, attr) -> bool:
         return attr in self._el.attrib
 
+    def has_tag(self, tag) -> bool:
+        return self._el.tag == tag
+
 
     def set_obj_inst(self, obj):
         self._obj_inst = obj
+        return obj
     
 
     def get_obj_inst(self):
@@ -204,6 +208,9 @@ class XmlNode:
     # Return all children or children with name as list (eager).
     def get_all(self, name: Optional[str] = None) -> "list[XmlNode]":
         return list(self.iter_all(name))
+    
+    # def get_linecol(self):
+    #     return f"{self.get_el().sourceline}:{self.get_el().sourcecolumn}"
 
     
 class XmlEntry:
@@ -237,19 +244,28 @@ class XmlEntry:
         }
     '''
 
+    # Note: We pass a node_cb so that _xml.py doesn't get caught up in import races.
+
     @staticmethod
-    def using(node: XmlNode): # -> dict | list | int | float | str:
+    def using(node: XmlNode, node_cb = None): # -> dict | list | int | float | str:
         if not node.has_attr('type') or node['type'] == 'map':
             # Implicitly a map.
-            return XmlEntry.as_map(node)
+            return XmlEntry.as_map(node, node_cb=node_cb)
         elif node['type'] == 'list':
-            return XmlEntry.as_list(node)
+            return XmlEntry.as_list(node, node_cb=node_cb)
         elif node['type'] == 'int':
             return int(str(node).strip())
         elif node['type'] == 'float':
             return float(str(node).strip())
         elif node['type'] == 'str':
             return str(node).strip()
+        elif node['type'] == 'json':
+            return json.loads(str(node).strip())
+        elif node['type'] == 'node':
+            if not node_cb:
+                raise Exception("<node /> found, but no handler defined.")
+            # accepts <entry type="node /> and returns an instance of pparse.Node
+            return node_cb(node, node_cb=node_cb)
 
     '''
       <entry type="map" name="schema">
@@ -261,27 +277,23 @@ class XmlEntry:
     '''
 
     @staticmethod
-    def as_map(node, obj = {}):
+    def as_map(node, obj = {}, node_cb = None):
         for entry in node.iter_all("entry"):
             if not entry.has_attr("name"):
                 raise KeyError("entry is missing key value")
             name = entry['name']
+            if name in obj:
+                raise KeyError(f"duplicate entry name: {name}")
             
             if not entry.has_attr("type") or entry['type'] == 'str':
-                if name in obj:
-                    raise KeyError(f"duplicate entry name: {name}")
-                obj[name] = str(entry).strip()
+                obj[name] = XmlEntry.using(entry, node_cb=node_cb)
             elif entry['type'] == 'map':
-                obj[name] = XmlEntry.as_map(node, {})
+                obj[name] = XmlEntry.as_map(entry, {}, node_cb=node_cb)
             elif entry['type'] == 'list':
-                obj[name] = XmlEntry.as_list(node, [])
-            elif entry['type'] == 'int':
-                obj[name] = int(str(entry).strip())
-            elif entry['type'] == 'float':
-                obj[name] = float(str(entry).strip())
-            elif entry['type'] == 'str':
-                # TODO: How do we know if we want to strip?
-                obj[name] = str(entry).strip()
+                obj[name] = XmlEntry.as_list(entry, [], node_cb=node_cb)
+            elif entry['type'] in ['int', 'float', 'str', 'json', 'node']:
+                obj[name] = XmlEntry.using(entry, node_cb=node_cb)
+
             else:
                 breakpoint()
                 raise ValueError(f"Unknown entry type in map: {entry['type']}")
@@ -298,19 +310,17 @@ class XmlEntry:
     '''
 
     @staticmethod
-    def as_list(node, obj = []):
+    def as_list(node, obj = [], node_cb = None):
         for entry in node.iter_all("entry"):
             if not entry.has_attr("type") or entry['type'] == 'str':
-                # TODO: How do we know if we want to strip?
-                obj.append(str(entry).strip())
+                obj.append(XmlEntry.using(entry, node_cb=node_cb))
             elif entry['type'] == 'map':
-                obj.append(XmlEntry.as_map(node, {}))
+                obj.append(XmlEntry.as_map(entry, {}, node_cb=node_cb))
             elif entry['type'] == 'list':
-                obj.append(XmlEntry.as_list(node, []))
-            elif entry['type'] == 'int':
-                obj.append(int(str(entry).strip()))
-            elif entry['type'] == 'float':
-                obj.append(float(str(entry).strip()))
+                obj.append(XmlEntry.as_list(entry, [], node_cb=node_cb))
+            elif entry['type'] in ['int', 'float', 'str', 'json', 'node']:
+                obj.append(XmlEntry.using(entry, node_cb=node_cb))
+
             else:
                 breakpoint()
                 raise ValueError(f"Unknown entry type in list: {entry['type']}")
