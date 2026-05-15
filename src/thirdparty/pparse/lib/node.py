@@ -1,0 +1,353 @@
+
+from typing import Optional
+
+from .reader import (
+    Reader,
+    Range,
+)
+
+from .constants import (
+    AGAIN,
+    ASCEND,
+)
+
+from .exceptions import (
+    EndOfNodeException,
+    EndOfDataException,
+    UnsupportedFormatException,
+)
+
+from .node_context import NodeContext
+
+
+class UnloadedValue:
+    def __repr__(self):
+        return "<UNLOADED_VALUE />"
+
+
+UNLOADED_VALUE = UnloadedValue()
+
+
+class RecursionControl:
+    MAX_DEPTH = 9223372036854775807
+    def __init__(self, min_depth=0, max_depth=MAX_DEPTH, callback=None):
+        self.cur_depth = 0
+
+        self.max_seen_depth = 0
+
+        self.min_depth = min_depth
+        self.max_depth = max_depth
+        self.cb = callback
+
+    def stopped(self, node) -> bool:
+        if self.cur_depth < self.min_depth:
+            return False
+        if self.cur_depth > self.max_depth:
+            return True
+        
+        if self.cb is not None:
+            return self.cb(node)
+    
+    def increase_depth(self, amount=1):
+        self.cur_depth += amount
+        if self.cur_depth > self.max_seen_depth:
+            self.max_seen_depth = self.cur_depth
+    
+    def decrease_depth(self, amount=1):
+        self.cur_depth -= amount
+    
+    def current_depth(self):
+        return self.cur_depth
+
+    def deepest_depth(self):
+        return self.max_seen_depth
+
+
+
+
+'''
+    NEW PLAN:
+    - phase 1: ctx is always loaded and node always UNLOADED until parent says otherwise
+    - phase 2: ctx can be archived and unloaded (optionally cleared archive)
+               root node always has ctx
+    - phase 3: ability to replay from root to re-acquire ctx
+
+    Things To Work Out:
+    - we can prefer to not parse until referenced by using .value, but if we want to 
+      intentionally pre-parse everything, we need a load(recursive=True) or something.
+    - with new plan, we should have generic node for 99% of cases. NodeContext is the parser
+      specific class going forward. (maybe a generic self._attrs:dict required at node level)
+'''
+class Node:
+    def __init__(self, reader: Reader, parser: "Parser", default_value = UNLOADED_VALUE, parent: "Node" = None, ctx_class: NodeContext = None, ctx_args={}):
+
+        # Reference to the start of data for parsing node.
+        self._reader = reader.dup()
+
+        '''
+            weird situation here where I don't want to double bind Node and 
+            NodeContext, but they are indirectly double bound by NodeContext
+            knowing parent of node. This is intentional so that we can throw
+            away unnecessary references to parents later.
+        '''
+
+        # Reference to the parser in context of node.
+        if not ctx_class:
+            self._ctx = NodeContext(parent, reader.dup(), parser)
+        else:
+            self._ctx = ctx_class(parent, reader.dup(), parser, **ctx_args)
+
+        # Reference to the value(s) of node (e.g. dict, list, scalars, or Node)
+        self._value = default_value
+
+    @property
+    def value(self):
+        if self._value == UNLOADED_VALUE:
+            #breakpoint()
+            self.load()
+        return self._value
+
+    def ctx(self):
+        return self._ctx
+
+    def clear_ctx(self):
+        # TODO: Archive context here. Archive in parser?
+        self._ctx = None
+        return self
+
+    def tell(self):
+        return self._reader.tell()
+
+    def set_length(self, length):
+        self._reader = Range(self._reader.dup(), length)
+        return self
+
+    def length(self):
+        # TODO: Check for range?
+        return self._reader.length()
+
+    def load(self, recursion: Optional[RecursionControl] = None):
+        '''
+            load() manages RecursionControl lifetime, enabling load() to have different
+            behaviors per call and manage recursion relative to current node.
+
+            CAUTION: Recursion control is a mechanism that allows parsers to delegate recursion
+            decisions to the caller or user of the API. It does not enforce or provide 
+            tightly controlled governance over the parts of the Node tree that get processed.
+
+            RULE: load() should handle the recursive behavior, not the parser state.
+
+            RULE: Leaky abstraction when recursion policy stored in Node or NodeContext!
+
+            NOTE: json is weird because you have to recurse every time. Since I implemented
+            JSON first, I believe its driving some of the anti-patterns in pparse. If
+            we want to save on memory for JSON, we could theoretically parse and allocate
+            nodes and as we complete branches of a depth first parse we deallocated.
+            I naturally want to do this for recursive=False, but since recursive=False
+            is default, it makes it feel like unnecessary thrashing of the CPU. 
+        '''
+
+        # Increment the depth on entrance to load().
+        # NOTE: Checking for recursion here because we don't want to mess with reentrant
+        #       states and we don't want to wipe or confuse _descendants todo lists. 
+        # CAUTION:
+        # - states can add multiple branches at once.
+        # - states can iterate multiple times in a single "depth level"
+        if recursion is not None:
+            if recursion.stopped(self):
+                return
+            recursion.increase_depth()
+            #print(f"INCREASE {recursion.cur_depth}")
+
+        # Maybe a naughty pattern, but for now we retry until 
+        # Retry until state returns UnsupportedFormatException or EndOfNodeException
+        # ! When EndOfDataException raised, we need a way to retry. For now, fail.
+        try:
+            # RULE: AGAIN is a Parser return. Not a Node is complete status!
+            res = AGAIN
+            while res == AGAIN:
+                
+                #breakpoint()
+                res = self.ctx().state().parse_data(self)
+
+                '''
+                    - The parser is responsible for populating _decendents.
+                    - Whenever Node.load() sees elements in _decendents, it immediately
+                    calls the load() method on those elements.
+                '''
+                while self.ctx()._descendants:
+                    
+                    # ! Here, we're making Node responsible for _descendants cleanup.
+                    child = self.ctx()._descendants.pop(0)
+
+                    # TODO: use try/except to push forward, even on failure.
+                    # TODO: we should be able to track failures for retry later.
+                    child.load(recursion=recursion)
+
+                    
+
+                # if len(self.ctx()._descendants) > 0:
+                #     breakpoint()
+                #     for child in node.ctx()._descendants:
+                #         child.load(recursive)
+
+            #breakpoint()
+
+        except EndOfNodeException as e:
+            pass
+        except EndOfDataException as e:
+            raise
+        except UnsupportedFormatException:
+            raise
+
+        finally:
+            # Decrement the depth on exit from load() (exceptions included).
+            if recursion is not None:
+                recursion.decrease_depth()
+                #print(f"DECREASE {recursion.cur_depth}")
+
+        return self
+
+    def unload(self):
+        # TODO: Do we have context?
+        self.value = pparse.UNLOADED_VALUE
+
+
+    def dump(self, depth=0, step=2, dumper=None):
+        node_attrs =  [f'off="{self.tell()}"']
+
+        if not dumper:
+            dumper = Dumper.default()
+        dumper.dump("Node", self._value, ' '.join(node_attrs), depth=depth, step=step)
+
+
+    @classmethod
+    def from_xml(cls, src_xml, xml_root):
+        from thirdparty.pparse._xml import XmlNode
+        xml = XmlNode.as_node(src_xml)
+        
+        if xml.get_el().tag != 'node':
+            raise Exception(f"Expected <node />, got <{xml.get_el().tag} />")
+
+        # ! ref_tbl not working on XmlNode because we hijacked __getattr__
+        '''
+          New Plan:
+
+          - Extractions Link To Datasources
+          - Results Link To Extractions
+          - Parsers are weakly linked to results
+          - Nodes Link To Parsers
+
+          There is a clear chain here that we should be able to manage via a single parameter
+          that is a chain of parser -> result -> extraction (+ datasource) -> pparse_xml.
+
+          - Each extraction gets from_xml(XmlNode<extraction>, XmlNode<pparse_xml>)
+          - Each Result gets from_xml(XmlNode<result>, XmlNode<pparse_xml>)
+
+        '''
+
+
+        extraction = xml_root.ref_tbl[int(xml.get_parent()['id'])]
+        reader = extraction._source.open()
+
+        # offset = None
+        # length = None
+        # # TODO: Get reference to extraction datasource.
+        # if xml.has_attr("offset") and xml.has_attr("length"):
+        #     # use range
+        #     offset = int(xml['offset'])
+        #     length = int(xml['length'])
+            
+        #     cursor = Cursor(data, offset)
+        #     reader = Range(cursor, length)
+        # elif xml.has_attr("offset"):
+        #     # use cursor
+        #     offset = int(xml['offset'])
+        #     reader = Cursor(data, offset)
+        # else:
+        #     raise Exception("Expected offset in <node />")
+        
+
+        # Get context data here because we init context with Node constructor.
+        ctx_class = NodeContext
+        ctx_args = {}
+        parser_name = None
+        state_name = None
+        if xml.get("context"):
+
+            if xml.context.has_attr('type'):
+                ctx_class = xml.content['type']
+
+            if xml.context.has_attr('parser'):
+                parser_name = xml.context['parser']
+            # TODO: If no parser defined, look up until we find one.
+            
+            if xml.context.has_attr('state'):
+                state_name = xml.context['state']
+
+            if xml.context.get("extra"):
+                ctx_args = XmlEntry.using(xml.context.extra)
+
+        # Create the node before processing value in case value objects look up tree (e.g. for parser value).
+        #reader: Reader, parser: "Parser", default_value = UNLOADED_VALUE,
+        # parent: "Node" = None,
+        # ctx_class: NodeContext = None, ctx_args={}
+
+        # TODO: Parser should detect tuples and act accordingly.
+        node = Node(reader, (parser, state), ctx_class=ctx_class, ctx_args=ctx_args)
+        xml.set_obj_inst(node)
+
+        # TODO: Process the node's value from XML here. (Recursive.)
+        if not xml.get("value"):
+            node._value = UNLOADED_VALUE
+            return
+
+        # Note: We pass a node_cb so that _xml.py doesn't get caught up in import races.
+        def process_node_entry(xml_root):
+            def _process_node_entry(entry, node_cb):
+                # TODO: Do we need node_cb parameter?
+                if len(entry) != 1 or not entry.get("node"):
+                    raise Exception("Expected only <node /> in <entry />.")
+                
+                node_cls = Node
+                if entry.node.has_attr("type"):
+                    node_cls = globals()[entry.node['type']]
+                
+                return node_cls.from_xml(entry.node, xml_root)
+            return _process_node_entry
+
+        node._value = XmlEntry.using(xml.value, process_node_entry(xml_root))
+
+        return node
+        '''
+        <node offset="0" length="164892">
+            <!-- (optional) for context parse replay (i.e. context initialization) -->
+            <!-- when we don't know how to replay parsing, we go further up the tree until we do. -->
+            <!-- if we reach root without seeing context init args, we let the parser decide. -->
+            <!-- TODO: determine what this looks like in python -->
+            <context parser="zip" state="complete" />
+            <!-- every node has a value or `<unloaded_value />` -->
+            <value type="node">
+                <node offset="10" length="164882">
+                    <value type="map">
+                        <entry type="int" name="int_key">42</entry>
+                        <entry type="float" name="float_key">3.14</entry>
+                        <entry type="str" name="str_key">dance</entry>
+                        <!-- entry is inherently json friendly, therefore type="json" -->
+                        <!--   assumes the return should use json.loads -->
+                        <entry type="json" name="json_key">
+                            [1, 8, 16, 16]
+                        </entry>
+                        <!-- "normal" entry of type="list" has more entries -->
+                        <entry type="list" name="list_key">
+                            <entry type="int">1</entry>
+                            <entry type="int">8</entry>
+                            <entry type="int">16</entry>
+                            <entry type="int">16</entry>
+                        </entry>
+                    </value>
+                    <value type="node|map|list|str|int|float">value_here</value>
+                </node>
+            </value>
+        </node>
+        '''
