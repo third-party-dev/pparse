@@ -104,7 +104,8 @@ class BytesExtraction(Extraction):
 
     # extraction = Extraction.from_xml("<job />")
     @classmethod
-    def from_xml(cls, xml_src, xml_root):
+    def from_xml(cls, xml_src, pparse_xml = None):
+
         from thirdparty.pparse._xml import XmlNode, XmlEntry
         xml = XmlNode.as_node(xml_src)
 
@@ -113,35 +114,49 @@ class BytesExtraction(Extraction):
         name = xml['name']
 
         # XmlNode stores instances for parent<->child relationships.
-        if xml.get_parent().get_el().tag != "child_extractions":
-            source = None
+        if not xml.get_parent().has_tag('child_extractions'):
+            parent = None
         else:
             print("IMPLEMENT PARENT")
             breakpoint()
             # Assuming this gets us to source
-            source = xml.get_parent().get_parent()
+            parent = xml.get_parent().get_parent()
+
+        # **Importing into locals**
+        from thirdparty.pparse.lib import (
+            FileData,
+        )
 
         # ** Assuming extraction has datasource and datasource has type attribute.
-        data_source = globals()[xml.datasource['type']].from_xml(xml.datasource, xml_root)
+        if xml.datasource['type'] not in locals():
+            raise Exception(f"<datasource /> type {xml.datasource['type']} not in scope.")
+        # ! -- Determine a "preferred" way to manage imports. (Ideally an allow list and dynamic.) --
+        data_source = locals()[xml.datasource['type']].from_xml(xml.datasource)
 
+        from thirdparty.pparse.lib import Range
+
+        # TODO: Assuming Range for now.
         reader = Range(data_source.open(), data_source.length)
 
-        # extraction = BytesExtraction(name=name, source=source, reader=reader)
-        extraction = cls(name=name, source=source, reader=reader)
+        # Likely: `extraction = BytesExtraction(name=name, source=source, reader=reader)`
+        extraction = cls(name=name, source=parent, reader=reader)
         xml.set_obj_inst(extraction)
 
-        # TODO: Determine how to pair result references with result objects.
-        # TODO: Post process? Running table?
-        
+        if len(xml.results) and pparse_xml is None:
+            raise Exception("Result references found, but missing reference resolver.")
+
         #extraction.result_refs = []
         for result_ref in xml.results:
-            xml_root.ref_tbl[int(result_ref['id'])] = extraction
-            #extraction.result_refs.append(result_ref['id'])
+            if not result_ref.has_attr('id'):
+                raise Exception("All result references must have id attribute.")
+            pparse_xml.add_result_ref(int(result_ref['id']), extraction)
 
         # Recurse into child extractions
         for child_extraction in xml.child_extractions:
             if not child_extraction.has_attr("type"):
-                raise Exception(f"extraction must have a type.")
+                raise Exception(f"extraction must have a type attribute.")
+            if child_extraction['type'] not in globals():
+                raise Exception(f"child extraction type not in scope {child_extraction}")
             extraction_cls = globals()[child_extraction['type']]
             child_extraction.set_obj_inst(extraction_cls.from_xml(child_extraction, xml_root))
 

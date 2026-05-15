@@ -246,6 +246,27 @@ class XmlEntry:
 
     # Note: We pass a node_cb so that _xml.py doesn't get caught up in import races.
 
+    # Function for calling node callback.
+    @staticmethod
+    def as_node(node: XmlNode, node_cb = None):
+        if not node_cb:
+            raise Exception("<node /> found, but no handler defined.")
+        # accepts <entry type="node /> and returns an instance of pparse.Node
+        return node_cb(node)
+
+    # Function for simple parsing (not recursion)
+    @staticmethod
+    def as_value(node: XmlNode):
+        if not node.has_attr("type") or node['type'] == 'str':
+            return str(node).strip()
+        if node['type'] == 'int':
+            return int(str(node).strip())
+        elif node['type'] == 'float':
+            return float(str(node).strip())
+        elif node['type'] == 'json':
+            return json.loads(str(node).strip())
+
+    # Function for using non-entry tag (e.g. node.value)
     @staticmethod
     def using(node: XmlNode, node_cb = None): # -> dict | list | int | float | str:
         if not node.has_attr('type') or node['type'] == 'map':
@@ -253,19 +274,11 @@ class XmlEntry:
             return XmlEntry.as_map(node, node_cb=node_cb)
         elif node['type'] == 'list':
             return XmlEntry.as_list(node, node_cb=node_cb)
-        elif node['type'] == 'int':
-            return int(str(node).strip())
-        elif node['type'] == 'float':
-            return float(str(node).strip())
-        elif node['type'] == 'str':
-            return str(node).strip()
-        elif node['type'] == 'json':
-            return json.loads(str(node).strip())
         elif node['type'] == 'node':
-            if not node_cb:
-                raise Exception("<node /> found, but no handler defined.")
-            # accepts <entry type="node /> and returns an instance of pparse.Node
-            return node_cb(node, node_cb=node_cb)
+            return XmlEntry.as_node(node, node_cb=node_cb)
+        elif node['type'] in ['int', 'float', 'str', 'json']:
+            return XmlEntry.as_value(node)
+            
 
     '''
       <entry type="map" name="schema">
@@ -277,7 +290,8 @@ class XmlEntry:
     '''
 
     @staticmethod
-    def as_map(node, obj = {}, node_cb = None):
+    def as_map(node, obj = None, node_cb = None):
+        obj = {} if obj is None else obj
         for entry in node.iter_all("entry"):
             if not entry.has_attr("name"):
                 raise KeyError("entry is missing key value")
@@ -286,13 +300,15 @@ class XmlEntry:
                 raise KeyError(f"duplicate entry name: {name}")
             
             if not entry.has_attr("type") or entry['type'] == 'str':
-                obj[name] = XmlEntry.using(entry, node_cb=node_cb)
+                obj[name] = str(entry).strip()
             elif entry['type'] == 'map':
                 obj[name] = XmlEntry.as_map(entry, {}, node_cb=node_cb)
             elif entry['type'] == 'list':
                 obj[name] = XmlEntry.as_list(entry, [], node_cb=node_cb)
-            elif entry['type'] in ['int', 'float', 'str', 'json', 'node']:
-                obj[name] = XmlEntry.using(entry, node_cb=node_cb)
+            elif entry['type'] == 'node':
+                obj[name] = XmlEntry.as_node(node, node_cb=node_cb)
+            elif entry['type'] in ['int', 'float', 'str', 'json']:
+                obj[name] = XmlEntry.as_value(entry)
 
             else:
                 breakpoint()
@@ -310,22 +326,24 @@ class XmlEntry:
     '''
 
     @staticmethod
-    def as_list(node, obj = [], node_cb = None):
+    def as_list(node, obj = None, node_cb = None):
+        obj = [] if obj is None else obj
         for entry in node.iter_all("entry"):
             if not entry.has_attr("type") or entry['type'] == 'str':
-                obj.append(XmlEntry.using(entry, node_cb=node_cb))
+                obj.append(str(entry).strip())
             elif entry['type'] == 'map':
                 obj.append(XmlEntry.as_map(entry, {}, node_cb=node_cb))
             elif entry['type'] == 'list':
                 obj.append(XmlEntry.as_list(entry, [], node_cb=node_cb))
-            elif entry['type'] in ['int', 'float', 'str', 'json', 'node']:
-                obj.append(XmlEntry.using(entry, node_cb=node_cb))
+            elif entry['type'] == 'node':
+                obj[name] = XmlEntry.as_node(node, node_cb=node_cb)
+            elif entry['type'] in ['int', 'float', 'str', 'json']:
+                obj.append(XmlEntry.as_value(entry))
 
             else:
                 breakpoint()
                 raise ValueError(f"Unknown entry type in list: {entry['type']}")
         return obj
-
 
 
 

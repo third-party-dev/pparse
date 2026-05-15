@@ -68,14 +68,20 @@ class Onnx:
 
 
     def _parse(self, data_source, fname="unnamed.onnx", recursion=None):
-        from importlib import resources
-        data_path = resources.files("thirdparty.pparse.data")
-        proto = PbImport(data_path / "proto" / "onnx.pb")
+        # from importlib import resources
+        # data_path = resources.files("thirdparty.pparse.data")
+        # proto = PbImport(data_path / "proto" / "onnx.pb")
 
         try:
             data_range = pparse.Range(data_source.open(), data_source.length)
             self._extraction = pparse.BytesExtraction(name=fname, reader=data_range)
-            parser_class = configure_pparser(ext_list=[".onnx"], init_msgtype=".onnx.ModelProto", proto=proto)
+            parser_class = configure_pparser(
+                ext_list=[".onnx"],
+                init_msgtype=".onnx.ModelProto",
+                pkg_namespace="thirdparty.pparse.data",
+                relative_path="proto/onnx.pb",
+                #proto=proto
+            )
             parser = parser_class(self._extraction, 'protobuf')
 
             self._extraction.add_result('protobuf', parser.make_root_node())

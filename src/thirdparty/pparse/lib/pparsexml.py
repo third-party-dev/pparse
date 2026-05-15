@@ -1,5 +1,7 @@
 
-
+from thirdparty.pparse.lib import (
+    BytesExtraction
+)
 
 # Job's only purpose is to facilitate kick off of XML import.
 class PparseXml:
@@ -47,34 +49,58 @@ class PparseXml:
         extraction_cls = globals()[xml.extraction['type']]
         xml.extraction.set_obj_inst(extraction_cls.from_xml(xml.extraction, pparse_xml))
 
-
-
-
-
-
+        
 
         # Parse the results
         for result_xml in xml.results:
+
             # <result> should only ever have a single <node>
             # Note: <result> exists as a generic referable container for extractions.
-            if len(result_xml) != 1 or result_xml.get("node") is None:
-                # TODO: What should we do with all cases:
-                # TODO: - empty?
-                # TODO: - extra?
+            if len(result_xml) <= 0:
                 continue
-            
-            node_xml = result_xml.node
+            if len(result_xml) > 1:
+                # TODO: Should all results always contain a single node?
+                raise Exception(f"more than 1 element found in result: {result_xml}")
+
+            if not result_xml.has_attr('id'):
+                raise Exception(f"All results must have id attribute: {result_xml}")
+            result_ref = ResultRef(pparse_xml, result_xml)
+
+            node_xml = result_xml.get('node')
+            if node_xml is None:
+                raise Exception(f"Non <node /> found in <result />: {result_xml}")
+
+            from thirdparty.pparse.lib import Node
 
             # node type defaults to (pparse) Node
             node_type = node_xml['type'] if node_xml.has_attr('type') else 'Node'
-            node_cls = globals()[node_type]
+            if node_type not in locals():
+                raise Exception(f"<node />s type is not in scope: {node_xml}")
 
-            node = node_cls.from_xml(node_xml, xml_root)
+            node_cls = locals()[node_type]
+
+            # TODO: Something doesn't feel correct here.
+            # TODO: Determine if node does set_obj_inst or does the caller do it?!
+            node = node_cls.from_xml(node_xml, ContextRef(result_ref))
             node_xml.set_obj_inst(node)
 
-            # TODO: At this point, we should know all the extraction result 
-            # TODO:   references and can match results (as we parse them) to
-            # TODO:   the extraction object.
-            result_ref_id = result_xml['id']
+        # ** Note: If a user wants to explore what we've done, they can iterate
+        # **       the XmlNode tree and call get_obj_inst for what we've processed.
+        return pparse_xml
 
+# TODO: This is a working class name. :(
+class ResultRef:
+    def __init__(self, pparse_xml, result_xml):
+        self.pparse_xml = pparse_xml
+        self.result_xml = result_xml
+        result_ref_id = int(self.result_xml['id'])
+        self.extraction = self.pparse_xml.get_extraction(result_ref_id)
 
+# TODO: This is a working class name. :(
+# This is weird because the parser creates the node and the node creates the context.
+# therefore we want to create or track a parser and context arguments.
+class ContextRef:
+    def __init__(self, result_ref, context_xml = None, parser = None):
+        self.result_ref = result_ref
+        self.context_xml = context_xml
+        self.parser = parser

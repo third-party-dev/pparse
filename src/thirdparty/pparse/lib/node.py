@@ -1,22 +1,12 @@
 
 from typing import Optional
-
-from .reader import (
-    Reader,
-    Range,
-)
-
-from .constants import (
-    AGAIN,
-    ASCEND,
-)
-
+from .reader import Reader, Range
+from .constants import AGAIN, ASCEND
 from .exceptions import (
     EndOfNodeException,
     EndOfDataException,
     UnsupportedFormatException,
 )
-
 from .node_context import NodeContext
 
 
@@ -222,33 +212,14 @@ class Node:
 
 
     @classmethod
-    def from_xml(cls, src_xml, xml_root):
-        from thirdparty.pparse._xml import XmlNode
-        xml = XmlNode.as_node(src_xml)
+    def from_xml(cls, src_xml, ctx_ref):
+        from thirdparty.pparse._xml import XmlNode, XmlEntry
+        node_xml = XmlNode.as_node(src_xml)
         
-        if xml.get_el().tag != 'node':
-            raise Exception(f"Expected <node />, got <{xml.get_el().tag} />")
+        if not node_xml.has_tag('node'):
+            raise Exception(f"Expected <node />, got: {node_xml}")
 
-        # ! ref_tbl not working on XmlNode because we hijacked __getattr__
-        '''
-          New Plan:
-
-          - Extractions Link To Datasources
-          - Results Link To Extractions
-          - Parsers are weakly linked to results
-          - Nodes Link To Parsers
-
-          There is a clear chain here that we should be able to manage via a single parameter
-          that is a chain of parser -> result -> extraction (+ datasource) -> pparse_xml.
-
-          - Each extraction gets from_xml(XmlNode<extraction>, XmlNode<pparse_xml>)
-          - Each Result gets from_xml(XmlNode<result>, XmlNode<pparse_xml>)
-
-        '''
-
-
-        extraction = xml_root.ref_tbl[int(xml.get_parent()['id'])]
-        reader = extraction._source.open()
+        reader = ctx_ref.result_ref.extraction._reader.dup()
 
         # offset = None
         # length = None
@@ -273,50 +244,118 @@ class Node:
         ctx_args = {}
         parser_name = None
         state_name = None
-        if xml.get("context"):
 
-            if xml.context.has_attr('type'):
-                ctx_class = xml.content['type']
+        # ! -----------------------------------------------------------------------------------------------------------
+        # ! Ok for development, but this needs to be done at runtime with a user provided allow list.
+        from thirdparty.pparse.lazy.flatbuffers import configure_pparser as configure_flatbuffers_pparser
+        from thirdparty.pparse.lazy.json import configure_pparser as configure_json_pparser
+        from thirdparty.pparse.lazy.om import configure_pparser as configure_om_pparser
+        #from thirdparty.pparse.lazy.onnx import configure_pparser as configure_onnx_pparser
+        from thirdparty.pparse.lazy.pickle import configure_pparser as configure_pickle_pparser
+        from thirdparty.pparse.lazy.protobuf import configure_pparser as configure_protobuf_pparser
+        from thirdparty.pparse.lazy.pytorch import configure_pparser as configure_pytorch_pparser
+        from thirdparty.pparse.lazy.safetensors import configure_pparser as configure_safetensors_pparser
+        from thirdparty.pparse.lazy.safetensors.index import configure_pparser as configure_safetensors_index_pparser
+        from thirdparty.pparse.lazy.zip import configure_pparser as configure_zip_pparser
+        parser_registry = {
+            'thirdparty.pparse.lazy.flatbuffers': configure_flatbuffers_pparser,
+            'thirdparty.pparse.lazy.json': configure_json_pparser,
+            'thirdparty.pparse.lazy.om': configure_om_pparser,
+            #'thirdparty.pparse.lazy.onnx': configure_onnx_pparser,
+            'thirdparty.pparse.lazy.pickle': configure_pickle_pparser,
+            'thirdparty.pparse.lazy.protobuf': configure_protobuf_pparser,
+            'thirdparty.pparse.lazy.pytorch': configure_pytorch_pparser,
+            'thirdparty.pparse.lazy.safetensors': configure_safetensors_pparser,
+            'thirdparty.pparse.lazy.safetensors.index': configure_safetensors_index_pparser,
+            'thirdparty.pparse.lazy.zip': configure_zip_pparser,
+        }
+        # ! -----------------------------------------------------------------------------------------------------------
 
-            if xml.context.has_attr('parser'):
-                parser_name = xml.context['parser']
-            # TODO: If no parser defined, look up until we find one.
+        # If we were provided a parser reference, use it.
+        parser_ref = ctx_ref.parser
+        context_state = None
+
+        context_xml = node_xml.get("context")
+        if context_xml is not None:
+
+            if context_xml.has_attr('type'):
+                raise Exception("custom context types not implemented for import yet")
+                # TODO: Get the actual cls? throw if not in scope?
+                ctx_class = context_xml['type']
+
+            if context_xml.get("extra"):
+                extra_xml = context_xml.extra
+                ctx_args = XmlEntry.as_map(extra_xml)
+
+            parser_xml = context_xml.get('parser')
+            # If we were given a parser descriptor in XML, use it instead.
+            if parser_xml is not None:
+                if not parser_xml.has_attr('type'):
+                    raise Exception(f"<parser /> must have a type: {parser_xml}")
+                if parser_xml['type'] not in parser_registry:
+                    raise Exception(f"<parser /> type not in parser registry: {parser_xml}")
+                
+                if not parser_xml.has_attr('name'):
+                    raise Exception(f"<parser /> must have a name: {parser_xml}")
+                
+                parser_args = {}
+                if len(parser_xml) >= 1:
+                    parser_args = XmlEntry.as_map(parser_xml)
+                
+                # Create a new parser.
+                parser_factory = parser_registry[parser_xml['type']]
+                parser_cls = parser_factory(**parser_args)
+                parser_ref = parser_cls(ctx_ref.result_ref.extraction, parser_xml['name'])
             
-            if xml.context.has_attr('state'):
-                state_name = xml.context['state']
+            if context_xml.has_attr('state'):
+                # TODO: Validate state against parser (which would should now have.)
+                context_state = context_xml['state']
 
-            if xml.context.get("extra"):
-                ctx_args = XmlEntry.using(xml.context.extra)
+        # Using make_root_node() to create the node, ignorant of parent, state, or context type.
+        # TODO: Ensure all parsers support ctx_class and ctx_args if we want to create node with them.
+        node = parser_ref.make_root_node()
+        node_xml.set_obj_inst(node)
 
-        # Create the node before processing value in case value objects look up tree (e.g. for parser value).
-        #reader: Reader, parser: "Parser", default_value = UNLOADED_VALUE,
-        # parent: "Node" = None,
-        # ctx_class: NodeContext = None, ctx_args={}
+        # TODO: At this point we can opt to change the node's context state or other options.
 
-        # TODO: Parser should detect tuples and act accordingly.
-        node = Node(reader, (parser, state), ctx_class=ctx_class, ctx_args=ctx_args)
-        xml.set_obj_inst(node)
+        # Update context offsets based on Node offset.
+        if node_xml.has_attr('offset'):
+            node.ctx().skip(int(node_xml['offset']))
+        # TODO: Consider changing reader from cursor to range?
+
+        # Create a new ContextRef to push forward.
+        # Update ctx_ref for value processing.
+        # TODO: Consider performing this after parser_ref update (might save memory?)
+        from thirdparty.pparse.lib.pparsexml import ContextRef
+        ctx_ref = ContextRef(ctx_ref.result_ref, ctx_ref.context_xml, parser_ref)
+
 
         # TODO: Process the node's value from XML here. (Recursive.)
-        if not xml.get("value"):
+        value_xml = node_xml.get("value")
+        if not value_xml:
             node._value = UNLOADED_VALUE
             return
 
         # Note: We pass a node_cb so that _xml.py doesn't get caught up in import races.
-        def process_node_entry(xml_root):
-            def _process_node_entry(entry, node_cb):
-                # TODO: Do we need node_cb parameter?
+        def process_node_entry(ctx):
+            def _process_node_entry(entry):
                 if len(entry) != 1 or not entry.get("node"):
-                    raise Exception("Expected only <node /> in <entry />.")
+                    raise Exception("Expecting only <node /> in <entry type=\"node\" />.")
                 
+                node_xml = entry.node
+
+                # TODO: Do better.
                 node_cls = Node
-                if entry.node.has_attr("type"):
-                    node_cls = globals()[entry.node['type']]
+                if node_xml.has_attr("type"):
+                    node_cls = globals()[node_xml['type']]
                 
-                return node_cls.from_xml(entry.node, xml_root)
+                
+                return node_cls.from_xml(node_xml, ctx)
             return _process_node_entry
 
-        node._value = XmlEntry.using(xml.value, process_node_entry(xml_root))
+        node_cb = process_node_entry(ctx_ref)
+        #breakpoint()
+        node._value = XmlEntry.using(value_xml, node_cb)
 
         return node
         '''

@@ -267,15 +267,15 @@ class FileData(Data):
 
     # extraction = Extraction.from_xml("<job />")
     @classmethod
-    def from_xml(cls, source, xml_root): # -> cls:
+    def from_xml(cls, xml_src): # -> cls:
         from thirdparty.pparse._xml import XmlNode, XmlEntry
-        xml = XmlNode.as_node(source)
+        xml = XmlNode.as_node(xml_src)
 
         # Do we have the correct node?
-        if xml.get_el().tag != "datasource":
+        if not xml.has_tag('datasource'):
             raise Exception(f"Expected datasource node. Got: {xml.get_el().tag}")
 
-        extra = XmlEntry.using(xml.extra)
+        extra = XmlEntry.as_map(xml.extra)
         # TODO: Handle non-posix paths
         if not ('posix_path' in extra or 'windows_path' in extra):
             raise Exception("FileData expected to have one of: posix_path, windows_path")

@@ -23,9 +23,14 @@ def configure_pparser(**kwargs):
     if 'init_msgtype' in kwargs:
         init_msgtype = kwargs['init_msgtype']
 
+    pkg_namespace = None
+    relative_path = None
     proto = PbImport()
-    if 'proto' in kwargs:
-        proto = kwargs['proto']
+    if 'pkg_namespace' in kwargs and 'relative_path' in kwargs:
+        from importlib import resources
+        data_path = resources.files(kwargs['pkg_namespace'])
+        proto = PbImport(data_path / kwargs['relative_path'])
+        #proto = kwargs['proto']
 
     class Parser(pparse.Parser):
         @staticmethod
