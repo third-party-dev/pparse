@@ -1,7 +1,7 @@
 
 from typing import Optional
 from .reader import Reader, Range
-from .constants import AGAIN, ASCEND
+from .constants import AGAIN, ASCEND, NEXT
 from .exceptions import (
     EndOfNodeException,
     EndOfDataException,
@@ -155,9 +155,12 @@ class Node:
         try:
             # RULE: AGAIN is a Parser return. Not a Node is complete status!
             res = AGAIN
-            while res == AGAIN:
-                
-                #breakpoint()
+            while res in (AGAIN, NEXT):
+
+                if res == NEXT and len(self.ctx()._state_stack) > 1:
+                    # Throw it away.
+                    self.ctx()._pop_state()
+
                 res = self.ctx().state().parse_data(self)
 
                 '''
@@ -173,15 +176,6 @@ class Node:
                     # TODO: use try/except to push forward, even on failure.
                     # TODO: we should be able to track failures for retry later.
                     child.load(recursion=recursion)
-
-                    
-
-                # if len(self.ctx()._descendants) > 0:
-                #     breakpoint()
-                #     for child in node.ctx()._descendants:
-                #         child.load(recursive)
-
-            #breakpoint()
 
         except EndOfNodeException as e:
             pass

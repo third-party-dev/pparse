@@ -125,3 +125,24 @@ def run_test_independently(caller_log, test_calls):
 
     if cli_args.breakpoint:
         breakpoint()
+
+
+def decode_utf8_partial(data) -> tuple[str, int]:
+    # Easy path
+    try:
+        return data.decode("utf-8"), len(data)
+    except UnicodeDecodeError:
+        pass
+
+    # Binary-search for the longest valid UTF-8 slice
+    lo, hi = 0, len(data)
+    tmp = None
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        try:
+            tmp = data[:mid].decode("utf-8")
+            lo = mid
+        except UnicodeDecodeError:
+            hi = mid - 1
+
+    return (tmp if tmp is not None else ""), lo

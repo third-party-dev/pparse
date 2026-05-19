@@ -233,6 +233,38 @@ class HttpRangeData(Data):
         return self.peek(cursor, length)
 
 
+'''
+  TODO: Consider an architecture that allows stacking Data objects?
+  Encodings: Utf8Data, Utf16Data, GzipData
+
+  Utf8Data/Utf16Data should take a FileData or ByteIoData. Because 
+  Utf8 is not byte for byte, seeking is a challenge. A seek in utf8
+  is based on glyphs whereas a seek on FileData is based on byte offset.
+
+  To seek forward, we must read the FileData and periodically align
+  Utf8 offset to byte offset. This will allow seeking backward to a
+  sort of "keyframe" and then going forward to the exact offset.
+
+  Performing the tracking of the keyframes depends on the available
+  memory:
+              1,048,576 -   1 MiB - @ 4MB => 
+              4,194,304 -   4 MiB -
+          1,073,741,824 -   1 GiB -
+        549,755,813,888 - 512 GiB -
+    281,474,976,710,656 - 256 TiB - @ 4MB => 536,870,912 (512MiB)
+
+  To enable parsing of large file sizes, a tree can be used with larger keyframes and then a cache can be used for the lower key frame tracking.
+
+
+  4,096 * 1024 => 4m,194k,304
+  4,194,304 * 1024 => 4g,294m,967k,296
+  4,294,967,296 * 1024 => 4t,398g,046m,511k,104 -> 4TB
+  4,398,046,511,104 * 1024 => 4p,503t,599g,627m,370k,496
+  
+
+'''
+
+
 
 # Data manages mmap and fobj. Cursor does not manage mmap or fobj.
 class FileData(Data):
